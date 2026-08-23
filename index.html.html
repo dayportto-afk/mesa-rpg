@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Mesa de Jogo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg:#15120d;
+    --bg-panel:#1e1810;
+    --line:#3d2f1c;
+    --parchment:#e8dcc0;
+    --parchment-dim:#a89a7c;
+    --amber:#c8892e;
+    --amber-bright:#e2a53f;
+    --wax:#7a2b2b;
+    --shadow:rgba(0,0,0,0.6);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%; width:100%;
+    background:
+      radial-gradient(ellipse at 30% 0%, #1c1610 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, #1a140d 0%, transparent 55%),
+      var(--bg);
+    color:var(--parchment);
+    font-family:'EB Garamond', serif;
+    overflow:hidden;
+  }
+  #root{ position:relative; height:100vh; width:100vw; }
+  .screen{ height:100%; width:100%; }
+  .screen.hidden{ display:none; }
+
+  button{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:0.5px; text-transform:uppercase;
+    background:var(--bg-panel); color:var(--parchment);
+    border:1px solid var(--line); border-radius:3px;
+    padding:8px 12px; cursor:pointer;
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  button:hover{ border-color:var(--amber); color:var(--amber-bright); }
+  button:active{ transform:translateY(1px); }
+  button:focus-visible{ outline:2px solid var(--amber-bright); outline-offset:2px; }
+  button.primary{ background:var(--amber); color:#1a1206; border-color:var(--amber); font-weight:600;}
+  button.primary:hover{ background:var(--amber-bright); color:#1a1206;}
+  button.danger{ border-color:var(--wax); color:#d99; }
+  button.danger:hover{ border-color:#a94040; color:#f0b0b0; }
+  button:disabled{ opacity:0.35; cursor:not-allowed; }
+  button:disabled:hover{ border-color:var(--line); color:var(--parchment); }
+  button.toggle-active{ background:var(--amber); color:#1a1206; border-color:var(--amber); font-weight:600;}
+
+  input[type=text], input[type=number], input[type=password]{
+    width:100%; background:#120e08; border:1px solid var(--line); border-radius:3px;
+    color:var(--parchment); padding:8px 10px; font-family:'EB Garamond', serif; font-size:15px;
+    outline:none;
+  }
+  input[type=text]:focus, input[type=number]:focus, input[type=password]:focus{ border-color:var(--amber); }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+
+  /* ===================== PORTAL SCREEN ===================== */
+  #portal-screen{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px; overflow-y:auto;
+  }
+  #portal-header{ text-align:center; margin-bottom:34px; }
+  #portal-header .eyebrow{
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:3px;
+    text-transform:uppercase; color:var(--parchment-dim);
+  }
+  #portal-header h1{
+    font-family:'Cinzel', serif; font-weight:700; font-size:34px; color:var(--amber-bright);
+    margin:8px 0 6px; letter-spacing:1px;
+  }
+  #portal-header p{ color:var(--parchment-dim); font-size:14px; max-width:440px; margin:0 auto; }
+
+  #portal-columns{ display:flex; gap:28px; flex-wrap:wrap; justify-content:center; max-width:900px; width:100%; }
+  .portal-col{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:6px;
+    padding:22px; width:340px; flex-shrink:0;
+  }
+  .portal-col-title{
+    font-family:'Cinzel', serif; font-size:15px; color:var(--amber-bright);
+    letter-spacing:1px; margin-bottom:6px;
+  }
+  .portal-col-desc{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--parchment-dim); line-height:1.6; margin-bottom:16px;}
+
+  .slot-card{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:14px; border:1px solid var(--line); border-radius:4px; margin-bottom:10px;
+    cursor:pointer; background:#150f09; transition:border-color .15s, background .15s;
+  }
+  .slot-card:hover{ border-color:var(--amber); background:#1a1309; }
+  .slot-card .slot-name{ font-family:'Cinzel', serif; font-size:14px; color:var(--parchment); }
+  .slot-card .slot-status{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:0.5px; margin-top:3px;}
+  .slot-card .slot-status.occupied{ color:var(--amber-bright); }
+  .slot-card .slot-arrow{ color:var(--amber-bright); font-size:16px; flex-shrink:0; }
+
+  #player-join-form{ display:flex; flex-direction:column; gap:10px; }
+  #player-code-input{ text-align:center; letter-spacing:3px; text-transform:uppercase; font-family:'JetBrains Mono', monospace; }
+  #player-code-error{ color:#e08787; font-size:12px; font-family:'JetBrains Mono', monospace; min-height:14px; text-align:center;}
+
+  /* ===================== APP SCREEN ===================== */
+  #app-screen{ display:flex; flex-direction:column; }
+
+  #topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 18px;
+    background:linear-gradient(180deg, #221a10 0%, #17120b 100%);
+    border-bottom:1px solid var(--line);
+    z-index:50;
+    flex-shrink:0;
+  }
+  #title-wrap{ display:flex; align-items:baseline; gap:10px; min-width:0;}
+  #campaign-title{
+    font-family:'Cinzel', serif; font-weight:700; font-size:20px;
+    color:var(--amber-bright); letter-spacing:0.5px;
+    background:transparent; border:none; outline:none;
+    max-width:30vw; text-overflow:ellipsis;
+  }
+  #campaign-title:disabled{ color:var(--amber-bright); opacity:1; cursor:default;}
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:2px;
+    text-transform:uppercase; color:var(--parchment-dim);
+  }
+  #topbar-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+
+  #master-badge{
+    font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px;
+    color:var(--amber-bright); border:1px solid var(--amber); border-radius:3px;
+    padding:5px 10px; text-transform:uppercase; display:flex; align-items:center; gap:6px;
+  }
+  #master-badge::before{ content:'●'; color:var(--amber-bright); font-size:8px; }
+
+  #main{ flex:1; display:flex; min-height:0; position:relative;}
+
+  #sidebar{
+    width:300px; flex-shrink:0;
+    background:var(--bg-panel);
+    border-right:1px solid var(--line);
+    padding:16px; overflow-y:auto;
+    display:flex; flex-direction:column; gap:20px;
+  }
+  #sidebar.hidden{ display:none; }
+  .panel-block{ border-bottom:1px solid var(--line); padding-bottom:16px; }
+  .panel-block:last-child{ border-bottom:none; }
+  .panel-title{
+    font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:2px;
+    text-transform:uppercase; color:var(--parchment-dim); margin-bottom:10px;
+  }
+  .file-btn{
+    display:block; width:100%; text-align:center; padding:10px; margin-top:8px;
+    border:1px dashed var(--line); border-radius:3px; cursor:pointer;
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--parchment-dim);
+    letter-spacing:1px; text-transform:uppercase;
+    transition:border-color .15s, color .15s;
+  }
+  .file-btn:hover{ border-color:var(--amber); color:var(--amber-bright); }
+  input[type=file]{ display:none; }
+
+  #token-form{ display:flex; flex-direction:column; gap:8px; }
+  #token-list{ display:flex; flex-direction:column; gap:6px; margin-top:10px; max-height:260px; overflow-y:auto;}
+  .token-row{
+    display:flex; align-items:center; gap:8px; padding:6px 8px;
+    background:#120e08; border:1px solid var(--line); border-radius:3px;
+  }
+  .token-row img{ width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid var(--amber); flex-shrink:0;}
+  .token-row span{ flex:1; font-size:14px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .token-row button{ padding:4px 7px; font-size:10px; flex-shrink:0;}
+
+  .token-row-wrap{ display:flex; flex-direction:column; gap:5px; padding:6px 8px; background:#120e08; border:1px solid var(--line); border-radius:3px; }
+  .token-row-wrap .token-row{ padding:0; background:none; border:none; }
+  .token-row-hp{ display:flex; align-items:center; gap:6px; padding-left:36px; }
+  .token-row-hp button{ width:22px; height:22px; padding:0; font-size:12px; line-height:1; flex-shrink:0; }
+  .token-row-hp .hp-value{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--parchment-dim); min-width:44px; text-align:center; flex-shrink:0;}
+  .token-row-hp .hp-max-input{
+    width:44px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
+    color:var(--parchment-dim); font-family:'JetBrains Mono', monospace; font-size:11px;
+    padding:3px 4px; outline:none;
+  }
+  .token-row-hp .hp-max-input:focus{ border-color:var(--amber); }
+  .token-row-hp .hp-max-label{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; margin-left:auto;}
+
+  .token-row-size{ display:flex; align-items:center; gap:6px; padding-left:36px; }
+  .token-row-size button{ width:22px; height:22px; padding:0; font-size:12px; line-height:1; flex-shrink:0; }
+  .token-row-size .size-value{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--parchment-dim); min-width:44px; text-align:center; flex-shrink:0;}
+  .token-row-size .size-label{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; }
+
+  .hint{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); line-height:1.6; margin-top:6px;}
+
+  /* Page history panel */
+  #page-history-list{ display:flex; flex-direction:column; gap:6px; margin-top:10px; max-height:220px; overflow-y:auto; }
+  .page-row{
+    display:flex; align-items:center; gap:8px; padding:8px; border-radius:3px;
+    border:1px solid var(--line); background:#120e08; cursor:pointer;
+  }
+  .page-row:hover{ border-color:var(--amber); }
+  .page-row.active{ border-color:var(--amber-bright); background:#1c1509; }
+  .page-row input[type=text]{ flex:1; font-size:13px; padding:5px 7px; background:transparent; border:1px solid transparent; }
+  .page-row input[type=text]:focus{ background:#0c0906; border-color:var(--amber); }
+  .page-row .page-active-tag{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--amber-bright); letter-spacing:1px; text-transform:uppercase; flex-shrink:0;}
+  .page-row button{ padding:4px 7px; font-size:10px; flex-shrink:0; }
+
+  /* Player access code panel */
+  #access-code-box{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:#120e08; border:1px dashed var(--amber); border-radius:4px;
+    padding:12px; font-family:'JetBrains Mono', monospace; font-size:20px;
+    letter-spacing:4px; color:var(--amber-bright); text-align:center;
+  }
+  #access-code-actions{ display:flex; gap:8px; margin-top:8px; }
+  #access-code-actions button{ flex:1; }
+
+  /* Fog panel */
+  .fog-mode-row{ display:flex; gap:6px; margin-top:8px; }
+  .fog-mode-row button{ flex:1; }
+  #fog-brush-row{ display:flex; align-items:center; gap:8px; margin-top:10px; }
+  #fog-brush-row label{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; white-space:nowrap;}
+  #fog-brush-row input[type=range]{ flex:1; accent-color:var(--amber); }
+  .fog-color-row{ display:flex; align-items:center; gap:7px; margin-top:10px; flex-wrap:wrap; }
+  .fog-color-row .fog-color-label{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; width:100%; margin-bottom:2px;}
+  .fog-swatch{
+    width:22px; height:22px; border-radius:5px; padding:0; cursor:pointer;
+    border:2px solid var(--line); flex-shrink:0;
+  }
+  .fog-swatch:hover{ border-color:var(--parchment-dim); }
+  .fog-swatch.active{ border-color:var(--parchment); box-shadow:0 0 0 1px var(--amber-bright); }
+  #fog-color-picker{
+    width:26px; height:22px; padding:0; border:2px solid var(--line); border-radius:5px;
+    background:none; cursor:pointer; flex-shrink:0;
+  }
+
+  /* Text panel */
+  .text-row{
+    display:flex; flex-direction:column; gap:6px; padding:8px; margin-bottom:6px;
+    background:#120e08; border:1px solid var(--line); border-radius:3px;
+  }
+  .text-row-top{ display:flex; align-items:center; gap:6px; }
+  .text-row-top input[type=text]{ flex:1; font-size:13px; padding:6px 8px; }
+  .text-row-top button{ padding:5px 7px; font-size:10px; flex-shrink:0; }
+  .text-row-controls{ display:flex; align-items:center; gap:8px; }
+  .text-row-controls input[type=color]{ width:26px; height:22px; padding:0; border:2px solid var(--line); border-radius:5px; background:none; cursor:pointer; flex-shrink:0;}
+  .text-row-controls label{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase;}
+  .text-row-controls input[type=number]{ width:56px; padding:5px 6px; font-size:12px; }
+
+  /* Map area */
+  #map-area{
+    flex:1; position:relative; overflow:hidden;
+    background:
+      repeating-linear-gradient(0deg, #0e0b07 0px, #0e0b07 1px, transparent 1px, transparent 40px),
+      repeating-linear-gradient(90deg, #0e0b07 0px, #0e0b07 1px, transparent 1px, transparent 40px),
+      #100c07;
+  }
+  #map-viewport{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    touch-action:none;
+    cursor:grab;
+  }
+  #map-viewport.panning{ cursor:grabbing; }
+  #map-viewport.fog-mode{ cursor:crosshair; }
+  #map-canvas{
+    position:relative;
+    transform-origin:center center;
+    box-shadow:0 0 60px var(--shadow);
+    border:2px solid #000;
+  }
+  #map-canvas img{ display:block; max-width:none; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  #empty-map{
+    color:var(--parchment-dim); font-family:'Cinzel', serif; font-size:16px;
+    text-align:center; letter-spacing:1px; padding:40px;
+  }
+  #empty-map small{ display:block; margin-top:10px; font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0; }
+
+  .token{
+    position:absolute; width:64px; height:64px; margin:-32px 0 0 -32px;
+    border-radius:50%; overflow:hidden;
+    border:2px solid var(--amber-bright);
+    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206;
+    cursor:grab; touch-action:none; user-select:none;
+    transition:box-shadow .15s;
+  }
+  .token img{ width:100%; height:100%; object-fit:cover; pointer-events:none; -webkit-user-drag:none;}
+  .token.defeated{ border-color:#0a0a0a !important; }
+  .token.defeated img{ filter:grayscale(100%); }
+  .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
+  .token.selected{ box-shadow:0 0 0 2px var(--amber-bright), 0 3px 10px var(--shadow); }
+  .token-label{
+    position:absolute; bottom:-20px; left:50%; transform:translateX(-50%);
+    font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment);
+    background:rgba(10,8,5,0.75); padding:2px 6px; border-radius:2px;
+    white-space:nowrap; pointer-events:none; letter-spacing:0.5px;
+    display:none;
+  }
+  .token:hover .token-label, .token.selected .token-label{ display:block; }
+  .token-hp-track{
+    position:absolute; left:50%; transform:translateX(-50%);
+    height:6px; border-radius:3px;
+    background:rgba(0,0,0,0.55); border:1px solid rgba(0,0,0,0.6);
+    overflow:hidden; pointer-events:none;
+  }
+  .token-hp-fill{ height:100%; border-radius:2px; transition:width .25s ease, background-color .25s ease; }
+
+  .map-text{
+    position:absolute; transform:translate(-50%,-50%);
+    font-family:'Cinzel', serif; white-space:nowrap; user-select:none;
+    cursor:grab; touch-action:none; text-shadow:0 1px 3px rgba(0,0,0,0.8);
+    padding:2px 6px;
+  }
+  .map-text.draggable{ cursor:grab; }
+  .map-text.draggable:hover{ outline:1px dashed rgba(226,165,63,0.7); border-radius:3px; }
+  .map-text.dragging{ cursor:grabbing; outline:1px dashed var(--amber-bright); border-radius:3px; }
+
+  #zoom-controls{
+    position:absolute; bottom:16px; right:16px; display:flex; flex-direction:column; gap:6px; z-index:60;
+  }
+  #zoom-controls button{ width:36px; height:36px; padding:0; font-size:16px; }
+
+  #sidebar-toggle{ display:none; }
+
+  /* Modals */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(8,6,3,0.75); backdrop-filter:blur(2px);
+    display:flex; align-items:center; justify-content:center; z-index:200;
+  }
+  .modal-overlay.hidden{ display:none; }
+  .modal-box{
+    width:340px; max-width:calc(100vw - 32px); background:var(--bg-panel); border:1px solid var(--amber);
+    border-radius:4px; padding:26px; box-shadow:0 10px 40px var(--shadow);
+    position:relative;
+  }
+  .modal-box::before{
+    content:'✦'; position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+    color:var(--amber-bright); font-size:20px; background:var(--bg-panel);
+    width:28px; height:28px; text-align:center; border-radius:50%; border:1px solid var(--amber);
+  }
+  .modal-box h2{
+    font-family:'Cinzel', serif; font-size:16px; text-align:center; color:var(--amber-bright);
+    margin:6px 0 4px; letter-spacing:1px;
+  }
+  .modal-box p.desc{ text-align:center; color:var(--parchment-dim); font-size:13px; margin:0 0 18px; }
+  .modal-box .field{ margin-bottom:12px; }
+  .modal-box .field label{ display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin-bottom:5px;}
+  .modal-error{ color:#e08787; font-size:12px; font-family:'JetBrains Mono', monospace; margin:8px 0 0; text-align:center; min-height:14px;}
+  .modal-actions{ display:flex; gap:8px; margin-top:16px; }
+  .modal-actions button{ flex:1; }
+
+  #token-preview{ display:flex; align-items:center; gap:10px; margin-top:8px; }
+  #token-preview img{ width:44px; height:44px; border-radius:50%; object-fit:cover; border:1px solid var(--amber); }
+  #token-preview span{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:0.5px; }
+  #token-preview button{ margin-left:auto; padding:4px 8px; font-size:10px; }
+
+  #crop-overlay{ z-index:210; }
+  #crop-modal{
+    width:320px; max-width:calc(100vw - 32px); background:var(--bg-panel); border:1px solid var(--amber);
+    border-radius:4px; padding:22px; box-shadow:0 10px 40px var(--shadow);
+  }
+  #crop-modal h2{ font-family:'Cinzel', serif; font-size:15px; text-align:center; color:var(--amber-bright); margin:0 0 4px; letter-spacing:1px; }
+  #crop-modal p.desc{ text-align:center; color:var(--parchment-dim); font-size:12px; margin:0 0 14px; }
+  #crop-viewport{
+    width:260px; height:260px; margin:0 auto; position:relative; overflow:hidden;
+    border-radius:50%; border:2px solid var(--amber-bright);
+    background:#0c0906; cursor:grab; touch-action:none;
+  }
+  #crop-viewport.grabbing{ cursor:grabbing; }
+  #crop-img{ position:absolute; left:0; top:0; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  #crop-controls{ display:flex; align-items:center; gap:10px; margin-top:16px; }
+  #crop-controls label{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; }
+  #crop-zoom{ flex:1; accent-color:var(--amber); }
+  .crop-hint{ text-align:center; margin-top:10px; }
+
+  @media (max-width:760px){
+    #sidebar{ position:absolute; left:0; top:0; bottom:0; z-index:100; width:78vw; max-width:320px; box-shadow:10px 0 30px var(--shadow);}
+    #sidebar.hidden{ display:none; }
+    #campaign-title{ max-width:24vw; font-size:16px; }
+    #sidebar-toggle{ display:inline-block; }
+    #portal-columns{ flex-direction:column; align-items:center; }
+    .portal-col{ width:100%; max-width:340px; }
+  }
+</style>
+</head>
+<body>
+<div id="root">
+
+  <!-- ===================== PORTAL SCREEN ===================== -->
+  <div id="portal-screen" class="screen">
+    <div id="portal-header">
+      <div class="eyebrow">Mesa de Jogo</div>
+      <h1>Escolha sua campanha</h1>
+      <p>Até 3 campanhas podem viver aqui, cada uma com seu próprio mestre, histórico de mapas e fichas. Entre como mestre para criar ou administrar uma, ou use um código de acesso para entrar como jogador.</p>
+    </div>
+    <div id="portal-columns">
+      <div class="portal-col">
+        <div class="portal-col-title">Entrar como mestre</div>
+        <div class="portal-col-desc">Escolha uma vaga de campanha. Vagas livres pedem para você criar uma senha na hora; vagas ocupadas pedem a senha já definida.</div>
+        <div id="slot-cards"></div>
+      </div>
+      <div class="portal-col">
+        <div class="portal-col-title">Entrar como jogador</div>
+        <div class="portal-col-desc">Peça o código de acesso ao seu mestre. Ele leva direto para o mapa daquela campanha.</div>
+        <form id="player-join-form">
+          <input type="text" id="player-code-input" placeholder="CÓDIGO" maxlength="8" autocomplete="off">
+          <div id="player-code-error"></div>
+          <button type="submit" class="primary" style="width:100%;">Entrar na campanha</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== APP SCREEN ===================== -->
+  <div id="app-screen" class="screen hidden">
+    <div id="topbar">
+      <div id="title-wrap">
+        <button id="sidebar-toggle" title="Menu do mestre">☰</button>
+        <div>
+          <div class="eyebrow" id="slot-eyebrow">Mesa de Jogo</div>
+          <input id="campaign-title" type="text" value="Campanha sem nome" disabled>
+        </div>
+      </div>
+      <div id="topbar-right">
+        <button id="btn-undo" style="display:none;" title="Desfazer última ação do mestre">↩ Desfazer</button>
+        <button id="btn-redo" style="display:none;" title="Refazer ação desfeita">↪ Refazer</button>
+        <span id="master-badge" style="display:none;">Mestre</span>
+        <button id="btn-leave-campaign">Trocar de campanha</button>
+      </div>
+    </div>
+
+    <div id="main">
+      <div id="sidebar" class="hidden">
+        <div class="panel-block">
+          <div class="panel-title">Nome da campanha</div>
+          <input id="title-input" type="text" placeholder="Ex: A Torre Esquecida">
+          <button id="btn-save-title" class="primary" style="width:100%; margin-top:8px;">Salvar nome</button>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title">Código de acesso dos jogadores</div>
+          <input type="text" id="access-code-input" maxlength="8" style="text-align:center; letter-spacing:4px; text-transform:uppercase; font-family:'JetBrains Mono', monospace;">
+          <div id="access-code-actions">
+            <button id="btn-save-code">Salvar código</button>
+            <button id="btn-copy-code">Copiar</button>
+            <button id="btn-new-code" class="danger">Gerar aleatório</button>
+          </div>
+          <div class="hint">Digite seu próprio código ou gere um aleatório, depois clique em "Salvar código". Compartilhe esse código com seus jogadores.</div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title">Histórico de mapas</div>
+          <label class="file-btn" for="map-upload">Adicionar nova página de mapa</label>
+          <input type="file" id="map-upload" accept="image/*">
+          <div id="page-history-list"></div>
+          <div class="hint">Cada imagem enviada vira uma nova página no histórico — as anteriores continuam salvas. As fichas de personagem aparecem em todas as páginas por padrão; "Remover desta página" só as esconde ali, sem apagá-las das demais.</div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title">Nova ficha</div>
+          <form id="token-form">
+            <input type="text" id="token-name" placeholder="Nome do personagem" required>
+            <label class="file-btn" for="token-upload">Escolher imagem</label>
+            <input type="file" id="token-upload" accept="image/*">
+            <div id="token-preview" style="display:none;">
+              <img id="token-preview-img" alt="Pré-visualização">
+              <span>Recortada</span>
+              <button type="button" id="token-preview-edit">Recortar de novo</button>
+            </div>
+            <input type="number" id="token-maxhp" min="1" max="999" value="10" placeholder="Vida máxima" style="margin-top:4px;">
+            <button type="submit" class="primary" style="margin-top:4px;">Adicionar ficha ao mapa</button>
+          </form>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title">Fichas na mesa</div>
+          <div id="token-list"></div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title">Névoa de guerra</div>
+          <button id="btn-fog-toggle" style="width:100%;">Ativar modo névoa</button>
+          <div class="fog-mode-row">
+            <button id="btn-fog-cover" class="toggle-active">Cobrir</button>
+            <button id="btn-fog-reveal">Revelar</button>
+          </div>
+          <div id="fog-brush-row">
+            <label for="fog-brush">Pincel</label>
+            <input type="range" id="fog-brush" min="15" max="150" value="45">
+          </div>
+          <div id="fog-brush-row">
+            <label for="fog-opacity">Opacidade</label>
+            <input type="range" id="fog-opacity" min="10" max="100" value="94">
+          </div>
+          <div class="fog-color-row">
+            <span class="fog-color-label">Cor da névoa</span>
+            <button type="button" class="fog-swatch" data-fog-color="#050402" style="background:#050402;" title="Negra"></button>
+            <button type="button" class="fog-swatch" data-fog-color="#7a2b2b" style="background:#7a2b2b;" title="Vermelha"></button>
+            <button type="button" class="fog-swatch" data-fog-color="#2b4a7a" style="background:#2b4a7a;" title="Azul"></button>
+            <button type="button" class="fog-swatch" data-fog-color="#2f6b3a" style="background:#2f6b3a;" title="Verde"></button>
+            <button type="button" class="fog-swatch" data-fog-color="#5a2f6b" style="background:#5a2f6b;" title="Roxa"></button>
+            <input type="color" id="fog-color-picker" value="#050402" title="Cor personalizada">
+          </div>
+          <div class="hint">Com o modo ativo, pinte livremente sobre o mapa para cobrir ou revelar áreas — como um pincel, sem ficar preso a retângulos. A névoa é própria de cada página do histórico.</div>
+          <button id="btn-fog-clear" class="danger" style="width:100%; margin-top:8px;">Remover toda a névoa desta página</button>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title">Texto no mapa</div>
+          <input type="text" id="text-content-input" placeholder="Escreva um texto">
+          <div class="text-row-controls" style="margin-top:8px;">
+            <label for="text-color-input">Cor</label>
+            <input type="color" id="text-color-input" value="#e2a53f">
+            <label for="text-size-input" style="margin-left:auto;">Tam.</label>
+            <input type="number" id="text-size-input" min="10" max="96" value="24">
+          </div>
+          <button id="btn-add-text" class="primary" style="width:100%; margin-top:8px;">Adicionar texto ao mapa</button>
+          <div id="text-list" style="margin-top:10px;"></div>
+          <div class="hint">Arraste o texto no mapa para posicioná-lo. O texto é próprio de cada página do histórico.</div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title">Zona de perigo</div>
+          <button id="btn-delete-campaign" class="danger" style="width:100%;">Excluir esta campanha</button>
+          <div class="hint">Apaga todo o histórico de mapas, fichas, névoa e configurações desta campanha. A vaga volta a ficar livre para uma campanha futura. Não pode ser desfeito.</div>
+        </div>
+      </div>
+
+      <div id="map-area">
+        <div id="map-viewport">
+          <div id="map-canvas">
+            <div id="empty-map">
+              ✦ Nenhum mapa carregado ainda ✦
+              <small>Entre como mestre para enviar a imagem do mapa de combate</small>
+            </div>
+          </div>
+        </div>
+        <div id="zoom-controls">
+          <button id="zoom-in" title="Aproximar">+</button>
+          <button id="zoom-reset" title="Redefinir zoom">⤾</button>
+          <button id="zoom-out" title="Afastar">−</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODALS ===================== -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-box" id="modal">
+      <h2 id="modal-title">Entrar como Mestre</h2>
+      <p class="desc" id="modal-desc">Digite a senha do mestre desta campanha.</p>
+      <div class="field">
+        <label for="modal-pass">Senha</label>
+        <input type="password" id="modal-pass" autocomplete="off">
+      </div>
+      <div class="modal-error" id="modal-error"></div>
+      <div class="modal-actions">
+        <button id="modal-cancel">Cancelar</button>
+        <button id="modal-submit" class="primary">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="crop-overlay" class="modal-overlay hidden">
+    <div id="crop-modal">
+      <h2>Recortar imagem</h2>
+      <p class="desc">Arraste para posicionar e use o controle para ajustar o zoom.</p>
+      <div id="crop-viewport">
+        <img id="crop-img" alt="">
+      </div>
+      <div id="crop-controls">
+        <label for="crop-zoom">Zoom</label>
+        <input type="range" id="crop-zoom" min="100" max="280" value="100">
+      </div>
+      <div class="modal-actions crop-hint">
+        <button id="crop-cancel">Cancelar</button>
+        <button id="crop-confirm" class="primary">Confirmar recorte</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="delete-overlay" class="modal-overlay hidden">
+    <div class="modal-box" id="delete-modal">
+      <h2>Excluir campanha</h2>
+      <p class="desc">Essa ação é permanente e apaga tudo desta campanha. Digite a senha de mestre para confirmar.</p>
+      <div class="field">
+        <label for="delete-pass">Senha de mestre</label>
+        <input type="password" id="delete-pass" autocomplete="off">
+      </div>
+      <div class="modal-error" id="delete-error"></div>
+      <div class="modal-actions">
+        <button id="delete-cancel">Cancelar</button>
+        <button id="delete-confirm" class="danger">Excluir permanentemente</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+  const state = {
+    currentSlot:null,
+    role:null,
+    isMaster:false,
+    meta:{ title:"Campanha sem nome", masterPass:"", playerCode:"" },
+    pages:[],           // [{id, name, map:{image}, fog:{image}, texts:[...]}]
+    currentPageId:null,
+    tokens:[],          // [{id,name,image,size,hp,positions:{pageId:{x,y}}}]
+    fogMode:false,
+    fogPaintMode:'cover',
+    fogBrush:45,
+    fogColor:'#050402',
+    fogOpacity:94,
+    fogStroke:null,
+    selectedTokenId:null,
+    undoStack:[],
+    redoStack:[],
+    zoom:1,
+    pan:{x:0,y:0},
+    dragging:null,
+    textDragging:null,
+    panning:null
+  };
+
+  let pollHandle = null;
+  let pendingSlot = null;
+
+  const el = id => document.getElementById(id);
+  const $portalScreen = el('portal-screen');
+  const $appScreen = el('app-screen');
+  const $sidebar = el('sidebar');
+  const $title = el('campaign-title');
+  const $canvas = el('map-canvas');
+  const $tokenList = el('token-list');
+  const $masterBadge = el('master-badge');
+  const $btnUndo = el('btn-undo');
+  const $btnRedo = el('btn-redo');
+  const $sidebarToggle = el('sidebar-toggle');
+  const $mapViewport = el('map-viewport');
+
+  function slotKey(name){ return 'c' + state.currentSlot + '-' + name; }
+  function currentPage(){ return state.pages.find(p => p.id === state.currentPageId) || null; }
+
+  // ---------- Firebase setup ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyDfO0Tx3R6GUiS2UBIADQG474lMyQ7ugCo",
+    authDomain: "mesa-de-rpg-6a966.firebaseapp.com",
+    databaseURL: "https://mesa-de-rpg-6a966-default-rtdb.firebaseio.com",
+    projectId: "mesa-de-rpg-6a966",
+    storageBucket: "mesa-de-rpg-6a966.firebasestorage.app",
+    messagingSenderId: "811102430328",
+    appId: "1:811102430328:web:ae5ef142c01bc96f8db98d"
+  };
+  let db = null;
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+  }catch(e){ console.error('Firebase init failed', e); }
+
+  // ---------- storage helpers (backed by Firebase Realtime Database) ----------
+  function withTimeout(promise, ms){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+    ]);
+  }
+  async function safeGet(key){
+    if(!db) return null;
+    try{
+      const snap = await withTimeout(db.ref(key).once('value'), 8000);
+      const val = snap.val();
+      return (val === null || val === undefined) ? null : val;
+    }catch(e){ console.error('storage get failed', key, e); return null; }
+  }
+  async function safeSet(key, value){
+    if(!db) return false;
+    try{
+      await withTimeout(db.ref(key).set(JSON.stringify(value)), 8000);
+      return true;
+    }catch(e){ console.error('storage set failed', key, e); return false; }
+  }
+  async function safeDelete(key){
+    if(!db) return;
+    try{ await withTimeout(db.ref(key).remove(), 8000); }catch(e){}
+  }
+
+  function generateCode(len){
+    len = len || 6;
+    let out = '';
+    for(let i=0;i<len;i++){ out += CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]; }
+    return out;
+  }
+  function newId(prefix){ return prefix + Date.now() + Math.random().toString(36).slice(2,7); }
+
+  // ===================== PORTAL =====================
+  async function fetchSlotMeta(n){
+    const raw = await safeGet('c'+n+'-meta');
+    if(!raw) return { title:'', masterPass:'', playerCode:'' };
+    try{ return JSON.parse(raw); }catch(e){ return { title:'', masterPass:'', playerCode:'' }; }
+  }
+
+  async function renderPortal(){
+    const metas = await Promise.all([1,2,3].map(fetchSlotMeta));
+    const $cards = el('slot-cards');
+    $cards.innerHTML = '';
+    metas.forEach((m, idx) => {
+      const n = idx + 1;
+      const occupied = !!m.masterPass;
+      const card = document.createElement('div');
+      card.className = 'slot-card';
+      card.innerHTML =
+        '<div>' +
+          '<div class="slot-name">Campanha ' + n + (occupied && m.title ? ' — ' + escapeHtml(m.title) : '') + '</div>' +
+          '<div class="slot-status' + (occupied ? ' occupied' : '') + '">' + (occupied ? 'Ocupada' : 'Vaga disponível') + '</div>' +
+        '</div>' +
+        '<div class="slot-arrow">→</div>';
+      card.addEventListener('click', () => openMasterLogin(n, m));
+      $cards.appendChild(card);
+    });
+  }
+
+  function showPortal(){
+    if(pollHandle){ clearInterval(pollHandle); pollHandle = null; }
+    state.currentSlot = null;
+    state.role = null;
+    state.isMaster = false;
+    $appScreen.classList.add('hidden');
+    $portalScreen.classList.remove('hidden');
+    el('player-code-input').value = '';
+    el('player-code-error').textContent = '';
+    renderPortal();
+  }
+
+  el('player-join-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = el('player-code-input').value.trim().toUpperCase();
+    const $err = el('player-code-error');
+    $err.textContent = '';
+    if(!code){ $err.textContent = 'Digite um código.'; return; }
+    const metas = await Promise.all([1,2,3].map(fetchSlotMeta));
+    let foundSlot = null;
+    metas.forEach((m, idx) => {
+      if(m.playerCode && m.playerCode.toUpperCase() === code) foundSlot = idx + 1;
+    });
+    if(!foundSlot){ $err.textContent = 'Código inválido.'; return; }
+    await enterSlot(foundSlot, 'player');
+  });
+
+  // ---------- master login modal ----------
+  const $overlay = el('modal-overlay');
+  const $modalTitle = el('modal-title');
+  const $modalDesc = el('modal-desc');
+  const $pass = el('modal-pass');
+  const $modalError = el('modal-error');
+
+  function openMasterLogin(slotN, meta){
+    pendingSlot = slotN;
+    $pass.value=''; $modalError.textContent='';
+    if(meta.masterPass){
+      $modalTitle.textContent = 'Campanha ' + slotN + ' — Entrar como Mestre';
+      $modalDesc.textContent = 'Digite a senha do mestre desta campanha.';
+    } else {
+      $modalTitle.textContent = 'Campanha ' + slotN + ' — Criar senha de Mestre';
+      $modalDesc.textContent = 'Esta vaga está livre. Crie uma senha para se tornar o mestre desta campanha.';
+    }
+    $overlay.classList.remove('hidden');
+    $pass.focus();
+  }
+  function closeLoginModal(){ $overlay.classList.add('hidden'); pendingSlot = null; }
+
+  async function submitLogin(){
+    if(!pendingSlot) return;
+    const val = $pass.value;
+    if(!val){ $modalError.textContent = 'Digite uma senha.'; return; }
+    const $submitBtn = el('modal-submit');
+    $submitBtn.disabled = true;
+    $submitBtn.textContent = 'Entrando...';
+    $modalError.textContent = '';
+    try{
+      const meta = await fetchSlotMeta(pendingSlot);
+      if(meta.masterPass){
+        if(val === meta.masterPass){
+          const slotN = pendingSlot;
+          closeLoginModal();
+          await enterSlot(slotN, 'master');
+        } else {
+          $modalError.textContent = 'Senha incorreta.';
+        }
+      } else {
+        meta.masterPass = val;
+        if(!meta.playerCode) meta.playerCode = generateCode(6);
+        if(!meta.title) meta.title = 'Campanha sem nome';
+        const ok = await safeSet('c'+pendingSlot+'-meta', meta);
+        if(!ok){
+          $modalError.textContent = 'Não foi possível salvar. Verifique sua conexão e tente novamente.';
+          return;
+        }
+        const slotN = pendingSlot;
+        closeLoginModal();
+        await enterSlot(slotN, 'master');
+      }
+    }catch(e){
+      console.error('submitLogin failed', e);
+      $modalError.textContent = 'Algo deu errado. Verifique sua conexão e tente novamente.';
+    }finally{
+      $submitBtn.disabled = false;
+      $submitBtn.textContent = 'Entrar';
+    }
+  }
+  el('modal-cancel').addEventListener('click', closeLoginModal);
+  el('modal-submit').addEventListener('click', submitLogin);
+  $pass.addEventListener('keydown', e => { if(e.key==='Enter') submitLogin(); });
+
+  // ---------- entering a slot ----------
+  async function enterSlot(slotN, role){
+    if(!slotN){ console.error('enterSlot chamado sem um slot válido'); return; }
+    state.currentSlot = slotN;
+    state.role = role;
+    state.isMaster = role === 'master';
+    state.zoom = 1; state.pan = {x:0,y:0};
+    state.undoStack = []; state.redoStack = [];
+    state.fogMode = false;
+    state.selectedTokenId = null;
+    state.tokens = [];
+    state.pages = [];
+    state.currentPageId = null;
+    state.meta = { title:'Campanha sem nome', masterPass:'', playerCode:'' };
+
+    $portalScreen.classList.add('hidden');
+    $appScreen.classList.remove('hidden');
+    el('slot-eyebrow').textContent = 'Mesa de Jogo — Campanha ' + slotN;
+
+    await loadSlotData();
+    render();
+
+    if(pollHandle) clearInterval(pollHandle);
+    lastTokensSnapshot = ''; lastPageContentSnapshot = ''; lastIndexSnapshot = '';
+    pollHandle = setInterval(pollForUpdates, 2500);
+  }
+
+  el('btn-leave-campaign').addEventListener('click', () => { showPortal(); });
+
+  const $deleteOverlay = el('delete-overlay');
+  const $deletePass = el('delete-pass');
+  const $deleteError = el('delete-error');
+
+  el('btn-delete-campaign').addEventListener('click', () => {
+    $deletePass.value = ''; $deleteError.textContent = '';
+    $deleteOverlay.classList.remove('hidden');
+    $deletePass.focus();
+  });
+  el('delete-cancel').addEventListener('click', () => $deleteOverlay.classList.add('hidden'));
+  $deletePass.addEventListener('keydown', e => { if(e.key === 'Enter') confirmDeleteCampaign(); });
+  el('delete-confirm').addEventListener('click', confirmDeleteCampaign);
+
+  async function confirmDeleteCampaign(){
+    const val = $deletePass.value;
+    if(!val){ $deleteError.textContent = 'Digite a senha.'; return; }
+    if(val !== state.meta.masterPass){ $deleteError.textContent = 'Senha incorreta.'; return; }
+    const btn = el('delete-confirm');
+    btn.disabled = true; btn.textContent = 'Excluindo...';
+    $deleteError.textContent = '';
+    try{
+      const jobs = [
+        safeDelete(slotKey('meta')),
+        safeDelete(slotKey('tokens')),
+        safeDelete(slotKey('pages-index'))
+      ];
+      state.pages.forEach(p => {
+        jobs.push(safeDelete(slotKey('page-'+p.id+'-map')));
+        jobs.push(safeDelete(slotKey('page-'+p.id+'-fog')));
+        jobs.push(safeDelete(slotKey('page-'+p.id+'-texts')));
+      });
+      await Promise.all(jobs);
+      $deleteOverlay.classList.add('hidden');
+      showPortal();
+    }catch(e){
+      console.error('delete campaign failed', e);
+      $deleteError.textContent = 'Algo deu errado. Verifique sua conexão e tente novamente.';
+    }finally{
+      btn.disabled = false; btn.textContent = 'Excluir permanentemente';
+    }
+  }
+
+  // ---------- loading a slot's full data ----------
+  async function loadSlotData(){
+    const [metaRaw, tokensRaw, indexRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index'))
+    ]);
+    if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
+    if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; }catch(e){} }
+
+    let index = { list: [], currentPageId: null };
+    if(indexRaw){ try{ index = JSON.parse(indexRaw); }catch(e){} }
+    const pageStubs = index.list || [];
+
+    const pages = await Promise.all(pageStubs.map(async stub => {
+      const [mapRaw, fogRaw, textsRaw] = await Promise.all([
+        safeGet(slotKey('page-'+stub.id+'-map')),
+        safeGet(slotKey('page-'+stub.id+'-fog')),
+        safeGet(slotKey('page-'+stub.id+'-texts'))
+      ]);
+      let map = { image:'' }, fog = { image:'' }, texts = [];
+      if(mapRaw){ try{ map = JSON.parse(mapRaw); }catch(e){} }
+      if(fogRaw){ try{ fog = JSON.parse(fogRaw); }catch(e){} }
+      if(textsRaw){ try{ texts = JSON.parse(textsRaw).list || []; }catch(e){} }
+      return { id: stub.id, name: stub.name, map, fog, texts };
+    }));
+    state.pages = pages;
+    state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
+      ? index.currentPageId
+      : (pages.length ? pages[pages.length-1].id : null);
+  }
+
+  async function persistPagesIndex(){
+    await safeSet(slotKey('pages-index'), {
+      list: state.pages.map(p => ({ id:p.id, name:p.name })),
+      currentPageId: state.currentPageId
+    });
+  }
+  async function persistPageMap(page){ await safeSet(slotKey('page-'+page.id+'-map'), page.map); }
+  async function persistPageFog(page){ await safeSet(slotKey('page-'+page.id+'-fog'), page.fog); }
+  async function persistPageTexts(page){ await safeSet(slotKey('page-'+page.id+'-texts'), { list: page.texts }); }
+  async function persistTokens(){ await safeSet(slotKey('tokens'), { list: state.tokens }); }
+
+  // ---------- image helpers ----------
+  function resizeImage(file, maxDim, quality){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if(w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else if(h >= w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ---------- undo / redo (scoped to the current page + tokens) ----------
+  function snapshotState(){
+    const page = currentPage();
+    return {
+      pageId: state.currentPageId,
+      map: page ? page.map.image : '',
+      fog: page ? page.fog.image : '',
+      texts: page ? JSON.parse(JSON.stringify(page.texts)) : [],
+      tokens: JSON.parse(JSON.stringify(state.tokens))
+    };
+  }
+  function pushUndo(){
+    if(!state.isMaster) return;
+    state.undoStack.push(snapshotState());
+    if(state.undoStack.length > 20) state.undoStack.shift();
+    state.redoStack = [];
+    updateHistoryButtons();
+  }
+  function updateHistoryButtons(){
+    $btnUndo.style.display = state.isMaster ? 'inline-block' : 'none';
+    $btnUndo.disabled = state.undoStack.length === 0;
+    $btnRedo.style.display = state.isMaster ? 'inline-block' : 'none';
+    $btnRedo.disabled = state.redoStack.length === 0;
+  }
+  async function applySnapshot(snap){
+    state.currentPageId = snap.pageId;
+    const page = currentPage();
+    state.tokens = snap.tokens;
+    if(page){
+      page.map.image = snap.map;
+      page.fog.image = snap.fog;
+      page.texts = snap.texts;
+    }
+    render();
+    const jobs = [ safeSet(slotKey('tokens'), { list: state.tokens }), persistPagesIndex() ];
+    if(page){ jobs.push(persistPageMap(page), persistPageFog(page), persistPageTexts(page)); }
+    await Promise.all(jobs);
+    updateHistoryButtons();
+  }
+  async function undoLast(){
+    if(state.undoStack.length === 0) return;
+    const current = snapshotState();
+    const snap = state.undoStack.pop();
+    state.redoStack.push(current);
+    if(state.redoStack.length > 20) state.redoStack.shift();
+    await applySnapshot(snap);
+  }
+  async function redoLast(){
+    if(state.redoStack.length === 0) return;
+    const current = snapshotState();
+    const snap = state.redoStack.pop();
+    state.undoStack.push(current);
+    if(state.undoStack.length > 20) state.undoStack.shift();
+    await applySnapshot(snap);
+  }
+  $btnUndo.addEventListener('click', undoLast);
+  $btnRedo.addEventListener('click', redoLast);
+
+  // ---------- render ----------
+  function render(){
+    $title.value = state.meta.title || "Campanha sem nome";
+    el('title-input').value = state.meta.title || "";
+    el('access-code-input').value = state.meta.playerCode || '';
+
+    const page = currentPage();
+    if(page && page.map.image){
+      $canvas.innerHTML = '<img id="map-img" src="'+page.map.image+'" alt="Mapa de combate">';
+    } else {
+      $canvas.innerHTML = '<div id="empty-map">✦ Nenhum mapa carregado ainda ✦<small>Entre como mestre para enviar a imagem do mapa de combate</small></div>';
+    }
+    renderTokens();
+    renderTexts();
+    setupFogCanvas();
+    renderTokenList();
+    renderTextList();
+    renderPageHistory();
+    applyTransform();
+
+    $masterBadge.style.display = state.isMaster ? 'inline-flex' : 'none';
+    $sidebar.classList.toggle('hidden', !state.isMaster);
+    $title.disabled = true;
+
+    if(!state.isMaster){ state.fogMode = false; }
+    $mapViewport.classList.toggle('fog-mode', state.isMaster && state.fogMode);
+    el('btn-fog-toggle').textContent = state.fogMode ? 'Desativar modo névoa' : 'Ativar modo névoa';
+    el('btn-fog-toggle').classList.toggle('toggle-active', state.fogMode);
+    el('btn-fog-cover').classList.toggle('toggle-active', state.fogPaintMode === 'cover');
+    el('btn-fog-reveal').classList.toggle('toggle-active', state.fogPaintMode === 'reveal');
+    el('fog-brush').value = state.fogBrush;
+    el('fog-opacity').value = state.fogOpacity;
+    document.querySelectorAll('.fog-swatch').forEach(sw => {
+      sw.classList.toggle('active', sw.getAttribute('data-fog-color').toLowerCase() === state.fogColor.toLowerCase());
+    });
+    el('fog-color-picker').value = state.fogColor;
+
+    updateHistoryButtons();
+  }
+
+  // ---------- page history ----------
+  function renderPageHistory(){
+    if(!state.isMaster) return;
+    const $list = el('page-history-list');
+    if(state.pages.length === 0){
+      $list.innerHTML = '<div class="hint">Nenhuma página ainda. Envie a primeira imagem de mapa acima.</div>';
+      return;
+    }
+    $list.innerHTML = state.pages.map(p => {
+      const active = p.id === state.currentPageId;
+      return (
+        '<div class="page-row' + (active ? ' active' : '') + '" data-page-select="'+p.id+'">' +
+          '<input type="text" value="'+escapeHtml(p.name)+'" data-page-rename="'+p.id+'">' +
+          (active ? '<span class="page-active-tag">Atual</span>' : '') +
+          '<button class="danger" data-page-delete="'+p.id+'">Excluir</button>' +
+        '</div>'
+      );
+    }).join('');
+    $list.querySelectorAll('.page-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if(e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        setActivePage(row.getAttribute('data-page-select'));
+      });
+    });
+    $list.querySelectorAll('[data-page-rename]').forEach(inp => {
+      inp.addEventListener('click', e => e.stopPropagation());
+      inp.addEventListener('change', () => renamePage(inp.getAttribute('data-page-rename'), inp.value));
+    });
+    $list.querySelectorAll('[data-page-delete]').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); deletePage(btn.getAttribute('data-page-delete')); });
+    });
+  }
+
+  async function setActivePage(id){
+    if(id === state.currentPageId) return;
+    state.currentPageId = id;
+    state.selectedTokenId = null;
+    state.zoom = 1; state.pan = {x:0,y:0};
+    render();
+    await persistPagesIndex();
+  }
+
+  async function renamePage(id, name){
+    const page = state.pages.find(p => p.id === id);
+    if(!page) return;
+    page.name = name.trim() || page.name;
+    render();
+    await persistPagesIndex();
+  }
+
+  async function deletePage(id){
+    if(state.pages.length <= 1){ alert('Mantenha ao menos uma página no histórico.'); return; }
+    if(!confirm('Excluir esta página do histórico? O mapa e a névoa dela se perdem. As fichas de personagem continuam existindo.')) return;
+    pushUndo();
+    state.pages = state.pages.filter(p => p.id !== id);
+    if(state.currentPageId === id){ state.currentPageId = state.pages[state.pages.length-1].id; }
+    render();
+    await Promise.all([
+      persistPagesIndex(),
+      safeDelete(slotKey('page-'+id+'-map')),
+      safeDelete(slotKey('page-'+id+'-fog')),
+      safeDelete(slotKey('page-'+id+'-texts'))
+    ]);
+  }
+
+  // ---------- tokens ----------
+  function tokenPos(tok){
+    return (tok.positions && tok.positions[state.currentPageId]) || { x:50, y:50 };
+  }
+  function isTokenOnPage(tok, pageId){
+    return !(tok.removedFromPages || []).includes(pageId);
+  }
+
+  function renderTokens(){
+    document.querySelectorAll('.token').forEach(t => t.remove());
+    if(!document.getElementById('map-img')) return;
+    state.tokens.forEach(tok => {
+      if(!isTokenOnPage(tok, state.currentPageId)) return;
+      const pos = tokenPos(tok);
+      const t = document.createElement('div');
+      t.className = 'token';
+      t.dataset.id = tok.id;
+      const size = tok.size || 64;
+      t.style.left = pos.x + '%';
+      t.style.top = pos.y + '%';
+      t.style.width = size + 'px';
+      t.style.height = size + 'px';
+      t.style.marginLeft = (-size/2) + 'px';
+      t.style.marginTop = (-size/2) + 'px';
+      const hp = tok.hp || { current:10, max:10 };
+      const frac = hp.max > 0 ? hp.current / hp.max : 0;
+      const isDefeated = hp.current <= 0;
+      const hpCol = isDefeated ? '#0a0a0a' : hpColor(frac);
+      t.style.borderColor = hpCol;
+      t.classList.toggle('defeated', isDefeated);
+      t.classList.toggle('selected', tok.id === state.selectedTokenId);
+      const barW = Math.max(28, Math.round(size * 0.82));
+      const barTop = -Math.round(size * 0.16) - 6;
+      t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
+                    '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(frac*100)+'%; background:'+hpCol+';"></div></div>' +
+                    '<div class="token-label">'+escapeHtml(tok.name)+'</div>';
+      t.addEventListener('pointerdown', onTokenPointerDown);
+      $canvas.appendChild(t);
+    });
+  }
+
+  function renderTokenList(){
+    if(!state.isMaster){ $tokenList.innerHTML=''; return; }
+    if(state.tokens.length === 0){
+      $tokenList.innerHTML = '<div class="hint">Nenhuma ficha criada ainda.</div>';
+      return;
+    }
+    $tokenList.innerHTML = state.tokens.map(tok => {
+      const hp = tok.hp || { current:10, max:10 };
+      const size = tok.size || 64;
+      const onPage = isTokenOnPage(tok, state.currentPageId);
+      return (
+      '<div class="token-row-wrap">' +
+        '<div class="token-row">' +
+          '<img src="'+tok.image+'" alt="">' +
+          '<span>'+escapeHtml(tok.name)+(onPage ? '' : ' <em style="opacity:.6;">(fora desta página)</em>')+'</span>' +
+          (onPage
+            ? '<button class="danger" data-remove-page="'+tok.id+'">Remover desta página</button>'
+            : '<button data-add-page="'+tok.id+'">Adicionar aqui</button>') +
+        '</div>' +
+        '<div class="token-row-hp">' +
+          '<button type="button" data-hp-minus="'+tok.id+'">−</button>' +
+          '<span class="hp-value">'+hp.current+' / '+hp.max+'</span>' +
+          '<button type="button" data-hp-plus="'+tok.id+'">+</button>' +
+          '<span class="hp-max-label">Máx.</span>' +
+          '<input type="number" class="hp-max-input" min="1" max="999" value="'+hp.max+'" data-hp-max="'+tok.id+'">' +
+        '</div>' +
+        '<div class="token-row-size">' +
+          '<span class="size-label">Tam.</span>' +
+          '<button type="button" data-size-minus="'+tok.id+'">−</button>' +
+          '<span class="size-value">'+size+'px</span>' +
+          '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
+          '<button type="button" class="danger" data-delete-perm="'+tok.id+'" style="margin-left:auto;" title="Excluir de todas as páginas">Excluir ficha</button>' +
+        '</div>' +
+      '</div>');
+    }).join('');
+    $tokenList.querySelectorAll('[data-remove-page]').forEach(btn=>{
+      btn.addEventListener('click', () => removeTokenFromPage(btn.getAttribute('data-remove-page')));
+    });
+    $tokenList.querySelectorAll('[data-add-page]').forEach(btn=>{
+      btn.addEventListener('click', () => addTokenToPage(btn.getAttribute('data-add-page')));
+    });
+    $tokenList.querySelectorAll('[data-delete-perm]').forEach(btn=>{
+      btn.addEventListener('click', () => deleteTokenPermanently(btn.getAttribute('data-delete-perm')));
+    });
+    $tokenList.querySelectorAll('[data-hp-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustHp(btn.getAttribute('data-hp-minus'), -1));
+    });
+    $tokenList.querySelectorAll('[data-hp-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustHp(btn.getAttribute('data-hp-plus'), 1));
+    });
+    $tokenList.querySelectorAll('[data-hp-max]').forEach(inp=>{
+      inp.addEventListener('change', () => setMaxHp(inp.getAttribute('data-hp-max'), inp.value));
+    });
+    $tokenList.querySelectorAll('[data-size-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustSize(btn.getAttribute('data-size-minus'), -8));
+    });
+    $tokenList.querySelectorAll('[data-size-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustSize(btn.getAttribute('data-size-plus'), 8));
+    });
+  }
+
+  function escapeHtml(str){
+    return (str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function hpColor(fraction){
+    const pct = Math.max(0, Math.min(1, fraction)) * 100;
+    if(pct <= 25) return 'rgb(196,57,57)';
+    if(pct <= 50) return 'rgb(224,138,46)';
+    if(pct <= 75) return 'rgb(224,198,46)';
+    return 'rgb(76,175,80)';
+  }
+
+  // ---------- token drag / select ----------
+  function onTokenPointerDown(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget;
+    if(state.isMaster) pushUndo();
+    target.setPointerCapture(e.pointerId);
+    target.classList.add('dragging');
+    const canvasRect = $canvas.getBoundingClientRect();
+    state.dragging = { id: target.dataset.id, el: target, canvasRect };
+    target.addEventListener('pointermove', onTokenPointerMove);
+    target.addEventListener('pointerup', onTokenPointerUp);
+    target.addEventListener('pointercancel', onTokenPointerUp);
+  }
+  function onTokenPointerMove(e){
+    if(!state.dragging) return;
+    const rect = state.dragging.canvasRect;
+    let xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    let yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    xPct = Math.max(0, Math.min(100, xPct));
+    yPct = Math.max(0, Math.min(100, yPct));
+    state.dragging.el.style.left = xPct + '%';
+    state.dragging.el.style.top = yPct + '%';
+    state.dragging.x = xPct;
+    state.dragging.y = yPct;
+  }
+  function onTokenPointerUp(e){
+    if(!state.dragging) return;
+    const d = state.dragging;
+    d.el.classList.remove('dragging');
+    d.el.removeEventListener('pointermove', onTokenPointerMove);
+    d.el.removeEventListener('pointerup', onTokenPointerUp);
+    d.el.removeEventListener('pointercancel', onTokenPointerUp);
+    if(typeof d.x === 'number'){
+      const tok = state.tokens.find(t => t.id === d.id);
+      if(tok){
+        if(!tok.positions) tok.positions = {};
+        tok.positions[state.currentPageId] = { x:d.x, y:d.y };
+        persistTokens();
+      }
+    } else {
+      state.selectedTokenId = state.selectedTokenId === d.id ? null : d.id;
+      render();
+    }
+    state.dragging = null;
+  }
+
+  async function removeTokenFromPage(id){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.removedFromPages) tok.removedFromPages = [];
+    if(!tok.removedFromPages.includes(state.currentPageId)) tok.removedFromPages.push(state.currentPageId);
+    render();
+    await persistTokens();
+  }
+
+  async function addTokenToPage(id){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    tok.removedFromPages = (tok.removedFromPages || []).filter(pid => pid !== state.currentPageId);
+    if(!tok.positions) tok.positions = {};
+    if(!tok.positions[state.currentPageId]) tok.positions[state.currentPageId] = { x:50, y:50 };
+    render();
+    await persistTokens();
+  }
+
+  async function deleteTokenPermanently(id){
+    if(!confirm('Excluir esta ficha de todas as páginas permanentemente? Essa ação não pode ser desfeita com o botão de remover desta página.')) return;
+    pushUndo();
+    state.tokens = state.tokens.filter(t => t.id !== id);
+    render();
+    await persistTokens();
+  }
+
+  async function adjustHp(id, delta){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.hp) tok.hp = { current:10, max:10 };
+    tok.hp.current = Math.max(0, Math.min(tok.hp.max, tok.hp.current + delta));
+    render();
+    await persistTokens();
+  }
+
+  async function setMaxHp(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    let max = parseInt(value, 10);
+    if(isNaN(max) || max < 1) max = 1;
+    if(!tok.hp) tok.hp = { current:max, max:max };
+    tok.hp.max = max;
+    tok.hp.current = Math.min(tok.hp.current, max);
+    render();
+    await persistTokens();
+  }
+
+  async function adjustSize(id, delta){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    const current = tok.size || 64;
+    tok.size = Math.max(32, Math.min(160, current + delta));
+    render();
+    await persistTokens();
+  }
+
+  // ---------- map text ----------
+  function renderTexts(){
+    document.querySelectorAll('.map-text').forEach(t => t.remove());
+    const page = currentPage();
+    if(!document.getElementById('map-img') || !page) return;
+    page.texts.forEach(txt => {
+      const t = document.createElement('div');
+      t.className = 'map-text' + (state.isMaster ? ' draggable' : '');
+      t.dataset.id = txt.id;
+      t.style.left = txt.x + '%';
+      t.style.top = txt.y + '%';
+      t.style.color = txt.color || '#e2a53f';
+      t.style.fontSize = (txt.size || 24) + 'px';
+      t.style.pointerEvents = state.isMaster ? 'auto' : 'none';
+      t.textContent = txt.content;
+      if(state.isMaster) t.addEventListener('pointerdown', onTextPointerDown);
+      $canvas.appendChild(t);
+    });
+  }
+
+  function renderTextList(){
+    const $list = el('text-list');
+    const page = currentPage();
+    if(!state.isMaster || !page){ $list.innerHTML=''; return; }
+    if(page.texts.length === 0){
+      $list.innerHTML = '<div class="hint">Nenhum texto adicionado ainda nesta página.</div>';
+      return;
+    }
+    $list.innerHTML = page.texts.map(txt =>
+      '<div class="text-row">' +
+        '<div class="text-row-top">' +
+          '<input type="text" value="'+escapeHtml(txt.content)+'" data-text-content="'+txt.id+'">' +
+          '<button class="danger" data-text-remove="'+txt.id+'">Remover</button>' +
+        '</div>' +
+        '<div class="text-row-controls">' +
+          '<label>Cor</label>' +
+          '<input type="color" value="'+(txt.color||'#e2a53f')+'" data-text-color="'+txt.id+'">' +
+          '<label style="margin-left:auto;">Tam.</label>' +
+          '<input type="number" min="10" max="96" value="'+(txt.size||24)+'" data-text-size="'+txt.id+'">' +
+        '</div>' +
+      '</div>'
+    ).join('');
+    $list.querySelectorAll('[data-text-content]').forEach(inp=>{
+      inp.addEventListener('change', () => updateText(inp.getAttribute('data-text-content'), { content: inp.value.trim() || 'Texto' }));
+    });
+    $list.querySelectorAll('[data-text-color]').forEach(inp=>{
+      inp.addEventListener('input', () => updateText(inp.getAttribute('data-text-color'), { color: inp.value }, true));
+    });
+    $list.querySelectorAll('[data-text-size]').forEach(inp=>{
+      inp.addEventListener('change', () => {
+        let size = parseInt(inp.value, 10);
+        if(isNaN(size) || size < 10) size = 10;
+        if(size > 96) size = 96;
+        updateText(inp.getAttribute('data-text-size'), { size });
+      });
+    });
+    $list.querySelectorAll('[data-text-remove]').forEach(btn=>{
+      btn.addEventListener('click', () => removeText(btn.getAttribute('data-text-remove')));
+    });
+  }
+
+  async function updateText(id, patch, skipUndo){
+    const page = currentPage();
+    if(!page) return;
+    const txt = page.texts.find(t => t.id === id);
+    if(!txt) return;
+    if(!skipUndo) pushUndo();
+    Object.assign(txt, patch);
+    renderTexts();
+    await persistPageTexts(page);
+  }
+
+  async function removeText(id){
+    const page = currentPage();
+    if(!page) return;
+    pushUndo();
+    page.texts = page.texts.filter(t => t.id !== id);
+    render();
+    await persistPageTexts(page);
+  }
+
+  function onTextPointerDown(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget;
+    pushUndo();
+    target.setPointerCapture(e.pointerId);
+    target.classList.add('dragging');
+    const canvasRect = $canvas.getBoundingClientRect();
+    state.textDragging = { id: target.dataset.id, el: target, canvasRect };
+    target.addEventListener('pointermove', onTextPointerMove);
+    target.addEventListener('pointerup', onTextPointerUp);
+    target.addEventListener('pointercancel', onTextPointerUp);
+  }
+  function onTextPointerMove(e){
+    if(!state.textDragging) return;
+    const rect = state.textDragging.canvasRect;
+    let xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    let yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    xPct = Math.max(0, Math.min(100, xPct));
+    yPct = Math.max(0, Math.min(100, yPct));
+    state.textDragging.el.style.left = xPct + '%';
+    state.textDragging.el.style.top = yPct + '%';
+    state.textDragging.x = xPct;
+    state.textDragging.y = yPct;
+  }
+  async function onTextPointerUp(e){
+    if(!state.textDragging) return;
+    const d = state.textDragging;
+    d.el.classList.remove('dragging');
+    d.el.removeEventListener('pointermove', onTextPointerMove);
+    d.el.removeEventListener('pointerup', onTextPointerUp);
+    d.el.removeEventListener('pointercancel', onTextPointerUp);
+    if(typeof d.x === 'number'){
+      const page = currentPage();
+      const txt = page ? page.texts.find(t => t.id === d.id) : null;
+      if(txt){ txt.x = d.x; txt.y = d.y; await persistPageTexts(page); }
+    }
+    state.textDragging = null;
+  }
+
+  el('btn-add-text').addEventListener('click', async () => {
+    const page = currentPage();
+    if(!page) return;
+    const content = el('text-content-input').value.trim();
+    if(!content) return;
+    const color = el('text-color-input').value;
+    let size = parseInt(el('text-size-input').value, 10);
+    if(isNaN(size) || size < 10) size = 24;
+    pushUndo();
+    page.texts.push({ id:newId('x'), content, color, size, x:50, y:50 });
+    render();
+    await persistPageTexts(page);
+    el('text-content-input').value = '';
+  });
+
+  // ---------- master actions ----------
+  el('btn-save-title').addEventListener('click', async () => {
+    const v = el('title-input').value.trim() || 'Campanha sem nome';
+    state.meta.title = v;
+    render();
+    await safeSet(slotKey('meta'), state.meta);
+  });
+
+  el('btn-save-code').addEventListener('click', async () => {
+    const val = el('access-code-input').value.trim().toUpperCase();
+    if(!val){ el('access-code-input').focus(); return; }
+    state.meta.playerCode = val;
+    render();
+    await safeSet(slotKey('meta'), state.meta);
+  });
+
+  el('btn-copy-code').addEventListener('click', async () => {
+    const code = el('access-code-input').value.trim();
+    if(!code) return;
+    try{ await navigator.clipboard.writeText(code); }catch(e){}
+  });
+
+  el('btn-new-code').addEventListener('click', async () => {
+    if(state.meta.playerCode && !confirm('Gerar um código aleatório substitui o atual. Continuar?')) return;
+    state.meta.playerCode = generateCode(6);
+    render();
+    await safeSet(slotKey('meta'), state.meta);
+  });
+
+  el('map-upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    pushUndo();
+    const dataUrl = await resizeImage(file, 1800, 0.82);
+    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), map:{ image:dataUrl }, fog:{ image:'' }, texts:[] };
+    state.pages.push(page);
+    state.currentPageId = page.id;
+    render();
+    await Promise.all([ persistPageMap(page), persistPagesIndex() ]);
+    e.target.value = '';
+  });
+
+  let croppedTokenImage = null;
+
+  el('token-upload').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    openCropModal(file);
+  });
+  el('token-preview-edit').addEventListener('click', () => {
+    const file = el('token-upload').files[0];
+    if(file) openCropModal(file);
+  });
+
+  el('token-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = el('token-name').value.trim();
+    if(!name){ return; }
+    if(!croppedTokenImage){
+      el('token-upload').focus();
+      return;
+    }
+    let maxHp = parseInt(el('token-maxhp').value, 10);
+    if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
+    pushUndo();
+    const tok = { id:newId('t'), name, image:croppedTokenImage, size:64, hp:{ current: maxHp, max: maxHp }, positions:{} };
+    if(state.currentPageId) tok.positions[state.currentPageId] = { x:50, y:50 };
+    state.tokens.push(tok);
+    render();
+    await persistTokens();
+    el('token-form').reset();
+    croppedTokenImage = null;
+    el('token-preview').style.display = 'none';
+  });
+
+  $sidebarToggle.addEventListener('click', () => $sidebar.classList.toggle('hidden'));
+
+  // ---------- image crop modal ----------
+  const $cropOverlay = el('crop-overlay');
+  const $cropViewport = el('crop-viewport');
+  const $cropImg = el('crop-img');
+  const $cropZoom = el('crop-zoom');
+  const OUTPUT_SIZE = 240;
+  const VIEWPORT_SIZE = 260;
+  const crop = { naturalW:0, naturalH:0, minScale:1, scale:1, left:0, top:0 };
+  let cropDrag = null;
+
+  function openCropModal(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        crop.naturalW = img.width;
+        crop.naturalH = img.height;
+        crop.minScale = Math.max(VIEWPORT_SIZE / img.width, VIEWPORT_SIZE / img.height);
+        crop.scale = crop.minScale;
+        centerCrop();
+        $cropImg.src = reader.result;
+        updateCropImgStyle();
+        $cropZoom.value = 100;
+        $cropOverlay.classList.remove('hidden');
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function centerCrop(){
+    const dispW = crop.naturalW * crop.scale;
+    const dispH = crop.naturalH * crop.scale;
+    crop.left = Math.min(0, (VIEWPORT_SIZE - dispW) / 2);
+    crop.top = Math.min(0, (VIEWPORT_SIZE - dispH) / 2);
+  }
+
+  function clampCrop(){
+    const dispW = crop.naturalW * crop.scale;
+    const dispH = crop.naturalH * crop.scale;
+    const minLeft = VIEWPORT_SIZE - dispW;
+    const minTop = VIEWPORT_SIZE - dispH;
+    crop.left = Math.max(minLeft, Math.min(0, crop.left));
+    crop.top = Math.max(minTop, Math.min(0, crop.top));
+  }
+
+  function updateCropImgStyle(){
+    $cropImg.style.width = (crop.naturalW * crop.scale) + 'px';
+    $cropImg.style.height = (crop.naturalH * crop.scale) + 'px';
+    $cropImg.style.left = crop.left + 'px';
+    $cropImg.style.top = crop.top + 'px';
+  }
+
+  $cropZoom.addEventListener('input', () => {
+    const pct = Number($cropZoom.value) / 100;
+    crop.scale = crop.minScale * pct;
+    centerCrop();
+    updateCropImgStyle();
+  });
+
+  $cropViewport.addEventListener('pointerdown', (e) => {
+    cropDrag = { startX:e.clientX, startY:e.clientY, startLeft:crop.left, startTop:crop.top };
+    $cropViewport.setPointerCapture(e.pointerId);
+    $cropViewport.classList.add('grabbing');
+  });
+  $cropViewport.addEventListener('pointermove', (e) => {
+    if(!cropDrag) return;
+    crop.left = cropDrag.startLeft + (e.clientX - cropDrag.startX);
+    crop.top = cropDrag.startTop + (e.clientY - cropDrag.startY);
+    clampCrop();
+    updateCropImgStyle();
+  });
+  function endCropDrag(){ cropDrag = null; $cropViewport.classList.remove('grabbing'); }
+  $cropViewport.addEventListener('pointerup', endCropDrag);
+  $cropViewport.addEventListener('pointercancel', endCropDrag);
+
+  function closeCropModal(){ $cropOverlay.classList.add('hidden'); }
+  el('crop-cancel').addEventListener('click', () => {
+    closeCropModal();
+    el('token-upload').value = '';
+  });
+  el('crop-confirm').addEventListener('click', () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = OUTPUT_SIZE; canvas.height = OUTPUT_SIZE;
+    const ctx = canvas.getContext('2d');
+    const sx = (0 - crop.left) / crop.scale;
+    const sy = (0 - crop.top) / crop.scale;
+    const sSize = VIEWPORT_SIZE / crop.scale;
+    ctx.drawImage($cropImg, sx, sy, sSize, sSize, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+    croppedTokenImage = canvas.toDataURL('image/jpeg', 0.88);
+    el('token-preview-img').src = croppedTokenImage;
+    el('token-preview').style.display = 'flex';
+    closeCropModal();
+  });
+
+  // ---------- zoom & pan ----------
+  function applyTransform(){
+    $canvas.style.transform = 'translate('+state.pan.x+'px,'+state.pan.y+'px) scale('+state.zoom+')';
+  }
+  el('zoom-in').addEventListener('click', () => { state.zoom = Math.min(4, state.zoom + 0.2); applyTransform(); });
+  el('zoom-out').addEventListener('click', () => { state.zoom = Math.max(0.3, state.zoom - 0.2); applyTransform(); });
+  el('zoom-reset').addEventListener('click', () => { state.zoom = 1; state.pan = {x:0,y:0}; applyTransform(); });
+
+  $mapViewport.addEventListener('pointerdown', (e) => {
+    if(!state.currentSlot) return;
+    if(state.selectedTokenId){ state.selectedTokenId = null; render(); }
+    if(state.isMaster && state.fogMode){
+      startFogPaint(e);
+      return;
+    }
+    state.panning = { startX: e.clientX, startY: e.clientY, startPanX: state.pan.x, startPanY: state.pan.y };
+    $mapViewport.setPointerCapture(e.pointerId);
+    $mapViewport.classList.add('panning');
+  });
+  $mapViewport.addEventListener('pointermove', (e) => {
+    if(state.fogStroke){ moveFogPaint(e); return; }
+    if(!state.panning) return;
+    state.pan.x = state.panning.startPanX + (e.clientX - state.panning.startX);
+    state.pan.y = state.panning.startPanY + (e.clientY - state.panning.startY);
+    applyTransform();
+  });
+  function endPan(){
+    if(state.fogStroke){ endFogPaint(); return; }
+    state.panning = null;
+    $mapViewport.classList.remove('panning');
+  }
+  $mapViewport.addEventListener('pointerup', endPan);
+  $mapViewport.addEventListener('pointercancel', endPan);
+  $mapViewport.addEventListener('wheel', (e) => {
+    if(!state.currentSlot) return;
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.15 : -0.15;
+    state.zoom = Math.max(0.3, Math.min(4, state.zoom + delta));
+    applyTransform();
+  }, { passive:false });
+
+  // ---------- fog of war: freehand brush (master only, per page) ----------
+  el('btn-fog-toggle').addEventListener('click', () => { state.fogMode = !state.fogMode; render(); });
+  el('btn-fog-cover').addEventListener('click', () => { state.fogPaintMode = 'cover'; render(); });
+  el('btn-fog-reveal').addEventListener('click', () => { state.fogPaintMode = 'reveal'; render(); });
+  el('fog-brush').addEventListener('input', (e) => { state.fogBrush = Number(e.target.value); });
+  el('fog-opacity').addEventListener('input', (e) => { state.fogOpacity = Number(e.target.value); });
+  document.querySelectorAll('.fog-swatch').forEach(sw => {
+    sw.addEventListener('click', () => { state.fogColor = sw.getAttribute('data-fog-color'); render(); });
+  });
+  el('fog-color-picker').addEventListener('input', (e) => { state.fogColor = e.target.value; render(); });
+
+  el('btn-fog-clear').addEventListener('click', async () => {
+    const page = currentPage();
+    const canvas = document.getElementById('fog-canvas');
+    if(!canvas || !page) return;
+    const ctx = canvas.getContext('2d');
+    let hasContent = false;
+    try{
+      const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+      for(let i=3;i<data.length;i+=4*997){ if(data[i] !== 0){ hasContent = true; break; } }
+    }catch(e){ hasContent = true; }
+    if(!hasContent) return;
+    if(!confirm('Remover toda a névoa desta página?')) return;
+    pushUndo();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    page.fog.image = canvas.toDataURL('image/png');
+    await persistPageFog(page);
+  });
+
+  function setupFogCanvas(){
+    const existing = document.getElementById('fog-canvas');
+    if(existing) existing.remove();
+    const img = document.getElementById('map-img');
+    const page = currentPage();
+    if(!img || !page) return;
+
+    const build = () => {
+      const canvas = document.createElement('canvas');
+      canvas.id = 'fog-canvas';
+      canvas.width = img.naturalWidth || 1200;
+      canvas.height = img.naturalHeight || 800;
+      canvas.style.pointerEvents = (state.isMaster && state.fogMode) ? 'auto' : 'none';
+      $canvas.appendChild(canvas);
+      if(page.fog.image){
+        const fogImg = new Image();
+        fogImg.onload = () => {
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(fogImg, 0, 0, canvas.width, canvas.height);
+        };
+        fogImg.src = page.fog.image;
+      }
+    };
+    if(img.complete && img.naturalWidth > 0){ build(); }
+    else { img.addEventListener('load', build, { once:true }); }
+  }
+
+  function canvasPointFromEvent(e, canvas){
+    const rect = canvas.getBoundingClientRect();
+    const xRatio = (e.clientX - rect.left) / rect.width;
+    const yRatio = (e.clientY - rect.top) / rect.height;
+    return {
+      x: Math.max(0, Math.min(canvas.width, xRatio * canvas.width)),
+      y: Math.max(0, Math.min(canvas.height, yRatio * canvas.height))
+    };
+  }
+
+  function hexToRgba(hex, alpha){
+    let h = hex.replace('#','');
+    if(h.length === 3) h = h.split('').map(c => c+c).join('');
+    const r = parseInt(h.substring(0,2),16);
+    const g = parseInt(h.substring(2,4),16);
+    const b = parseInt(h.substring(4,6),16);
+    return 'rgba('+r+','+g+','+b+','+alpha+')';
+  }
+
+  function paintDot(ctx, pt, radius, mode){
+    ctx.globalCompositeOperation = mode === 'reveal' ? 'destination-out' : 'source-over';
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = mode === 'reveal' ? 'rgba(0,0,0,1)' : hexToRgba(state.fogColor, state.fogOpacity / 100);
+    ctx.fill();
+  }
+
+  function paintSegment(ctx, from, to, radius, mode){
+    const dist = Math.hypot(to.x - from.x, to.y - from.y);
+    const steps = Math.max(1, Math.ceil(dist / Math.max(4, radius * 0.35)));
+    for(let i = 1; i <= steps; i++){
+      const t = i / steps;
+      paintDot(ctx, { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }, radius, mode);
+    }
+  }
+
+  function startFogPaint(e){
+    const canvas = document.getElementById('fog-canvas');
+    if(!canvas) return;
+    pushUndo();
+    const ctx = canvas.getContext('2d');
+    const pt = canvasPointFromEvent(e, canvas);
+    paintDot(ctx, pt, state.fogBrush, state.fogPaintMode);
+    state.fogStroke = { canvas, ctx, last: pt };
+    $mapViewport.setPointerCapture(e.pointerId);
+  }
+  function moveFogPaint(e){
+    const s = state.fogStroke;
+    if(!s) return;
+    const pt = canvasPointFromEvent(e, s.canvas);
+    paintSegment(s.ctx, s.last, pt, state.fogBrush, state.fogPaintMode);
+    s.last = pt;
+  }
+  async function endFogPaint(){
+    const s = state.fogStroke;
+    const page = currentPage();
+    if(!s || !page) return;
+    page.fog.image = s.canvas.toDataURL('image/png');
+    state.fogStroke = null;
+    await persistPageFog(page);
+  }
+
+  // ---------- polling for live sync ----------
+  let lastTokensSnapshot = '';
+  let lastIndexSnapshot = '';
+  let lastPageContentSnapshot = '';
+  async function pollForUpdates(){
+    if(!state.currentSlot) return;
+    if(state.dragging || state.fogStroke || state.textDragging) return;
+
+    const indexRaw = await safeGet(slotKey('pages-index'));
+    if(indexRaw && indexRaw !== lastIndexSnapshot){
+      lastIndexSnapshot = indexRaw;
+      await loadSlotData();
+      lastPageContentSnapshot = '';
+      render();
+      return;
+    }
+
+    const page = currentPage();
+    let changed = false;
+
+    const [tokensRaw, metaRaw] = await Promise.all([ safeGet(slotKey('tokens')), safeGet(slotKey('meta')) ]);
+    if(tokensRaw && tokensRaw !== lastTokensSnapshot){
+      lastTokensSnapshot = tokensRaw;
+      try{ state.tokens = JSON.parse(tokensRaw).list || []; changed = true; }catch(e){}
+    }
+    if(metaRaw){
+      try{
+        const m = JSON.parse(metaRaw);
+        if(m.title !== state.meta.title){ state.meta.title = m.title; changed = true; }
+        if(m.playerCode !== state.meta.playerCode){ state.meta.playerCode = m.playerCode; changed = true; }
+        if(!state.meta.masterPass && m.masterPass){ state.meta.masterPass = m.masterPass; }
+      }catch(e){}
+    }
+
+    if(page){
+      const [mapRaw, fogRaw, textsRaw] = await Promise.all([
+        safeGet(slotKey('page-'+page.id+'-map')),
+        safeGet(slotKey('page-'+page.id+'-fog')),
+        safeGet(slotKey('page-'+page.id+'-texts'))
+      ]);
+      const combined = (mapRaw||'') + '|' + (fogRaw||'') + '|' + (textsRaw||'');
+      if(combined !== lastPageContentSnapshot){
+        lastPageContentSnapshot = combined;
+        if(mapRaw){ try{ page.map = JSON.parse(mapRaw); changed = true; }catch(e){} }
+        if(fogRaw){ try{ page.fog = JSON.parse(fogRaw); changed = true; }catch(e){} }
+        if(textsRaw){ try{ page.texts = JSON.parse(textsRaw).list || []; changed = true; }catch(e){} }
+      }
+    }
+
+    if(changed) render();
+  }
+
+  // ---------- init ----------
+  showPortal();
+})();
+</script>
+</body>
+</html>
