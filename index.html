@@ -1147,6 +1147,7 @@
       if(!m.masterPass) return; // stale/incomplete entry, skip
       const card = document.createElement('div');
       card.className = 'slot-card';
+      if(state.isAdmin) card.title = 'Clique para entrar como mestre, sem precisar da senha';
       card.innerHTML =
         '<div>' +
           '<div class="slot-name">' + escapeHtml(m.title || 'Campanha sem nome') + '</div>' +
@@ -1155,7 +1156,10 @@
         (state.isAdmin
           ? '<button type="button" class="danger slot-delete-admin" data-admin-delete="'+id+'">Excluir</button>'
           : '<div class="slot-arrow">→</div>');
-      card.addEventListener('click', () => openMasterLogin(id, m));
+      card.addEventListener('click', () => {
+        if(state.isAdmin){ enterSlot(id, 'master'); }
+        else { openMasterLogin(id, m); }
+      });
       $cards.appendChild(card);
     });
     if(state.isAdmin){
