@@ -155,7 +155,8 @@
     font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:2px;
     text-transform:uppercase; color:var(--parchment-dim);
   }
-  #topbar-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; flex-shrink:0; }
+  #topbar-right{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; flex-shrink:0; }
+  #topbar-right button{ padding:6px 10px; font-size:10px; }
 
   .theme-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; }
   .theme-row label{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--parchment-dim); letter-spacing:0.5px; }
@@ -187,9 +188,9 @@
   .panel-block{ border-bottom:2px solid var(--line); padding-bottom:22px; }
   .panel-block:last-child{ border-bottom:none; padding-bottom:0; }
   .panel-title{
-    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:2.5px;
+    font-family:'JetBrains Mono', monospace; font-size:14px; letter-spacing:2.5px;
     text-transform:uppercase; color:var(--amber-bright); margin-bottom:12px;
-    padding-bottom:7px; border-bottom:1px solid var(--line);
+    padding-bottom:7px; border-bottom:1px solid var(--line); text-align:center;
   }
   .file-btn{
     display:block; width:100%; text-align:center; padding:10px; margin-top:8px;
@@ -417,7 +418,7 @@
     text-align:center; pointer-events:none;
     display:none;
   }
-  #app-screen.is-master .token.selected .token-label{ display:block; }
+  .token.selected .token-label{ display:block; }
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
     height:6px; border-radius:3px;
@@ -511,6 +512,43 @@
   .initiative-entry .initiative-remove{ padding:3px 7px; font-size:9px; flex-shrink:0; }
   .initiative-turn-tag{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--amber-bright); letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
 
+  /* Campaign journal (same drawer pattern; open to master AND players) */
+  #journal-backdrop{
+    display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
+  }
+  #journal-backdrop.open{ display:block; }
+  #journal-panel{
+    position:fixed; top:0; right:0; bottom:0; width:360px; max-width:88vw; z-index:150;
+    background:var(--bg-panel); border-left:1px solid var(--amber);
+    box-shadow:-6px 0 24px rgba(0,0,0,0.5);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .22s ease;
+  }
+  #journal-panel.open{ transform:translateX(0); }
+  #journal-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
+  }
+  #journal-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
+  #journal-panel-close{ padding:4px 9px; font-size:12px; }
+  #journal-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+  #journal-input{
+    width:100%; background:#120e08; border:1px solid var(--line); border-radius:3px;
+    color:var(--parchment); padding:9px 10px; font-family:'EB Garamond', serif; font-size:15px;
+    outline:none; resize:vertical; min-height:64px;
+  }
+  #journal-input:focus{ border-color:var(--amber); }
+  #journal-list{ display:flex; flex-direction:column; gap:8px; padding-top:6px; border-top:1px solid var(--line); }
+  .journal-entry{ background:#120e08; border:1px solid var(--line); border-radius:5px; padding:9px 11px; }
+  .journal-entry-meta{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:0.5px;
+    margin-bottom:5px;
+  }
+  .journal-entry-meta .journal-author{ color:var(--amber-bright); }
+  .journal-entry-meta .journal-remove{ padding:2px 7px; font-size:9px; }
+  .journal-entry-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
+
   .dice-type-row{ display:flex; align-items:center; gap:8px; }
   .dice-type-row .die-label{
     font-family:'Cinzel', serif; font-size:14px; color:var(--parchment); width:44px; flex-shrink:0;
@@ -570,6 +608,18 @@
     #initiative-panel.open{ transform:translateY(0); }
     #initiative-panel-header{ padding:10px 16px 12px; position:relative; }
     #initiative-panel-header::before{
+      content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
+      width:36px; height:4px; border-radius:2px; background:var(--line);
+    }
+    #journal-panel{
+      top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
+      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      border-radius:16px 16px 0 0;
+      transform:translateY(100%);
+    }
+    #journal-panel.open{ transform:translateY(0); }
+    #journal-panel-header{ padding:10px 16px 12px; position:relative; }
+    #journal-panel-header::before{
       content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
       width:36px; height:4px; border-radius:2px; background:var(--line);
     }
@@ -707,6 +757,7 @@
         <button id="btn-preview-toggle" style="display:none;">👁 Ver como jogador</button>
         <button id="btn-freeze-toggle" style="display:none;">🔓 Jogadores atualizados</button>
         <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
+        <button id="journal-toggle" title="Diário da campanha">📖 Diário</button>
         <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
         <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
         <button id="measure-toggle" title="Meça uma distância no mapa">📏 Medir</button>
@@ -947,6 +998,19 @@
         <div id="initiative-list"></div>
       </div>
     </div>
+
+    <div id="journal-backdrop"></div>
+    <div id="journal-panel">
+      <div id="journal-panel-header">
+        <h2>Diário da Campanha</h2>
+        <button id="journal-panel-close">✕</button>
+      </div>
+      <div id="journal-panel-body">
+        <textarea id="journal-input" placeholder="Escreva uma entrada no diário — o que aconteceu, uma pista, um resumo da sessão..." rows="3"></textarea>
+        <button id="btn-journal-add" class="primary" style="width:100%; margin-top:6px;">Adicionar entrada</button>
+        <div id="journal-list"></div>
+      </div>
+    </div>
   </div>
 
   <!-- ===================== MODALS ===================== -->
@@ -1064,6 +1128,7 @@
     measureArmed:false,
     measureDrag:null,
     initiative:{ list:[], activeId:null, round:1 },
+    journal:[],
     undoStack:[],
     redoStack:[],
     zoom:1,
@@ -1093,11 +1158,13 @@
   // True master authority minus an active "view as player" preview.
   // Use this (not state.isMaster) for anything the player screen should hide.
   function effectiveMaster(){ return state.isMaster && !state.previewAsPlayer; }
+  function canInteractWithToken(tok){ return effectiveMaster() || !(tok && tok.masterLocked); }
 
   // ---------- dice roller (available to master and players alike) ----------
   const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
   let lastDiceLogSnapshot = '';
   let lastInitiativeSnapshot = '';
+  let lastJournalSnapshot = '';
 
   function renderDiceTypes(){
     const $wrap = el('dice-types');
@@ -1304,6 +1371,82 @@
   });
   el('btn-initiative-next').addEventListener('click', nextInitiativeTurn);
   el('btn-initiative-clear').addEventListener('click', clearInitiative);
+
+  // ---------- campaign journal (master AND players can write) ----------
+  async function persistJournal(){
+    await safeSet(slotKey('journal'), { list: state.journal });
+  }
+
+  function currentDisplayName(){
+    return state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
+  }
+
+  function formatJournalTime(ts){
+    const d = new Date(ts);
+    return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + ' ' +
+           String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+
+  function renderJournalList(){
+    const $list = el('journal-list');
+    if(state.journal.length === 0){
+      $list.innerHTML = '<div class="hint">Nenhuma entrada ainda. Seja o primeiro a escrever algo!</div>';
+      return;
+    }
+    const me = currentDisplayName();
+    $list.innerHTML = state.journal.map(entry => {
+      const canRemove = effectiveMaster() || entry.author === me;
+      return (
+        '<div class="journal-entry">' +
+          '<div class="journal-entry-meta">' +
+            '<span class="journal-author">'+escapeHtml(entry.author)+'</span>' +
+            '<span>'+formatJournalTime(entry.ts)+'</span>' +
+            (canRemove ? '<button type="button" class="danger journal-remove" data-journal-remove="'+entry.id+'">✕</button>' : '') +
+          '</div>' +
+          '<div class="journal-entry-text">'+escapeHtml(entry.text)+'</div>' +
+        '</div>'
+      );
+    }).join('');
+    $list.querySelectorAll('[data-journal-remove]').forEach(btn => {
+      btn.addEventListener('click', () => removeJournalEntry(btn.getAttribute('data-journal-remove')));
+    });
+  }
+
+  async function addJournalEntry(){
+    const text = el('journal-input').value.trim();
+    if(!text) return;
+    const entry = { id:newId('j'), author:currentDisplayName(), ts:Date.now(), text };
+    state.journal.unshift(entry);
+    if(state.journal.length > 100) state.journal = state.journal.slice(0, 100);
+    lastJournalSnapshot = JSON.stringify({ list: state.journal });
+    renderJournalList();
+    el('journal-input').value = '';
+    await persistJournal();
+  }
+
+  async function removeJournalEntry(id){
+    const entry = state.journal.find(e => e.id === id);
+    if(!entry) return;
+    if(!effectiveMaster() && entry.author !== currentDisplayName()) return;
+    state.journal = state.journal.filter(e => e.id !== id);
+    lastJournalSnapshot = JSON.stringify({ list: state.journal });
+    renderJournalList();
+    await persistJournal();
+  }
+
+  function openJournalPanel(){
+    el('journal-panel').classList.add('open');
+    el('journal-backdrop').classList.add('open');
+    renderJournalList();
+  }
+  function closeJournalPanel(){
+    el('journal-panel').classList.remove('open');
+    el('journal-backdrop').classList.remove('open');
+  }
+  el('journal-toggle').addEventListener('click', openJournalPanel);
+  el('journal-panel-close').addEventListener('click', closeJournalPanel);
+  el('journal-backdrop').addEventListener('click', closeJournalPanel);
+  el('btn-journal-add').addEventListener('click', addJournalEntry);
 
   // ---------- tutorial ----------
   const TUTORIAL_MASTER = [
@@ -1609,12 +1752,16 @@
     state.measureArmed = false;
     state.measureDrag = null;
     state.initiative = { list:[], activeId:null, round:1 };
+    state.journal = [];
     lastPingTs = null;
     lastInitiativeSnapshot = '';
+    lastJournalSnapshot = '';
     el('dice-panel').classList.remove('open');
     el('dice-backdrop').classList.remove('open');
     el('initiative-panel').classList.remove('open');
     el('initiative-backdrop').classList.remove('open');
+    el('journal-panel').classList.remove('open');
+    el('journal-backdrop').classList.remove('open');
     state.tokens = [];
     state.pages = [];
     state.currentPageId = null;
@@ -1808,13 +1955,14 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative'))
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, journalRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('journal'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; }catch(e){} }
     if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
+    if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
 
     let index = { list: [], currentPageId: null };
     if(indexRaw){ try{ index = JSON.parse(indexRaw); }catch(e){} }
@@ -1950,7 +2098,7 @@
     $title.style.fontFamily = titleFont;
     el('title-font-input').value = titleFont;
 
-    if(effectiveMaster() && state.selectedTokenId){
+    if(state.selectedTokenId){
       const selTok = state.tokens.find(t => t.id === state.selectedTokenId);
       el('topbar-token-name').textContent = selTok ? selTok.name : '';
     } else {
@@ -2011,6 +2159,7 @@
     renderDiceTypes();
     renderDiceLog();
     renderInitiativeList();
+    renderJournalList();
 
     updateHistoryButtons();
   }
@@ -2289,7 +2438,22 @@
             '</div>' +
           '</div>'
         );
-      }).join('');
+      }).join('') +
+      (function(){
+        const cyphers = tok.cyphers || { current:0, max:2 };
+        return (
+          '<div class="pool-block">' +
+            '<div class="pool-block-label">Cifras carregadas</div>' +
+            '<div class="token-row-hp">' +
+              '<button type="button" data-cypher-minus="'+tok.id+'">−</button>' +
+              '<input type="number" class="hp-max-input" min="0" max="20" value="'+cyphers.current+'" data-cypher-input="'+tok.id+'">' +
+              '<button type="button" data-cypher-plus="'+tok.id+'">+</button>' +
+              '<span class="hp-max-label">Máx.</span>' +
+              '<input type="number" class="hp-max-input" min="0" max="20" value="'+cyphers.max+'" data-cypher-max="'+tok.id+'">' +
+            '</div>' +
+          '</div>'
+        );
+      })();
     }
     const hp = tok.hp || { current:10, max:10, temp:0 };
     return (
@@ -2394,6 +2558,18 @@
     });
     $tokenList.querySelectorAll('[data-pool-max]').forEach(inp=>{
       inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-pool-max').split(':'); setPoolMax(id, key, inp.value); });
+    });
+    $tokenList.querySelectorAll('[data-cypher-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustCypherCount(btn.getAttribute('data-cypher-minus'), -1));
+    });
+    $tokenList.querySelectorAll('[data-cypher-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustCypherCount(btn.getAttribute('data-cypher-plus'), 1));
+    });
+    $tokenList.querySelectorAll('[data-cypher-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setCypherCurrent(inp.getAttribute('data-cypher-input'), inp.value));
+    });
+    $tokenList.querySelectorAll('[data-cypher-max]').forEach(inp=>{
+      inp.addEventListener('change', () => setCypherMax(inp.getAttribute('data-cypher-max'), inp.value));
     });
     $tokenList.querySelectorAll('[data-pool-heal]').forEach(btn=>{
       btn.addEventListener('click', () => {
@@ -2539,7 +2715,8 @@
       // A tap, not a drag: snap the token back to its original spot and treat as a select click.
       d.el.style.left = d.origLeft;
       d.el.style.top = d.origTop;
-      if(effectiveMaster()){
+      const tappedTok = state.tokens.find(t => t.id === d.id);
+      if(canInteractWithToken(tappedTok)){
         state.selectedTokenId = state.selectedTokenId === d.id ? null : d.id;
         render();
       }
@@ -2637,6 +2814,7 @@
         might:{ current:10, max:10 },
         speed:{ current:10, max:10 }
       };
+      if(!tok.cyphers) tok.cyphers = { current:0, max:2 };
     }
     if(system === 'hp' && !tok.hp){
       tok.hp = { current:10, max:10, temp:0 };
@@ -2668,6 +2846,41 @@
     if(!tok.pools[poolKey]) tok.pools[poolKey] = { current:max, max:max };
     tok.pools[poolKey].max = max;
     tok.pools[poolKey].current = Math.min(tok.pools[poolKey].current, max);
+    render();
+    await persistTokens();
+  }
+
+  async function adjustCypherCount(id, delta){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.cyphers) tok.cyphers = { current:0, max:2 };
+    tok.cyphers.current = Math.max(0, tok.cyphers.current + delta);
+    render();
+    await persistTokens();
+  }
+
+  async function setCypherCurrent(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    if(!tok.cyphers) tok.cyphers = { current:0, max:2 };
+    let current = parseInt(value, 10);
+    if(isNaN(current) || current < 0) current = 0;
+    pushUndo();
+    tok.cyphers.current = current;
+    render();
+    await persistTokens();
+  }
+
+  async function setCypherMax(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    if(!tok.cyphers) tok.cyphers = { current:0, max:2 };
+    let max = parseInt(value, 10);
+    if(isNaN(max) || max < 0) max = 0;
+    if(max > 20) max = 20;
+    pushUndo();
+    tok.cyphers.max = max;
     render();
     await persistTokens();
   }
@@ -3063,6 +3276,7 @@
         might:{ current:mMax, max:mMax },
         speed:{ current:sMax, max:sMax }
       };
+      tok.cyphers = { current:0, max:2 };
     } else {
       let maxHp = parseInt(el('token-maxhp').value, 10);
       if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
@@ -3477,6 +3691,12 @@
     if(initRaw && initRaw !== lastInitiativeSnapshot){
       lastInitiativeSnapshot = initRaw;
       try{ state.initiative = JSON.parse(initRaw); changed = true; }catch(e){}
+    }
+
+    const journalRaw = await safeGet(slotKey('journal'));
+    if(journalRaw && journalRaw !== lastJournalSnapshot){
+      lastJournalSnapshot = journalRaw;
+      try{ state.journal = JSON.parse(journalRaw).list || []; changed = true; }catch(e){}
     }
 
     const pingPage = currentPage();
