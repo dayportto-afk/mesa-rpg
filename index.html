@@ -263,6 +263,18 @@
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .condition-chip.toggle-active{ background:var(--amber); border-color:var(--amber); }
+
+  .notes-block{ margin-top:2px; }
+  .notes-toggle{
+    width:100%; text-align:left; padding:7px 10px; font-size:10px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .notes-textarea{
+    width:100%; margin-top:6px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
+    color:var(--parchment); padding:8px 9px; font-family:'EB Garamond', serif; font-size:14px;
+    outline:none; resize:vertical; min-height:56px;
+  }
+  .notes-textarea:focus{ border-color:var(--amber); }
   .token-row-hp .hp-temp-tag{ color:#7ec8e3; }
   .token-row-hp .hp-amount-input{
     width:56px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
@@ -446,6 +458,24 @@
     max-width:90vw;
   }
   #freeze-banner button{ padding:4px 10px; font-size:10px; flex-shrink:0; }
+
+  #initiative-hud{
+    display:none; position:absolute; top:16px; left:16px; z-index:70; max-width:220px;
+    background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
+    padding:8px 10px; box-shadow:0 4px 16px rgba(0,0,0,0.4); cursor:pointer;
+  }
+  #initiative-hud.show{ display:block; }
+  #initiative-hud:hover{ border-color:var(--amber-bright); }
+  #initiative-hud-round{
+    font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim);
+    letter-spacing:1px; text-transform:uppercase; text-align:center; margin-bottom:6px;
+  }
+  #initiative-hud-list{ display:flex; gap:5px; flex-wrap:wrap; justify-content:center; }
+  .hud-avatar{
+    width:30px; height:30px; border-radius:50%; object-fit:cover; border:2px solid var(--line);
+    flex-shrink:0; transition:transform .15s, border-color .15s;
+  }
+  .hud-avatar.active{ border-color:var(--amber-bright); transform:scale(1.25); box-shadow:0 0 8px var(--amber-bright); }
   #btn-freeze-toggle.frozen{ background:var(--wax); color:#f4dede; border-color:var(--wax); }
 
   #zoom-controls{
@@ -549,6 +579,30 @@
   .journal-entry-meta .journal-remove{ padding:2px 7px; font-size:9px; }
   .journal-entry-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
 
+  /* My Sheet (player-only: view/edit their own character, matched by name) */
+  #my-sheet-backdrop{
+    display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
+  }
+  #my-sheet-backdrop.open{ display:block; }
+  #my-sheet-panel{
+    position:fixed; top:0; right:0; bottom:0; width:340px; max-width:88vw; z-index:150;
+    background:var(--bg-panel); border-left:1px solid var(--amber);
+    box-shadow:-6px 0 24px rgba(0,0,0,0.5);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .22s ease;
+  }
+  #my-sheet-panel.open{ transform:translateX(0); }
+  #my-sheet-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
+  }
+  #my-sheet-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
+  #my-sheet-panel-close{ padding:4px 9px; font-size:12px; }
+  #my-sheet-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+  .my-sheet-header-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .my-sheet-header-row img{ width:44px; height:44px; border-radius:50%; object-fit:cover; border:1px solid var(--amber); flex-shrink:0; }
+  .my-sheet-header-row .my-sheet-name{ font-family:'Cinzel', serif; font-size:17px; color:var(--amber-bright); }
+
   .dice-type-row{ display:flex; align-items:center; gap:8px; }
   .dice-type-row .die-label{
     font-family:'Cinzel', serif; font-size:14px; color:var(--parchment); width:44px; flex-shrink:0;
@@ -620,6 +674,18 @@
     #journal-panel.open{ transform:translateY(0); }
     #journal-panel-header{ padding:10px 16px 12px; position:relative; }
     #journal-panel-header::before{
+      content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
+      width:36px; height:4px; border-radius:2px; background:var(--line);
+    }
+    #my-sheet-panel{
+      top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
+      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      border-radius:16px 16px 0 0;
+      transform:translateY(100%);
+    }
+    #my-sheet-panel.open{ transform:translateY(0); }
+    #my-sheet-panel-header{ padding:10px 16px 12px; position:relative; }
+    #my-sheet-panel-header::before{
       content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
       width:36px; height:4px; border-radius:2px; background:var(--line);
     }
@@ -758,6 +824,7 @@
         <button id="btn-freeze-toggle" style="display:none;">🔓 Jogadores atualizados</button>
         <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
         <button id="journal-toggle" title="Diário da campanha">📖 Diário</button>
+        <button id="my-sheet-toggle" style="display:none;" title="Sua ficha de personagem">🎴 Minha Ficha</button>
         <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
         <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
         <button id="measure-toggle" title="Meça uma distância no mapa">📏 Medir</button>
@@ -951,6 +1018,10 @@
           <span>🔒 Jogadores congelados — eles não veem suas mudanças ainda</span>
           <button type="button" id="btn-freeze-banner-release">Liberar agora</button>
         </div>
+        <div id="initiative-hud" title="Clique para abrir a iniciativa completa">
+          <div id="initiative-hud-round"></div>
+          <div id="initiative-hud-list"></div>
+        </div>
         <div id="zoom-controls">
           <button id="zoom-in" title="Aproximar">+</button>
           <button id="zoom-reset" title="Redefinir zoom">⤾</button>
@@ -1010,6 +1081,15 @@
         <button id="btn-journal-add" class="primary" style="width:100%; margin-top:6px;">Adicionar entrada</button>
         <div id="journal-list"></div>
       </div>
+    </div>
+
+    <div id="my-sheet-backdrop"></div>
+    <div id="my-sheet-panel">
+      <div id="my-sheet-panel-header">
+        <h2>Minha Ficha</h2>
+        <button id="my-sheet-panel-close">✕</button>
+      </div>
+      <div id="my-sheet-panel-body"></div>
     </div>
   </div>
 
@@ -1165,6 +1245,7 @@
   let lastDiceLogSnapshot = '';
   let lastInitiativeSnapshot = '';
   let lastJournalSnapshot = '';
+  let openNotesTokens = new Set();
 
   function renderDiceTypes(){
     const $wrap = el('dice-types');
@@ -1274,6 +1355,20 @@
     return [...state.initiative.list].sort((a,b) => b.score - a.score);
   }
 
+  function renderInitiativeHud(){
+    const $hud = el('initiative-hud');
+    if(state.initiative.list.length === 0){
+      $hud.classList.remove('show');
+      return;
+    }
+    $hud.classList.add('show');
+    el('initiative-hud-round').textContent = 'Rodada ' + state.initiative.round;
+    const sorted = sortedInitiative();
+    el('initiative-hud-list').innerHTML = sorted.map(entry =>
+      '<img class="hud-avatar'+(entry.id === state.initiative.activeId ? ' active' : '')+'" src="'+entry.image+'" alt="" title="'+escapeHtml(entry.name)+' ('+entry.score+')">'
+    ).join('');
+  }
+
   function renderInitiativeList(){
     el('initiative-round').textContent = state.initiative.round;
     el('initiative-master-controls').style.display = effectiveMaster() ? 'block' : 'none';
@@ -1315,6 +1410,7 @@
     state.initiative.list.push(entry);
     if(!state.initiative.activeId) state.initiative.activeId = entry.id;
     renderInitiativeList();
+    renderInitiativeHud();
     await persistInitiative();
   }
 
@@ -1325,6 +1421,7 @@
       state.initiative.activeId = sorted.length ? sorted[0].id : null;
     }
     renderInitiativeList();
+    renderInitiativeHud();
     await persistInitiative();
   }
 
@@ -1336,6 +1433,7 @@
     if(idx === 0) state.initiative.round = (state.initiative.round || 1) + 1;
     state.initiative.activeId = sorted[idx].id;
     renderInitiativeList();
+    renderInitiativeHud();
     await persistInitiative();
   }
 
@@ -1343,6 +1441,7 @@
     if(state.initiative.list.length && !confirm('Encerrar o combate e limpar a iniciativa?')) return;
     state.initiative = { list:[], activeId:null, round:1 };
     renderInitiativeList();
+    renderInitiativeHud();
     await persistInitiative();
   }
 
@@ -1356,6 +1455,7 @@
     el('initiative-backdrop').classList.remove('open');
   }
   el('initiative-toggle').addEventListener('click', openInitiativePanel);
+  el('initiative-hud').addEventListener('click', openInitiativePanel);
   el('initiative-panel-close').addEventListener('click', closeInitiativePanel);
   el('initiative-backdrop').addEventListener('click', closeInitiativePanel);
   el('btn-initiative-d20').addEventListener('click', () => {
@@ -1447,6 +1547,54 @@
   el('journal-panel-close').addEventListener('click', closeJournalPanel);
   el('journal-backdrop').addEventListener('click', closeJournalPanel);
   el('btn-journal-add').addEventListener('click', addJournalEntry);
+
+  // ---------- "My Sheet" (players view/interact with their own character, matched by name) ----------
+  function findMyToken(){
+    if(!state.playerName) return null;
+    const target = state.playerName.trim().toLowerCase();
+    if(!target) return null;
+    return state.tokens.find(t => (t.name||'').trim().toLowerCase() === target) || null;
+  }
+
+  function renderMySheet(){
+    const $body = el('my-sheet-panel-body');
+    const tok = findMyToken();
+    if(!tok){
+      $body.innerHTML = '<div class="hint">Nenhuma ficha encontrada com o nome "'+escapeHtml(state.playerName||'')+'". Peça ao mestre para criar uma ficha de personagem com esse mesmo nome que você usou para entrar.</div>';
+      return;
+    }
+    $body.innerHTML =
+      '<div class="my-sheet-header-row">' +
+        '<img src="'+tok.image+'" alt="">' +
+        '<span class="my-sheet-name">'+escapeHtml(tok.name)+'</span>' +
+      '</div>' +
+      lifeBlockMarkup(tok) +
+      '<div class="token-row-hp">' +
+        '<span class="row-label">XP</span>' +
+        '<button type="button" data-xp-minus="'+tok.id+'">−</button>' +
+        '<input type="number" class="hp-max-input" min="0" max="999" value="'+(tok.xp||0)+'" data-xp-input="'+tok.id+'">' +
+        '<button type="button" data-xp-plus="'+tok.id+'">+</button>' +
+      '</div>' +
+      '<div class="condition-chip-row">' +
+        CONDITIONS.map(c => '<button type="button" class="condition-chip'+((tok.conditions||[]).includes(c.key)?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+'">'+c.icon+'</button>').join('') +
+      '</div>' +
+      notesBlockMarkup(tok);
+    wireVitalsControls($body);
+    wireNotesControls($body);
+  }
+
+  function openMySheet(){
+    el('my-sheet-panel').classList.add('open');
+    el('my-sheet-backdrop').classList.add('open');
+    renderMySheet();
+  }
+  function closeMySheet(){
+    el('my-sheet-panel').classList.remove('open');
+    el('my-sheet-backdrop').classList.remove('open');
+  }
+  el('my-sheet-toggle').addEventListener('click', openMySheet);
+  el('my-sheet-panel-close').addEventListener('click', closeMySheet);
+  el('my-sheet-backdrop').addEventListener('click', closeMySheet);
 
   // ---------- tutorial ----------
   const TUTORIAL_MASTER = [
@@ -1753,6 +1901,7 @@
     state.measureDrag = null;
     state.initiative = { list:[], activeId:null, round:1 };
     state.journal = [];
+    openNotesTokens = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
     lastJournalSnapshot = '';
@@ -1762,6 +1911,8 @@
     el('initiative-backdrop').classList.remove('open');
     el('journal-panel').classList.remove('open');
     el('journal-backdrop').classList.remove('open');
+    el('my-sheet-panel').classList.remove('open');
+    el('my-sheet-backdrop').classList.remove('open');
     state.tokens = [];
     state.pages = [];
     state.currentPageId = null;
@@ -2122,6 +2273,8 @@
 
     $masterBadge.style.display = effectiveMaster() ? 'inline-flex' : 'none';
     el('btn-preview-toggle').style.display = state.isMaster ? 'inline-block' : 'none';
+    el('my-sheet-toggle').style.display = !state.isMaster ? 'inline-block' : 'none';
+    if(el('my-sheet-panel').classList.contains('open')) renderMySheet();
     el('btn-freeze-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('btn-freeze-toggle').textContent = state.meta.playersFrozen ? '🔒 Jogadores congelados' : '🔓 Jogadores atualizados';
     el('btn-freeze-toggle').classList.toggle('frozen', !!state.meta.playersFrozen);
@@ -2159,6 +2312,7 @@
     renderDiceTypes();
     renderDiceLog();
     renderInitiativeList();
+    renderInitiativeHud();
     renderJournalList();
 
     updateHistoryButtons();
@@ -2414,6 +2568,39 @@
     });
   }
 
+  function notesBlockMarkup(tok){
+    const isOpen = openNotesTokens.has(tok.id);
+    const notes = tok.notes || '';
+    return (
+      '<div class="notes-block">' +
+        '<button type="button" class="notes-toggle" data-notes-toggle="'+tok.id+'">🎒 ANOTAÇÕES <span>'+(isOpen ? '▲' : '▼')+'</span></button>' +
+        (isOpen ? '<textarea class="notes-textarea" data-notes-input="'+tok.id+'" placeholder="Liste os itens, equipamentos, cifras nomeadas...">'+escapeHtml(notes)+'</textarea>' : '') +
+      '</div>'
+    );
+  }
+
+  function wireNotesControls($root){
+    $root.querySelectorAll('[data-notes-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-notes-toggle');
+        if(openNotesTokens.has(id)) openNotesTokens.delete(id); else openNotesTokens.add(id);
+        render();
+      });
+    });
+    $root.querySelectorAll('[data-notes-input]').forEach(ta=>{
+      ta.addEventListener('change', () => setTokenNotes(ta.getAttribute('data-notes-input'), ta.value));
+    });
+  }
+
+  async function setTokenNotes(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    tok.notes = value;
+    render();
+    await persistTokens();
+  }
+
   function lifeBlockMarkup(tok){
     if(tok.statSystem === 'numenera'){
       const pools = tok.pools || {};
@@ -2478,6 +2665,91 @@
     );
   }
 
+  function wireVitalsControls($root){
+    $root.querySelectorAll('[data-hp-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => applyHpDelta(btn.getAttribute('data-hp-minus'), -1));
+    });
+    $root.querySelectorAll('[data-hp-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => applyHpDelta(btn.getAttribute('data-hp-plus'), 1));
+    });
+    $root.querySelectorAll('[data-hp-max]').forEach(inp=>{
+      inp.addEventListener('change', () => setMaxHp(inp.getAttribute('data-hp-max'), inp.value));
+    });
+    $root.querySelectorAll('[data-hp-temp]').forEach(inp=>{
+      inp.addEventListener('change', () => setTempHp(inp.getAttribute('data-hp-temp'), inp.value));
+    });
+    $root.querySelectorAll('[data-hp-heal]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-hp-heal');
+        const amountInp = $root.querySelector('[data-hp-amount="'+id+'"]');
+        const amount = parseInt(amountInp.value, 10);
+        if(!isNaN(amount) && amount > 0){ applyHpDelta(id, amount); amountInp.value = ''; }
+      });
+    });
+    $root.querySelectorAll('[data-hp-damage]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-hp-damage');
+        const amountInp = $root.querySelector('[data-hp-amount="'+id+'"]');
+        const amount = parseInt(amountInp.value, 10);
+        if(!isNaN(amount) && amount > 0){ applyHpDelta(id, -amount); amountInp.value = ''; }
+      });
+    });
+    $root.querySelectorAll('[data-pool-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => { const [id,key] = btn.getAttribute('data-pool-minus').split(':'); applyPoolDelta(id, key, -1); });
+    });
+    $root.querySelectorAll('[data-pool-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => { const [id,key] = btn.getAttribute('data-pool-plus').split(':'); applyPoolDelta(id, key, 1); });
+    });
+    $root.querySelectorAll('[data-pool-max]').forEach(inp=>{
+      inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-pool-max').split(':'); setPoolMax(id, key, inp.value); });
+    });
+    $root.querySelectorAll('[data-pool-heal]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const composite = btn.getAttribute('data-pool-heal');
+        const [id,key] = composite.split(':');
+        const amountInp = $root.querySelector('[data-pool-amount="'+composite+'"]');
+        const amount = parseInt(amountInp.value, 10);
+        if(!isNaN(amount) && amount > 0){ applyPoolDelta(id, key, amount); amountInp.value = ''; }
+      });
+    });
+    $root.querySelectorAll('[data-pool-damage]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const composite = btn.getAttribute('data-pool-damage');
+        const [id,key] = composite.split(':');
+        const amountInp = $root.querySelector('[data-pool-amount="'+composite+'"]');
+        const amount = parseInt(amountInp.value, 10);
+        if(!isNaN(amount) && amount > 0){ applyPoolDelta(id, key, -amount); amountInp.value = ''; }
+      });
+    });
+    $root.querySelectorAll('[data-cypher-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustCypherCount(btn.getAttribute('data-cypher-minus'), -1));
+    });
+    $root.querySelectorAll('[data-cypher-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustCypherCount(btn.getAttribute('data-cypher-plus'), 1));
+    });
+    $root.querySelectorAll('[data-cypher-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setCypherCurrent(inp.getAttribute('data-cypher-input'), inp.value));
+    });
+    $root.querySelectorAll('[data-cypher-max]').forEach(inp=>{
+      inp.addEventListener('change', () => setCypherMax(inp.getAttribute('data-cypher-max'), inp.value));
+    });
+    $root.querySelectorAll('[data-xp-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustXp(btn.getAttribute('data-xp-minus'), -1));
+    });
+    $root.querySelectorAll('[data-xp-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustXp(btn.getAttribute('data-xp-plus'), 1));
+    });
+    $root.querySelectorAll('[data-xp-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setXp(inp.getAttribute('data-xp-input'), inp.value));
+    });
+    $root.querySelectorAll('[data-condition]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const [id, key] = btn.getAttribute('data-condition').split(':');
+        toggleCondition(id, key);
+      });
+    });
+  }
+
   function renderTokenList(){
     if(!effectiveMaster()){ $tokenList.innerHTML=''; return; }
     if(state.tokens.length === 0){
@@ -2512,6 +2784,7 @@
         '<div class="condition-chip-row">' +
           CONDITIONS.map(c => '<button type="button" class="condition-chip'+((tok.conditions||[]).includes(c.key)?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+'">'+c.icon+'</button>').join('') +
         '</div>' +
+        notesBlockMarkup(tok) +
         '<div class="token-row-size">' +
           '<span class="row-label">Tam.</span>' +
           '<button type="button" data-size-minus="'+tok.id+'">−</button>' +
@@ -2526,68 +2799,16 @@
         '</div>' +
       '</div>');
     }).join('');
-    $tokenList.querySelectorAll('[data-xp-minus]').forEach(btn=>{
-      btn.addEventListener('click', () => adjustXp(btn.getAttribute('data-xp-minus'), -1));
-    });
-    $tokenList.querySelectorAll('[data-xp-plus]').forEach(btn=>{
-      btn.addEventListener('click', () => adjustXp(btn.getAttribute('data-xp-plus'), 1));
-    });
-    $tokenList.querySelectorAll('[data-xp-input]').forEach(inp=>{
-      inp.addEventListener('change', () => setXp(inp.getAttribute('data-xp-input'), inp.value));
-    });
+    wireVitalsControls($tokenList);
+    wireNotesControls($tokenList);
     $tokenList.querySelectorAll('[data-lock-toggle]').forEach(btn=>{
       btn.addEventListener('click', () => toggleMasterLock(btn.getAttribute('data-lock-toggle')));
-    });
-    $tokenList.querySelectorAll('[data-condition]').forEach(btn=>{
-      btn.addEventListener('click', () => {
-        const [id, key] = btn.getAttribute('data-condition').split(':');
-        toggleCondition(id, key);
-      });
     });
     $tokenList.querySelectorAll('[data-system-hp]').forEach(btn=>{
       btn.addEventListener('click', () => setTokenSystem(btn.getAttribute('data-system-hp'), 'hp'));
     });
     $tokenList.querySelectorAll('[data-system-numenera]').forEach(btn=>{
       btn.addEventListener('click', () => setTokenSystem(btn.getAttribute('data-system-numenera'), 'numenera'));
-    });
-    $tokenList.querySelectorAll('[data-pool-minus]').forEach(btn=>{
-      btn.addEventListener('click', () => { const [id,key] = btn.getAttribute('data-pool-minus').split(':'); applyPoolDelta(id, key, -1); });
-    });
-    $tokenList.querySelectorAll('[data-pool-plus]').forEach(btn=>{
-      btn.addEventListener('click', () => { const [id,key] = btn.getAttribute('data-pool-plus').split(':'); applyPoolDelta(id, key, 1); });
-    });
-    $tokenList.querySelectorAll('[data-pool-max]').forEach(inp=>{
-      inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-pool-max').split(':'); setPoolMax(id, key, inp.value); });
-    });
-    $tokenList.querySelectorAll('[data-cypher-minus]').forEach(btn=>{
-      btn.addEventListener('click', () => adjustCypherCount(btn.getAttribute('data-cypher-minus'), -1));
-    });
-    $tokenList.querySelectorAll('[data-cypher-plus]').forEach(btn=>{
-      btn.addEventListener('click', () => adjustCypherCount(btn.getAttribute('data-cypher-plus'), 1));
-    });
-    $tokenList.querySelectorAll('[data-cypher-input]').forEach(inp=>{
-      inp.addEventListener('change', () => setCypherCurrent(inp.getAttribute('data-cypher-input'), inp.value));
-    });
-    $tokenList.querySelectorAll('[data-cypher-max]').forEach(inp=>{
-      inp.addEventListener('change', () => setCypherMax(inp.getAttribute('data-cypher-max'), inp.value));
-    });
-    $tokenList.querySelectorAll('[data-pool-heal]').forEach(btn=>{
-      btn.addEventListener('click', () => {
-        const composite = btn.getAttribute('data-pool-heal');
-        const [id,key] = composite.split(':');
-        const amountInp = $tokenList.querySelector('[data-pool-amount="'+composite+'"]');
-        const amount = parseInt(amountInp.value, 10);
-        if(!isNaN(amount) && amount > 0){ applyPoolDelta(id, key, amount); amountInp.value = ''; }
-      });
-    });
-    $tokenList.querySelectorAll('[data-pool-damage]').forEach(btn=>{
-      btn.addEventListener('click', () => {
-        const composite = btn.getAttribute('data-pool-damage');
-        const [id,key] = composite.split(':');
-        const amountInp = $tokenList.querySelector('[data-pool-amount="'+composite+'"]');
-        const amount = parseInt(amountInp.value, 10);
-        if(!isNaN(amount) && amount > 0){ applyPoolDelta(id, key, -amount); amountInp.value = ''; }
-      });
     });
     $tokenList.querySelectorAll('[data-name]').forEach(inp=>{
       inp.addEventListener('change', () => renameToken(inp.getAttribute('data-name'), inp.value));
@@ -2603,34 +2824,6 @@
     });
     $tokenList.querySelectorAll('[data-delete-perm]').forEach(btn=>{
       btn.addEventListener('click', () => deleteTokenPermanently(btn.getAttribute('data-delete-perm')));
-    });
-    $tokenList.querySelectorAll('[data-hp-minus]').forEach(btn=>{
-      btn.addEventListener('click', () => applyHpDelta(btn.getAttribute('data-hp-minus'), -1));
-    });
-    $tokenList.querySelectorAll('[data-hp-plus]').forEach(btn=>{
-      btn.addEventListener('click', () => applyHpDelta(btn.getAttribute('data-hp-plus'), 1));
-    });
-    $tokenList.querySelectorAll('[data-hp-max]').forEach(inp=>{
-      inp.addEventListener('change', () => setMaxHp(inp.getAttribute('data-hp-max'), inp.value));
-    });
-    $tokenList.querySelectorAll('[data-hp-temp]').forEach(inp=>{
-      inp.addEventListener('change', () => setTempHp(inp.getAttribute('data-hp-temp'), inp.value));
-    });
-    $tokenList.querySelectorAll('[data-hp-heal]').forEach(btn=>{
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-hp-heal');
-        const amountInp = $tokenList.querySelector('[data-hp-amount="'+id+'"]');
-        const amount = parseInt(amountInp.value, 10);
-        if(!isNaN(amount) && amount > 0){ applyHpDelta(id, amount); amountInp.value = ''; }
-      });
-    });
-    $tokenList.querySelectorAll('[data-hp-damage]').forEach(btn=>{
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-hp-damage');
-        const amountInp = $tokenList.querySelector('[data-hp-amount="'+id+'"]');
-        const amount = parseInt(amountInp.value, 10);
-        if(!isNaN(amount) && amount > 0){ applyHpDelta(id, -amount); amountInp.value = ''; }
-      });
     });
     $tokenList.querySelectorAll('[data-size-minus]').forEach(btn=>{
       btn.addEventListener('click', () => adjustSize(btn.getAttribute('data-size-minus'), -10));
@@ -3267,7 +3460,7 @@
       return;
     }
     pushUndo();
-    const tok = { id:newId('t'), name, image:croppedTokenImage, size:64, sizes:{}, statSystem:newTokenSystem, xp:0, positions:{} };
+    const tok = { id:newId('t'), name, image:croppedTokenImage, size:64, sizes:{}, statSystem:newTokenSystem, xp:0, notes:'', positions:{} };
     if(newTokenSystem === 'numenera'){
       const readMax = (fieldId) => { const v = parseInt(el(fieldId).value, 10); return (isNaN(v) || v < 1) ? 10 : v; };
       const iMax = readMax('token-max-intellect'), mMax = readMax('token-max-might'), sMax = readMax('token-max-speed');
