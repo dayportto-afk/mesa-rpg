@@ -181,14 +181,15 @@
     background:var(--bg-panel);
     border-right:1px solid var(--line);
     padding:16px; overflow-y:auto;
-    display:flex; flex-direction:column; gap:20px;
+    display:flex; flex-direction:column; gap:28px;
   }
   #sidebar.hidden{ display:none; }
-  .panel-block{ border-bottom:1px solid var(--line); padding-bottom:16px; }
-  .panel-block:last-child{ border-bottom:none; }
+  .panel-block{ border-bottom:2px solid var(--line); padding-bottom:22px; }
+  .panel-block:last-child{ border-bottom:none; padding-bottom:0; }
   .panel-title{
-    font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:2px;
-    text-transform:uppercase; color:var(--parchment-dim); margin-bottom:10px;
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:2.5px;
+    text-transform:uppercase; color:var(--amber-bright); margin-bottom:12px;
+    padding-bottom:7px; border-bottom:1px solid var(--line);
   }
   .file-btn{
     display:block; width:100%; text-align:center; padding:10px; margin-top:8px;
@@ -1898,6 +1899,7 @@
           '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
         '</div>' +
         '<div class="token-row-actions">' +
+          '<button type="button" data-duplicate="'+tok.id+'" title="Cria uma cópia idêntica, só renomear">Duplicar</button>' +
           '<button type="button" data-edit-image="'+tok.id+'">Trocar imagem</button>' +
           '<button type="button" class="danger" data-delete-perm="'+tok.id+'">Excluir ficha</button>' +
         '</div>' +
@@ -1997,6 +1999,9 @@
     $tokenList.querySelectorAll('[data-size-input]').forEach(inp=>{
       inp.addEventListener('change', () => setTokenSize(inp.getAttribute('data-size-input'), inp.value));
     });
+    $tokenList.querySelectorAll('[data-duplicate]').forEach(btn=>{
+      btn.addEventListener('click', () => duplicateToken(btn.getAttribute('data-duplicate')));
+    });
     $tokenList.querySelectorAll('[data-edit-image]').forEach(btn=>{
       btn.addEventListener('click', () => {
         editingTokenId = btn.getAttribute('data-edit-image');
@@ -2091,6 +2096,22 @@
     tok.removedFromPages = (tok.removedFromPages || []).filter(pid => pid !== state.currentPageId);
     if(!tok.positions) tok.positions = {};
     if(!tok.positions[state.currentPageId]) tok.positions[state.currentPageId] = { x:50, y:50 };
+    render();
+    await persistTokens();
+  }
+
+  async function duplicateToken(id){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    const clone = JSON.parse(JSON.stringify(tok));
+    clone.id = newId('t');
+    clone.name = tok.name + ' (cópia)';
+    if(clone.positions && state.currentPageId && clone.positions[state.currentPageId]){
+      const p = clone.positions[state.currentPageId];
+      clone.positions[state.currentPageId] = { x: Math.min(96, p.x + 4), y: Math.min(96, p.y + 4) };
+    }
+    state.tokens.push(clone);
     render();
     await persistTokens();
   }
