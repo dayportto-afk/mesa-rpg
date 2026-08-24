@@ -225,6 +225,13 @@
   }
   .token-name-input:focus{ border-color:var(--amber); }
   .token-off-page-tag{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:0.5px; }
+  .lock-toggle{ width:28px; height:28px; padding:0; font-size:13px; flex-shrink:0; }
+  .lock-toggle.toggle-active{ background:var(--wax); border-color:var(--wax); }
+  .token-lock-badge{
+    position:absolute; right:-2px; top:2px; transform:translateX(100%);
+    width:18px; height:18px; border-radius:50%; background:#150f09; border:1px solid var(--wax);
+    display:flex; align-items:center; justify-content:center; font-size:10px; z-index:5;
+  }
 
   .token-row-hp, .token-row-size{ display:flex; align-items:center; gap:8px; padding-left:2px; }
   .token-row-hp .row-label, .token-row-size .row-label{
@@ -356,7 +363,7 @@
   .map-ping{
     position:absolute; width:36px; height:36px; margin:-18px 0 0 -18px;
     border-radius:50%; border:3px solid #ff4444; pointer-events:none;
-    animation:ping-pulse 1.4s ease-out 2;
+    animation:ping-pulse 1.4s ease-out infinite;
   }
   @keyframes ping-pulse{
     0%{ transform:scale(0.3); opacity:1; }
@@ -389,13 +396,13 @@
 
   .token{
     position:absolute; width:64px; height:64px; margin:-32px 0 0 -32px;
-    border-radius:50%; overflow:hidden;
+    border-radius:50%;
     border:2px solid var(--amber-bright);
     box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206;
     cursor:grab; touch-action:none; user-select:none;
     transition:box-shadow .15s;
   }
-  .token img{ width:100%; height:100%; object-fit:cover; pointer-events:none; -webkit-user-drag:none;}
+  .token img{ width:100%; height:100%; object-fit:cover; border-radius:50%; pointer-events:none; -webkit-user-drag:none;}
   .token.defeated{ border-color:#0a0a0a !important; }
   .token.defeated img{ filter:grayscale(100%); }
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
@@ -928,6 +935,7 @@
           <div class="theme-row" style="gap:6px;">
             <select id="initiative-token-select" style="flex:1;"></select>
             <input type="number" id="initiative-score-input" placeholder="Iniciativa" style="width:70px;">
+            <button type="button" id="btn-initiative-d20" title="Rolar 1d20 para a iniciativa">🎲 d20</button>
           </div>
           <button id="btn-initiative-add" class="primary" style="width:100%; margin-top:6px;">Adicionar ao combate</button>
           <div class="dice-visibility-row" style="margin-top:8px;">
@@ -1282,6 +1290,9 @@
   el('initiative-toggle').addEventListener('click', openInitiativePanel);
   el('initiative-panel-close').addEventListener('click', closeInitiativePanel);
   el('initiative-backdrop').addEventListener('click', closeInitiativePanel);
+  el('btn-initiative-d20').addEventListener('click', () => {
+    el('initiative-score-input').value = rollOneDie(20);
+  });
   el('btn-initiative-add').addEventListener('click', () => {
     const tokenId = el('initiative-token-select').value;
     let score = parseInt(el('initiative-score-input').value, 10);
@@ -2085,7 +2096,7 @@
     div.style.left = x + '%';
     div.style.top = y + '%';
     $canvas.appendChild(div);
-    setTimeout(() => { div.remove(); }, 2800);
+    setTimeout(() => { div.remove(); }, 5000);
   }
   async function placePing(e){
     const page = currentPage();
@@ -2246,7 +2257,8 @@
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
                     '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(frac*100)+'%; background:'+hpCol+';"></div></div>' +
                     '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
-                    (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '');
+                    (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
+                    (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
       $canvas.appendChild(t);
     });
@@ -2315,6 +2327,7 @@
         '<div class="token-row">' +
           '<img class="token-row-avatar'+(onPage?'':' off-page')+'" src="'+tok.image+'" alt="" title="'+(onPage?'Ir até esta ficha no mapa':'Fora desta página')+'" data-jump-token="'+tok.id+'">' +
           '<input type="text" class="token-name-input" value="'+escapeHtml(tok.name)+'" data-name="'+tok.id+'">' +
+          '<button type="button" class="lock-toggle'+(tok.masterLocked?' toggle-active':'')+'" data-lock-toggle="'+tok.id+'" title="Só o mestre pode mover esta ficha (NPCs/inimigos)">🔒</button>' +
           (onPage
             ? '<button class="danger" data-remove-page="'+tok.id+'">Remover</button>'
             : '<button data-add-page="'+tok.id+'">+ Página</button>') +
@@ -2356,6 +2369,9 @@
     });
     $tokenList.querySelectorAll('[data-xp-input]').forEach(inp=>{
       inp.addEventListener('change', () => setXp(inp.getAttribute('data-xp-input'), inp.value));
+    });
+    $tokenList.querySelectorAll('[data-lock-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => toggleMasterLock(btn.getAttribute('data-lock-toggle')));
     });
     $tokenList.querySelectorAll('[data-condition]').forEach(btn=>{
       btn.addEventListener('click', () => {
@@ -2476,6 +2492,8 @@
     e.preventDefault();
     e.stopPropagation();
     const target = e.currentTarget;
+    const tok = state.tokens.find(t => t.id === target.dataset.id);
+    if(tok && tok.masterLocked && !effectiveMaster()) return; // NPC/inimigo travado: só o mestre move
     if(state.isMaster) pushUndo();
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
@@ -2683,6 +2701,15 @@
     const idx = tok.conditions.indexOf(key);
     if(idx === -1) tok.conditions.push(key);
     else tok.conditions.splice(idx, 1);
+    render();
+    await persistTokens();
+  }
+
+  async function toggleMasterLock(id){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    tok.masterLocked = !tok.masterLocked;
     render();
     await persistTokens();
   }
