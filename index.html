@@ -240,6 +240,20 @@
   }
   .token-row-hp .hp-max-input:focus{ border-color:var(--amber); }
   .token-row-hp .hp-max-label{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; margin-left:auto;}
+  .token-conditions{
+    position:absolute; left:-2px; top:2px; transform:translateX(-100%);
+    display:flex; flex-direction:column; gap:2px; pointer-events:none; z-index:5;
+  }
+  .token-condition{
+    width:18px; height:18px; border-radius:50%; background:#150f09; border:1px solid var(--amber-bright);
+    display:flex; align-items:center; justify-content:center; font-size:11px; line-height:1;
+  }
+  .condition-chip-row{ display:flex; flex-wrap:wrap; gap:5px; padding-left:2px; margin-top:2px; }
+  .condition-chip{
+    width:26px; height:26px; padding:0; font-size:13px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .condition-chip.toggle-active{ background:var(--amber); border-color:var(--amber); }
   .token-row-hp .hp-temp-tag{ color:#7ec8e3; }
   .token-row-hp .hp-amount-input{
     width:56px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
@@ -337,6 +351,26 @@
   }
   #map-viewport.panning{ cursor:grabbing; }
   #map-viewport.fog-mode{ cursor:crosshair; }
+  #map-viewport.ping-mode, #map-viewport.measure-mode{ cursor:crosshair; }
+
+  .map-ping{
+    position:absolute; width:36px; height:36px; margin:-18px 0 0 -18px;
+    border-radius:50%; border:3px solid #ff4444; pointer-events:none;
+    animation:ping-pulse 1.4s ease-out 2;
+  }
+  @keyframes ping-pulse{
+    0%{ transform:scale(0.3); opacity:1; }
+    100%{ transform:scale(2.2); opacity:0; }
+  }
+  .measure-line{
+    position:absolute; height:2px; background:var(--amber-bright);
+    transform-origin:0 50%; pointer-events:none; z-index:6;
+  }
+  .measure-label{
+    position:absolute; background:#150f09; border:1px solid var(--amber-bright); border-radius:3px;
+    padding:2px 7px; font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--amber-bright);
+    white-space:nowrap; pointer-events:none; z-index:6; transform:translate(-50%,-50%);
+  }
   #map-canvas{
     position:relative;
     transform-origin:center center;
@@ -394,6 +428,17 @@
   .map-text.draggable:hover{ outline:1px dashed rgba(226,165,63,0.7); border-radius:3px; }
   .map-text.dragging{ cursor:grabbing; outline:1px dashed var(--amber-bright); border-radius:3px; }
 
+  #freeze-banner{
+    position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:70;
+    display:flex; align-items:center; gap:12px;
+    background:#2a1414; border:1px solid var(--wax); border-radius:6px;
+    padding:8px 14px; box-shadow:0 4px 16px rgba(0,0,0,0.4);
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:#f0b0b0;
+    max-width:90vw;
+  }
+  #freeze-banner button{ padding:4px 10px; font-size:10px; flex-shrink:0; }
+  #btn-freeze-toggle.frozen{ background:var(--wax); color:#f4dede; border-color:var(--wax); }
+
   #zoom-controls{
     position:absolute; bottom:16px; right:16px; display:flex; flex-direction:column; gap:6px; z-index:60;
   }
@@ -421,6 +466,42 @@
   #dice-panel-header h2{ font-family:'Cinzel', serif; font-size:15px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
   #dice-panel-close{ padding:4px 9px; font-size:12px; }
   #dice-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:14px; }
+
+  /* Initiative tracker (same drawer pattern as the dice panel) */
+  #initiative-backdrop{
+    display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
+  }
+  #initiative-backdrop.open{ display:block; }
+  #initiative-panel{
+    position:fixed; top:0; right:0; bottom:0; width:320px; max-width:88vw; z-index:150;
+    background:var(--bg-panel); border-left:1px solid var(--amber);
+    box-shadow:-6px 0 24px rgba(0,0,0,0.5);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .22s ease;
+  }
+  #initiative-panel.open{ transform:translateX(0); }
+  #initiative-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
+  }
+  #initiative-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
+  #initiative-panel-close{ padding:4px 9px; font-size:12px; }
+  #initiative-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:14px; }
+  #initiative-master-controls select{ background:#0c0906; border:1px solid var(--line); border-radius:3px; color:var(--parchment); padding:7px 8px; font-family:'EB Garamond', serif; font-size:14px; }
+  #initiative-master-controls input[type=number]{ padding:7px 8px; }
+  #btn-initiative-next{ flex:2; }
+  #btn-initiative-clear{ flex:1; }
+
+  .initiative-entry{
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    background:#120e08; border:1px solid var(--line); border-radius:5px;
+  }
+  .initiative-entry.active{ border-color:var(--amber-bright); background:#241a0a; box-shadow:0 0 0 1px var(--amber-bright); }
+  .initiative-entry img{ width:32px; height:32px; border-radius:50%; object-fit:cover; border:1px solid var(--amber); flex-shrink:0; }
+  .initiative-entry .initiative-name{ flex:1; font-size:14px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .initiative-entry .initiative-score{ font-family:'Cinzel', serif; font-size:16px; color:var(--amber-bright); min-width:24px; text-align:center; flex-shrink:0; }
+  .initiative-entry .initiative-remove{ padding:3px 7px; font-size:9px; flex-shrink:0; }
+  .initiative-turn-tag{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--amber-bright); letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
 
   .dice-type-row{ display:flex; align-items:center; gap:8px; }
   .dice-type-row .die-label{
@@ -469,6 +550,18 @@
     #dice-panel.open{ transform:translateY(0); }
     #dice-panel-header{ padding:10px 16px 12px; position:relative; }
     #dice-panel-header::before{
+      content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
+      width:36px; height:4px; border-radius:2px; background:var(--line);
+    }
+    #initiative-panel{
+      top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
+      max-height:78vh; border-left:none; border-top:1px solid var(--amber);
+      border-radius:16px 16px 0 0;
+      transform:translateY(100%);
+    }
+    #initiative-panel.open{ transform:translateY(0); }
+    #initiative-panel-header{ padding:10px 16px 12px; position:relative; }
+    #initiative-panel-header::before{
       content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
       width:36px; height:4px; border-radius:2px; background:var(--line);
     }
@@ -604,7 +697,12 @@
         <button id="btn-redo" style="display:none;" title="Refazer ação desfeita">↪ Refazer</button>
         <span id="master-badge" style="display:none;">Mestre</span>
         <button id="btn-preview-toggle" style="display:none;">👁 Ver como jogador</button>
+        <button id="btn-freeze-toggle" style="display:none;">🔓 Jogadores atualizados</button>
         <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
+        <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
+        <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
+        <button id="measure-toggle" title="Meça uma distância no mapa">📏 Medir</button>
+        <button id="btn-tutorial-open" title="Rever o tutorial">❓ Tutorial</button>
         <button id="btn-leave-campaign">Trocar de campanha</button>
       </div>
     </div>
@@ -790,6 +888,10 @@
             </div>
           </div>
         </div>
+        <div id="freeze-banner" style="display:none;">
+          <span>🔒 Jogadores congelados — eles não veem suas mudanças ainda</span>
+          <button type="button" id="btn-freeze-banner-release">Liberar agora</button>
+        </div>
         <div id="zoom-controls">
           <button id="zoom-in" title="Aproximar">+</button>
           <button id="zoom-reset" title="Redefinir zoom">⤾</button>
@@ -812,6 +914,28 @@
         </div>
         <button id="btn-roll-dice" class="primary" style="width:100%;">Rolar</button>
         <div id="dice-log"></div>
+      </div>
+    </div>
+
+    <div id="initiative-backdrop"></div>
+    <div id="initiative-panel">
+      <div id="initiative-panel-header">
+        <h2>Iniciativa — Rodada <span id="initiative-round">1</span></h2>
+        <button id="initiative-panel-close">✕</button>
+      </div>
+      <div id="initiative-panel-body">
+        <div id="initiative-master-controls">
+          <div class="theme-row" style="gap:6px;">
+            <select id="initiative-token-select" style="flex:1;"></select>
+            <input type="number" id="initiative-score-input" placeholder="Iniciativa" style="width:70px;">
+          </div>
+          <button id="btn-initiative-add" class="primary" style="width:100%; margin-top:6px;">Adicionar ao combate</button>
+          <div class="dice-visibility-row" style="margin-top:8px;">
+            <button type="button" id="btn-initiative-next">Próximo turno →</button>
+            <button type="button" id="btn-initiative-clear" class="danger">Encerrar combate</button>
+          </div>
+        </div>
+        <div id="initiative-list"></div>
       </div>
     </div>
   </div>
@@ -867,6 +991,19 @@
     </div>
   </div>
 
+  <div id="tutorial-overlay" class="modal-overlay hidden">
+    <div class="modal-box" id="tutorial-modal" style="width:400px; max-width:calc(100vw - 32px);">
+      <div class="eyebrow" id="tutorial-counter" style="text-align:center; margin-bottom:4px;"></div>
+      <h2 id="tutorial-title"></h2>
+      <p class="desc" id="tutorial-body" style="text-align:left; line-height:1.6;"></p>
+      <div class="modal-actions">
+        <button id="tutorial-skip">Pular</button>
+        <button id="tutorial-prev">← Anterior</button>
+        <button id="tutorial-next" class="primary">Próximo →</button>
+      </div>
+    </div>
+  </div>
+
   <div id="admin-overlay" class="modal-overlay hidden">
     <div class="modal-box" id="admin-modal">
       <h2 id="admin-modal-title">Administração do site</h2>
@@ -896,6 +1033,8 @@
     role:null,
     isAdmin:false,
     playerName:'',
+    tutorialRole:null,
+    tutorialStep:0,
     isMaster:false,
     meta:{ title:"Campanha sem nome", masterPass:"", playerCode:"" },
     pages:[],           // [{id, name, map:{image}, fog:{image}, texts:[...]}]
@@ -912,6 +1051,10 @@
     diceQty:{4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0},
     diceVisibility:'public',
     diceRolls:[],
+    pingArmed:false,
+    measureArmed:false,
+    measureDrag:null,
+    initiative:{ list:[], activeId:null, round:1 },
     undoStack:[],
     redoStack:[],
     zoom:1,
@@ -945,6 +1088,7 @@
   // ---------- dice roller (available to master and players alike) ----------
   const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
   let lastDiceLogSnapshot = '';
+  let lastInitiativeSnapshot = '';
 
   function renderDiceTypes(){
     const $wrap = el('dice-types');
@@ -1044,6 +1188,164 @@
       );
     }).join('');
   }
+
+  // ---------- initiative tracker ----------
+  async function persistInitiative(){
+    await safeSet(slotKey('initiative'), state.initiative);
+  }
+
+  function sortedInitiative(){
+    return [...state.initiative.list].sort((a,b) => b.score - a.score);
+  }
+
+  function renderInitiativeList(){
+    el('initiative-round').textContent = state.initiative.round;
+    el('initiative-master-controls').style.display = effectiveMaster() ? 'block' : 'none';
+    if(effectiveMaster()){
+      const sel = el('initiative-token-select');
+      const prevValue = sel.value;
+      sel.innerHTML = state.tokens.map(t => '<option value="'+t.id+'">'+escapeHtml(t.name)+'</option>').join('');
+      if(prevValue && state.tokens.some(t => t.id === prevValue)) sel.value = prevValue;
+    }
+    const sorted = sortedInitiative();
+    const $list = el('initiative-list');
+    if(sorted.length === 0){
+      $list.innerHTML = '<div class="hint">Nenhum combatente na iniciativa ainda.</div>';
+      return;
+    }
+    $list.innerHTML = sorted.map(entry => {
+      const isActive = entry.id === state.initiative.activeId;
+      return (
+        '<div class="initiative-entry'+(isActive ? ' active' : '')+'">' +
+          '<img src="'+entry.image+'" alt="">' +
+          '<span class="initiative-name">'+escapeHtml(entry.name)+'</span>' +
+          '<span class="initiative-score">'+entry.score+'</span>' +
+          (isActive ? '<span class="initiative-turn-tag">Agora</span>' : '') +
+          (effectiveMaster() ? '<button type="button" class="danger initiative-remove" data-init-remove="'+entry.id+'">✕</button>' : '') +
+        '</div>'
+      );
+    }).join('');
+    if(effectiveMaster()){
+      $list.querySelectorAll('[data-init-remove]').forEach(btn => {
+        btn.addEventListener('click', () => removeFromInitiative(btn.getAttribute('data-init-remove')));
+      });
+    }
+  }
+
+  async function addToInitiative(tokenId, score){
+    const tok = state.tokens.find(t => t.id === tokenId);
+    if(!tok) return;
+    const entry = { id:newId('i'), tokenId:tok.id, name:tok.name, image:tok.image, score:score||0 };
+    state.initiative.list.push(entry);
+    if(!state.initiative.activeId) state.initiative.activeId = entry.id;
+    renderInitiativeList();
+    await persistInitiative();
+  }
+
+  async function removeFromInitiative(entryId){
+    state.initiative.list = state.initiative.list.filter(e => e.id !== entryId);
+    if(state.initiative.activeId === entryId){
+      const sorted = sortedInitiative();
+      state.initiative.activeId = sorted.length ? sorted[0].id : null;
+    }
+    renderInitiativeList();
+    await persistInitiative();
+  }
+
+  async function nextInitiativeTurn(){
+    const sorted = sortedInitiative();
+    if(sorted.length === 0) return;
+    let idx = sorted.findIndex(e => e.id === state.initiative.activeId);
+    idx = (idx + 1) % sorted.length;
+    if(idx === 0) state.initiative.round = (state.initiative.round || 1) + 1;
+    state.initiative.activeId = sorted[idx].id;
+    renderInitiativeList();
+    await persistInitiative();
+  }
+
+  async function clearInitiative(){
+    if(state.initiative.list.length && !confirm('Encerrar o combate e limpar a iniciativa?')) return;
+    state.initiative = { list:[], activeId:null, round:1 };
+    renderInitiativeList();
+    await persistInitiative();
+  }
+
+  function openInitiativePanel(){
+    el('initiative-panel').classList.add('open');
+    el('initiative-backdrop').classList.add('open');
+    renderInitiativeList();
+  }
+  function closeInitiativePanel(){
+    el('initiative-panel').classList.remove('open');
+    el('initiative-backdrop').classList.remove('open');
+  }
+  el('initiative-toggle').addEventListener('click', openInitiativePanel);
+  el('initiative-panel-close').addEventListener('click', closeInitiativePanel);
+  el('initiative-backdrop').addEventListener('click', closeInitiativePanel);
+  el('btn-initiative-add').addEventListener('click', () => {
+    const tokenId = el('initiative-token-select').value;
+    let score = parseInt(el('initiative-score-input').value, 10);
+    if(isNaN(score)) score = 0;
+    if(!tokenId) return;
+    addToInitiative(tokenId, score);
+    el('initiative-score-input').value = '';
+  });
+  el('btn-initiative-next').addEventListener('click', nextInitiativeTurn);
+  el('btn-initiative-clear').addEventListener('click', clearInitiative);
+
+  // ---------- tutorial ----------
+  const TUTORIAL_MASTER = [
+    { title:'Bem-vindo, mestre!', body:'Esta é a sua mesa de jogo. Tudo que você fizer aqui aparece pros seus jogadores em tempo real — a não ser que você escolha esconder.' },
+    { title:'Histórico de mapas', body:'No painel à esquerda, envie imagens do mapa de combate. Cada envio vira uma <b>página nova</b> no histórico; suas fichas continuam as mesmas em todas as páginas, a não ser que você as remova de uma específica.' },
+    { title:'Fichas de personagem', body:'Crie fichas com nome, imagem e vida — em HP clássico ou nos três reservatórios de Numenera (Intelecto, Potência, Velocidade). Arraste no mapa pra posicionar; edite vida, tamanho, XP e condições a qualquer momento, sem precisar recriar.' },
+    { title:'Névoa, texto e grade', body:'Pinte névoa de guerra pra esconder áreas ainda não exploradas, adicione textos decorativos com fonte própria, e ative uma grade quadriculada — tudo ajustável em cor e tamanho.' },
+    { title:'Ferramentas de mesa', body:'Use o dado 🎲, o rastreador de iniciativa ⚔️, aponte lugares no mapa 📍 e meça distâncias 📏 — essas quatro ferramentas os jogadores também podem usar.' },
+    { title:'Compartilhe o acesso', body:'No painel "Código de acesso dos jogadores", copie o código e mande pros seus amigos. Eles entram digitando esse código — sem precisar de senha nenhuma.' },
+    { title:'Congelar e pré-visualizar', body:'Use "🔒 Jogadores congelados" pra editar o mapa em paz sem que eles vejam ainda, e "👁 Ver como jogador" pra conferir exatamente o que a tela deles mostra.' }
+  ];
+  const TUTORIAL_PLAYER = [
+    { title:'Bem-vindo(a) à mesa!', body:'Esta é a mesa de jogo da sua campanha. O mestre controla o mapa; você participa arrastando fichas e usando as ferramentas de mesa.' },
+    { title:'Mova sua ficha', body:'Toque e arraste qualquer ficha no mapa pra reposicioná-la. Um toque rápido (sem arrastar) mostra o nome dela, se o mestre tiver ativado isso.' },
+    { title:'Zoom e navegação', body:'Arraste uma área vazia do mapa pra mover a visão. Use dois dedos (ou a roda do mouse no computador) pra dar zoom.' },
+    { title:'Role os dados', body:'Toque em <b>🎲 Dados</b> pra rolar d4 até d100, em qualquer quantidade. Escolha "Privada" se não quiser que os outros vejam o resultado — só o mestre e você enxergam.' },
+    { title:'Aponte e meça', body:'Use <b>📍 Apontar</b> pra mostrar um lugar do mapa pra todo mundo, e <b>📏 Medir</b> pra calcular distância entre dois pontos.' },
+    { title:'Iniciativa', body:'Toque em <b>⚔️ Iniciativa</b> pra ver a ordem de turno assim que o mestre começar um combate — e saber quando chegou a sua vez.' }
+  ];
+
+  function tutorialSteps(){ return state.tutorialRole === 'master' ? TUTORIAL_MASTER : TUTORIAL_PLAYER; }
+
+  function renderTutorialStep(){
+    const steps = tutorialSteps();
+    const s = steps[state.tutorialStep];
+    el('tutorial-counter').textContent = (state.tutorialStep + 1) + ' de ' + steps.length;
+    el('tutorial-title').textContent = s.title;
+    el('tutorial-body').innerHTML = s.body;
+    el('tutorial-prev').style.visibility = state.tutorialStep === 0 ? 'hidden' : 'visible';
+    el('tutorial-next').textContent = state.tutorialStep === steps.length - 1 ? 'Concluir' : 'Próximo →';
+  }
+
+  function openTutorial(role){
+    state.tutorialRole = role;
+    state.tutorialStep = 0;
+    renderTutorialStep();
+    el('tutorial-overlay').classList.remove('hidden');
+  }
+  function closeTutorial(){
+    el('tutorial-overlay').classList.add('hidden');
+    if(state.tutorialRole){
+      try{ localStorage.setItem('tutorial-seen-' + state.tutorialRole, '1'); }catch(e){}
+    }
+  }
+  el('tutorial-skip').addEventListener('click', closeTutorial);
+  el('tutorial-prev').addEventListener('click', () => {
+    if(state.tutorialStep > 0){ state.tutorialStep--; renderTutorialStep(); }
+  });
+  el('tutorial-next').addEventListener('click', () => {
+    const steps = tutorialSteps();
+    if(state.tutorialStep < steps.length - 1){ state.tutorialStep++; renderTutorialStep(); }
+    else { closeTutorial(); }
+  });
+  el('btn-tutorial-open').addEventListener('click', () => openTutorial(state.isMaster ? 'master' : 'player'));
 
   function currentPage(){ return state.pages.find(p => p.id === state.currentPageId) || null; }
 
@@ -1291,8 +1593,16 @@
     state.diceQty = {4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0};
     state.diceVisibility = 'public';
     state.diceRolls = [];
+    state.pingArmed = false;
+    state.measureArmed = false;
+    state.measureDrag = null;
+    state.initiative = { list:[], activeId:null, round:1 };
+    lastPingTs = null;
+    lastInitiativeSnapshot = '';
     el('dice-panel').classList.remove('open');
     el('dice-backdrop').classList.remove('open');
+    el('initiative-panel').classList.remove('open');
+    el('initiative-backdrop').classList.remove('open');
     state.tokens = [];
     state.pages = [];
     state.currentPageId = null;
@@ -1308,6 +1618,10 @@
     if(pollHandle) clearInterval(pollHandle);
     lastTokensSnapshot = ''; lastPageContentSnapshot = ''; lastIndexSnapshot = '';
     pollHandle = setInterval(pollForUpdates, 2500);
+
+    try{
+      if(!localStorage.getItem('tutorial-seen-' + role)){ openTutorial(role); }
+    }catch(e){}
   }
 
   el('btn-leave-campaign').addEventListener('click', () => { showPortal(); });
@@ -1315,6 +1629,14 @@
     state.previewAsPlayer = !state.previewAsPlayer;
     render();
   });
+
+  async function toggleFreeze(){
+    state.meta.playersFrozen = !state.meta.playersFrozen;
+    render();
+    await safeSet(slotKey('meta'), state.meta);
+  }
+  el('btn-freeze-toggle').addEventListener('click', toggleFreeze);
+  el('btn-freeze-banner-release').addEventListener('click', toggleFreeze);
 
   function openDicePanel(){
     el('dice-panel').classList.add('open');
@@ -1325,6 +1647,17 @@
     el('dice-backdrop').classList.remove('open');
   }
   el('dice-toggle').addEventListener('click', openDicePanel);
+  el('ping-toggle').addEventListener('click', () => {
+    state.pingArmed = !state.pingArmed;
+    if(state.pingArmed) state.measureArmed = false;
+    render();
+  });
+  el('measure-toggle').addEventListener('click', () => {
+    state.measureArmed = !state.measureArmed;
+    if(state.measureArmed) state.pingArmed = false;
+    else clearMeasureVisual();
+    render();
+  });
   el('dice-panel-close').addEventListener('click', closeDicePanel);
   el('dice-backdrop').addEventListener('click', closeDicePanel);
   el('dice-public').addEventListener('click', () => {
@@ -1463,12 +1796,13 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log'))
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; }catch(e){} }
+    if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
 
     let index = { list: [], currentPageId: null };
     if(indexRaw){ try{ index = JSON.parse(indexRaw); }catch(e){} }
@@ -1628,6 +1962,14 @@
 
     $masterBadge.style.display = effectiveMaster() ? 'inline-flex' : 'none';
     el('btn-preview-toggle').style.display = state.isMaster ? 'inline-block' : 'none';
+    el('btn-freeze-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
+    el('btn-freeze-toggle').textContent = state.meta.playersFrozen ? '🔒 Jogadores congelados' : '🔓 Jogadores atualizados';
+    el('btn-freeze-toggle').classList.toggle('frozen', !!state.meta.playersFrozen);
+    el('ping-toggle').classList.toggle('toggle-active', state.pingArmed);
+    el('measure-toggle').classList.toggle('toggle-active', state.measureArmed);
+    $mapViewport.classList.toggle('ping-mode', state.pingArmed);
+    $mapViewport.classList.toggle('measure-mode', state.measureArmed);
+    el('freeze-banner').style.display = (effectiveMaster() && state.meta.playersFrozen) ? 'flex' : 'none';
     el('btn-preview-toggle').textContent = state.previewAsPlayer ? '👁 Voltar ao mestre' : '👁 Ver como jogador';
     el('btn-preview-toggle').classList.toggle('toggle-active', state.previewAsPlayer);
     $appScreen.classList.toggle('is-master', effectiveMaster());
@@ -1656,6 +1998,7 @@
 
     renderDiceTypes();
     renderDiceLog();
+    renderInitiativeList();
 
     updateHistoryButtons();
   }
@@ -1726,12 +2069,104 @@
   }
 
   // ---------- tokens ----------
+  function canvasPointPct(e){
+    const rect = $canvas.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100))
+    };
+  }
+
+  // ---------- ping tool (anyone can point at a spot; everyone sees it briefly) ----------
+  let lastPingTs = null;
+  function showPingLocally(x, y){
+    const div = document.createElement('div');
+    div.className = 'map-ping';
+    div.style.left = x + '%';
+    div.style.top = y + '%';
+    $canvas.appendChild(div);
+    setTimeout(() => { div.remove(); }, 2800);
+  }
+  async function placePing(e){
+    const page = currentPage();
+    state.pingArmed = false;
+    render();
+    if(!page) return;
+    const pt = canvasPointPct(e);
+    const entry = { x: pt.x, y: pt.y, ts: Date.now() };
+    lastPingTs = entry.ts;
+    showPingLocally(pt.x, pt.y);
+    await safeSet(slotKey('page-'+page.id+'-ping'), entry);
+  }
+
+  // ---------- measure tool (local-only ruler) ----------
+  function clearMeasureVisual(){
+    const line = document.getElementById('measure-line-el');
+    const label = document.getElementById('measure-label-el');
+    if(line) line.remove();
+    if(label) label.remove();
+  }
+  function drawMeasureVisual(startPt, endPt){
+    clearMeasureVisual();
+    const canvasW = $canvas.offsetWidth, canvasH = $canvas.offsetHeight;
+    if(!canvasW || !canvasH) return;
+    const x1 = canvasW * (startPt.x/100), y1 = canvasH * (startPt.y/100);
+    const x2 = canvasW * (endPt.x/100), y2 = canvasH * (endPt.y/100);
+    const dx = x2-x1, dy = y2-y1;
+    const distPx = Math.hypot(dx, dy);
+    const angle = Math.atan2(dy, dx) * 180/Math.PI;
+
+    const line = document.createElement('div');
+    line.id = 'measure-line-el';
+    line.className = 'measure-line';
+    line.style.left = x1+'px'; line.style.top = y1+'px'; line.style.width = distPx+'px';
+    line.style.transform = 'rotate('+angle+'deg)';
+    $canvas.appendChild(line);
+
+    const page = currentPage();
+    let labelText;
+    if(page && page.grid && page.grid.enabled && page.grid.size > 0){
+      const squares = distPx / page.grid.size;
+      labelText = squares.toFixed(1) + (squares.toFixed(1) === '1.0' ? ' quadrado' : ' quadrados');
+    } else {
+      labelText = Math.round(distPx) + ' px';
+    }
+    const label = document.createElement('div');
+    label.id = 'measure-label-el';
+    label.className = 'measure-label';
+    label.style.left = ((x1+x2)/2)+'px'; label.style.top = ((y1+y2)/2)+'px';
+    label.textContent = labelText;
+    $canvas.appendChild(label);
+  }
+  function startMeasure(e){
+    const pt = canvasPointPct(e);
+    state.measureDrag = { startPt: pt };
+    $mapViewport.setPointerCapture(e.pointerId);
+  }
+  function updateMeasure(e){
+    if(!state.measureDrag) return;
+    drawMeasureVisual(state.measureDrag.startPt, canvasPointPct(e));
+  }
+  function endMeasure(){
+    state.measureDrag = null;
+  }
+
   function tokenPos(tok){
     return (tok.positions && tok.positions[state.currentPageId]) || { x:50, y:50 };
   }
   function tokenSize(tok){
     return (tok.sizes && tok.sizes[state.currentPageId]) || tok.size || 64;
   }
+  const CONDITIONS = [
+    { key:'debilitado', icon:'💔', label:'Debilitado' },
+    { key:'atordoado', icon:'💫', label:'Atordoado' },
+    { key:'envenenado', icon:'☠️', label:'Envenenado' },
+    { key:'amedrontado', icon:'😱', label:'Amedrontado' },
+    { key:'inconsciente', icon:'😴', label:'Inconsciente' },
+    { key:'confuso', icon:'❓', label:'Confuso' },
+    { key:'invisivel', icon:'👻', label:'Invisível' },
+    { key:'abencoado', icon:'✨', label:'Abençoado' }
+  ];
   const NUMENERA_POOLS = [
     { key:'intellect', label:'Intelecto' },
     { key:'might', label:'Potência' },
@@ -1804,9 +2239,14 @@
       const barW = Math.max(28, Math.round(size * 0.82));
       const barTop = -Math.round(size * 0.16) - 6;
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
+      const condBadges = (tok.conditions || []).map(key => {
+        const c = CONDITIONS.find(c => c.key === key);
+        return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
+      }).join('');
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
                     '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(frac*100)+'%; background:'+hpCol+';"></div></div>' +
-                    '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>';
+                    '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
+                    (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
       $canvas.appendChild(t);
     });
@@ -1891,6 +2331,9 @@
           '<input type="number" class="hp-max-input" min="0" max="999" value="'+(tok.xp||0)+'" data-xp-input="'+tok.id+'">' +
           '<button type="button" data-xp-plus="'+tok.id+'">+</button>' +
         '</div>' +
+        '<div class="condition-chip-row">' +
+          CONDITIONS.map(c => '<button type="button" class="condition-chip'+((tok.conditions||[]).includes(c.key)?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+'">'+c.icon+'</button>').join('') +
+        '</div>' +
         '<div class="token-row-size">' +
           '<span class="row-label">Tam.</span>' +
           '<button type="button" data-size-minus="'+tok.id+'">−</button>' +
@@ -1913,6 +2356,12 @@
     });
     $tokenList.querySelectorAll('[data-xp-input]').forEach(inp=>{
       inp.addEventListener('change', () => setXp(inp.getAttribute('data-xp-input'), inp.value));
+    });
+    $tokenList.querySelectorAll('[data-condition]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const [id, key] = btn.getAttribute('data-condition').split(':');
+        toggleCondition(id, key);
+      });
     });
     $tokenList.querySelectorAll('[data-system-hp]').forEach(btn=>{
       btn.addEventListener('click', () => setTokenSystem(btn.getAttribute('data-system-hp'), 'hp'));
@@ -2222,6 +2671,18 @@
     if(xp > 999) xp = 999;
     pushUndo();
     tok.xp = xp;
+    render();
+    await persistTokens();
+  }
+
+  async function toggleCondition(id, key){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.conditions) tok.conditions = [];
+    const idx = tok.conditions.indexOf(key);
+    if(idx === -1) tok.conditions.push(key);
+    else tok.conditions.splice(idx, 1);
     render();
     await persistTokens();
   }
@@ -2751,6 +3212,8 @@
 
   $mapViewport.addEventListener('pointerdown', (e) => {
     if(!state.currentSlot) return;
+    if(state.pingArmed){ placePing(e); return; }
+    if(state.measureArmed){ startMeasure(e); return; }
     activePointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
     if(activePointers.size >= 2){ startPinch(); return; }
     // If a sidebar text field still has focus (e.g. after typing a map label),
@@ -2768,6 +3231,7 @@
     $mapViewport.classList.add('panning');
   });
   $mapViewport.addEventListener('pointermove', (e) => {
+    if(state.measureDrag){ updateMeasure(e); return; }
     if(activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
     if(activePointers.size >= 2){ updatePinch(); return; }
     if(state.fogStroke){ moveFogPaint(e); return; }
@@ -2777,6 +3241,7 @@
     applyTransform();
   });
   function endPan(e){
+    if(state.measureDrag){ endMeasure(); return; }
     if(e && activePointers.has(e.pointerId)) activePointers.delete(e.pointerId);
     if(activePointers.size < 2){ pinch = null; }
     if(activePointers.size >= 1){ return; } // still at least one finger down; let it keep panning next move
@@ -2957,6 +3422,56 @@
     if(!state.currentSlot) return;
     if(state.dragging || state.fogStroke || state.textDragging) return;
 
+    let changed = false;
+
+    // Meta (title, theme, access code, freeze flag) and the dice log always
+    // stay live for everyone, even while the map view is frozen for players.
+    const [metaRaw, diceLogRaw] = await Promise.all([ safeGet(slotKey('meta')), safeGet(slotKey('dice-log')) ]);
+    let frozenForPlayers = false;
+    if(metaRaw){
+      try{
+        const m = JSON.parse(metaRaw);
+        if(m.title !== state.meta.title){ state.meta.title = m.title; changed = true; }
+        if(m.playerCode !== state.meta.playerCode){ state.meta.playerCode = m.playerCode; changed = true; }
+        if(JSON.stringify(m.theme) !== JSON.stringify(state.meta.theme)){ state.meta.theme = m.theme; changed = true; }
+        if(m.titleFont !== state.meta.titleFont){ state.meta.titleFont = m.titleFont; changed = true; }
+        if(!state.meta.masterPass && m.masterPass){ state.meta.masterPass = m.masterPass; }
+        if(!!state.meta.playersFrozen !== !!m.playersFrozen){ state.meta.playersFrozen = !!m.playersFrozen; changed = true; }
+        frozenForPlayers = !!m.playersFrozen;
+      }catch(e){}
+    }
+    if(diceLogRaw && diceLogRaw !== lastDiceLogSnapshot){
+      lastDiceLogSnapshot = diceLogRaw;
+      try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; changed = true; }catch(e){}
+    }
+
+    const initRaw = await safeGet(slotKey('initiative'));
+    if(initRaw && initRaw !== lastInitiativeSnapshot){
+      lastInitiativeSnapshot = initRaw;
+      try{ state.initiative = JSON.parse(initRaw); changed = true; }catch(e){}
+    }
+
+    const pingPage = currentPage();
+    if(pingPage){
+      const pingRaw = await safeGet(slotKey('page-'+pingPage.id+'-ping'));
+      if(pingRaw){
+        try{
+          const p = JSON.parse(pingRaw);
+          if(p.ts && p.ts !== lastPingTs){
+            lastPingTs = p.ts;
+            showPingLocally(p.x, p.y);
+          }
+        }catch(e){}
+      }
+    }
+
+    // A player whose master has frozen the view stops here — the map, fog,
+    // tokens, texts and page history all stay exactly as they last saw them.
+    if(!state.isMaster && frozenForPlayers){
+      if(changed) render();
+      return;
+    }
+
     const indexRaw = await safeGet(slotKey('pages-index'));
     if(indexRaw && indexRaw !== lastIndexSnapshot){
       lastIndexSnapshot = indexRaw;
@@ -2967,26 +3482,11 @@
     }
 
     const page = currentPage();
-    let changed = false;
 
-    const [tokensRaw, metaRaw, diceLogRaw] = await Promise.all([ safeGet(slotKey('tokens')), safeGet(slotKey('meta')), safeGet(slotKey('dice-log')) ]);
+    const tokensRaw = await safeGet(slotKey('tokens'));
     if(tokensRaw && tokensRaw !== lastTokensSnapshot){
       lastTokensSnapshot = tokensRaw;
       try{ state.tokens = JSON.parse(tokensRaw).list || []; changed = true; }catch(e){}
-    }
-    if(diceLogRaw && diceLogRaw !== lastDiceLogSnapshot){
-      lastDiceLogSnapshot = diceLogRaw;
-      try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; changed = true; }catch(e){}
-    }
-    if(metaRaw){
-      try{
-        const m = JSON.parse(metaRaw);
-        if(m.title !== state.meta.title){ state.meta.title = m.title; changed = true; }
-        if(m.playerCode !== state.meta.playerCode){ state.meta.playerCode = m.playerCode; changed = true; }
-        if(JSON.stringify(m.theme) !== JSON.stringify(state.meta.theme)){ state.meta.theme = m.theme; changed = true; }
-        if(m.titleFont !== state.meta.titleFont){ state.meta.titleFont = m.titleFont; changed = true; }
-        if(!state.meta.masterPass && m.masterPass){ state.meta.masterPass = m.masterPass; }
-      }catch(e){}
     }
 
     if(page){
