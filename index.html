@@ -31,7 +31,7 @@
     font-family:'EB Garamond', serif;
     overflow:hidden;
   }
-  #root{ position:relative; height:100vh; width:100vw; }
+  #root{ position:relative; height:100vh; height:100dvh; width:100vw; }
   .screen{ height:100%; width:100%; }
   .screen.hidden{ display:none !important; }
 
@@ -216,7 +216,7 @@
 
   .float-panel{
     display:none; flex-direction:column; position:absolute; z-index:130;
-    width:280px; max-width:90vw; max-height:80vh;
+    width:280px; max-width:90vw; max-height:80vh; max-height:80dvh;
     background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
     box-shadow:0 10px 30px rgba(0,0,0,0.5);
   }
@@ -672,7 +672,7 @@
   /* Master-only: draw panel becomes a floating, draggable window instead of a slide-in drawer */
   #draw-panel.float-style{
     position:absolute; top:16px; left:80px; right:auto; bottom:auto; z-index:130;
-    width:280px; max-width:90vw; max-height:80vh;
+    width:280px; max-width:90vw; max-height:80vh; max-height:80dvh;
     border:1px solid var(--amber); border-left:1px solid var(--amber); border-radius:8px;
     box-shadow:0 10px 30px rgba(0,0,0,0.5);
     transform:none; transition:none; display:none;
@@ -891,7 +891,7 @@
   }
   #handout-lightbox.show{ display:flex; }
   #handout-lightbox-image{
-    max-width:90vw; max-height:80vh; border-radius:6px; border:1px solid var(--amber);
+    max-width:90vw; max-height:80vh; max-height:80dvh; border-radius:6px; border:1px solid var(--amber);
     box-shadow:0 10px 40px rgba(0,0,0,0.6); cursor:default;
   }
   #handout-lightbox-caption{
@@ -942,7 +942,7 @@
     /* On a phone a side drawer feels cramped — slide up from the bottom instead. */
     #dice-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
-      max-height:78vh; border-left:none; border-top:1px solid var(--amber);
+      max-height:78vh; max-height:78dvh; border-left:none; border-top:1px solid var(--amber);
       border-radius:16px 16px 0 0;
       transform:translateY(100%);
     }
@@ -954,7 +954,7 @@
     }
     #initiative-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
-      max-height:78vh; border-left:none; border-top:1px solid var(--amber);
+      max-height:78vh; max-height:78dvh; border-left:none; border-top:1px solid var(--amber);
       border-radius:16px 16px 0 0;
       transform:translateY(100%);
     }
@@ -966,7 +966,7 @@
     }
     #journal-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
-      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      max-height:82vh; max-height:82dvh; border-left:none; border-top:1px solid var(--amber);
       border-radius:16px 16px 0 0;
       transform:translateY(100%);
     }
@@ -978,7 +978,7 @@
     }
     #my-sheet-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
-      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      max-height:82vh; max-height:82dvh; border-left:none; border-top:1px solid var(--amber);
       border-radius:16px 16px 0 0;
       transform:translateY(100%);
     }
@@ -990,7 +990,7 @@
     }
     #music-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
-      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      max-height:82vh; max-height:82dvh; border-left:none; border-top:1px solid var(--amber);
       border-radius:16px 16px 0 0;
       transform:translateY(100%);
     }
@@ -1002,7 +1002,7 @@
     }
     #draw-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
-      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      max-height:82vh; max-height:82dvh; border-left:none; border-top:1px solid var(--amber);
       border-radius:16px 16px 0 0;
       transform:translateY(100%);
     }
@@ -1027,7 +1027,7 @@
     }
     #send-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
-      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      max-height:82vh; max-height:82dvh; border-left:none; border-top:1px solid var(--amber);
       border-radius:16px 16px 0 0;
       transform:translateY(100%);
     }
