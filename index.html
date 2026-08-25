@@ -428,6 +428,7 @@
   }
   #map-viewport.panning{ cursor:grabbing; }
   #map-viewport.fog-mode{ cursor:crosshair; }
+  #map-viewport.draw-mode{ cursor:crosshair; }
   #map-viewport.ping-mode, #map-viewport.measure-mode{ cursor:crosshair; }
 
   .map-ping{
@@ -636,6 +637,53 @@
   .journal-entry-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
 
   /* Fichas panel (extracted from sidebar for better visibility, especially during combat) */
+  /* Ambient music (master-only panel; everyone gets a small mute-only indicator) */
+  #music-backdrop{
+    display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
+  }
+  #music-backdrop.open{ display:block; }
+  #music-panel{
+    position:fixed; top:0; right:0; bottom:0; width:360px; max-width:88vw; z-index:150;
+    background:var(--bg-panel); border-left:1px solid var(--amber);
+    box-shadow:-6px 0 24px rgba(0,0,0,0.5);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .22s ease;
+  }
+  #music-panel.open{ transform:translateX(0); }
+  #music-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
+  }
+  #music-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
+  #music-panel-close{ padding:4px 9px; font-size:12px; }
+  #music-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+  #music-track-list{ display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; }
+  .music-track-row{
+    display:flex; align-items:center; gap:8px; padding:8px 10px;
+    background:#120e08; border:1px solid var(--line); border-radius:5px; cursor:pointer;
+  }
+  .music-track-row:hover{ border-color:var(--amber); }
+  .music-track-row.active{ border-color:var(--amber-bright); background:#241a0a; }
+  .music-track-row .music-track-name{ flex:1; font-size:13px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .music-track-row .music-track-delete{ flex-shrink:0; padding:3px 8px; font-size:9px; }
+  #music-now-playing{
+    text-align:center; font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright);
+    padding:8px; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  #music-transport{ display:flex; gap:6px; }
+  #music-transport button{ flex:1; padding:9px; font-size:14px; }
+  #music-volume-row{ display:flex; flex-direction:column; gap:5px; }
+  #music-volume-row label{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:0.5px; text-transform:uppercase; }
+  #music-volume-slider{ width:100%; accent-color:var(--amber); cursor:pointer; }
+
+  #music-indicator{
+    display:none; align-items:center; gap:6px; padding:6px 8px; background:var(--bg-panel);
+    border:1px solid var(--amber); border-radius:16px; font-size:12px; color:var(--parchment-dim);
+    cursor:default;
+  }
+  #music-indicator-name{ line-height:1; }
+  #music-mute-toggle{ padding:2px 6px; font-size:11px; flex-shrink:0; }
+
   #tokens-backdrop{ display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55); }
   #tokens-backdrop.open{ display:block; }
   #tokens-panel{
@@ -900,6 +948,18 @@
       content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
       width:36px; height:4px; border-radius:2px; background:var(--line);
     }
+    #music-panel{
+      top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
+      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      border-radius:16px 16px 0 0;
+      transform:translateY(100%);
+    }
+    #music-panel.open{ transform:translateY(0); }
+    #music-panel-header{ padding:10px 16px 12px; position:relative; }
+    #music-panel-header::before{
+      content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
+      width:36px; height:4px; border-radius:2px; background:var(--line);
+    }
     #tokens-panel{
       top:0; left:0; right:0; bottom:0; width:auto; min-width:0; max-width:none;
       max-height:none; border-left:none; border-top:1px solid var(--amber);
@@ -1067,6 +1127,10 @@
         <button id="tokens-panel-toggle" style="display:none;" title="Todas as fichas na mesa">🎭 Fichas</button>
         <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
         <button id="my-sheet-toggle" style="display:none;" title="Sua ficha de personagem">🎴 Minha Ficha</button>
+        <div id="music-indicator" style="display:none;">
+          <span id="music-indicator-name"></span>
+          <button type="button" id="music-mute-toggle" title="Silenciar/reativar a música pra você">🔊</button>
+        </div>
         <div id="tools-menu-wrap">
           <button id="tools-menu-toggle">🧰 Ferramentas</button>
           <div id="tools-menu-dropdown">
@@ -1076,6 +1140,7 @@
             </div>
             <button id="journal-toggle" title="Diário da campanha">📖 Diário</button>
             <button id="send-toggle" style="display:none;" title="Enviar mensagem ou imagem">📤 Enviar</button>
+            <button id="music-toggle" style="display:none;" title="Música ambiente">🎵 Música</button>
             <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
             <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
             <button id="measure-toggle" title="Meça uma distância no mapa">📏 Medir</button>
@@ -1210,6 +1275,34 @@
         </div>
 
         <div class="panel-block">
+          <div class="panel-title">Desenho no mapa</div>
+          <button id="btn-draw-toggle" style="width:100%;">Ativar modo desenho</button>
+          <div class="fog-mode-row">
+            <button id="btn-draw-pen" class="toggle-active">Desenhar</button>
+            <button id="btn-draw-erase">Apagar</button>
+          </div>
+          <div id="fog-brush-row">
+            <label for="draw-brush">Pincel</label>
+            <input type="range" id="draw-brush" min="2" max="80" value="10">
+          </div>
+          <div id="fog-brush-row">
+            <label for="draw-opacity">Opacidade</label>
+            <input type="range" id="draw-opacity" min="10" max="100" value="100">
+          </div>
+          <div class="fog-color-row">
+            <span class="fog-color-label">Cor do traço</span>
+            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#e2a53f" style="background:#e2a53f;" title="Âmbar"></button>
+            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#ff4444" style="background:#ff4444;" title="Vermelha"></button>
+            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#4488ff" style="background:#4488ff;" title="Azul"></button>
+            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#44cc66" style="background:#44cc66;" title="Verde"></button>
+            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#ffffff" style="background:#ffffff;" title="Branca"></button>
+            <input type="color" id="draw-color-picker" value="#e2a53f" title="Cor personalizada">
+          </div>
+          <div class="hint">Pinte livremente sobre o mapa — atrás das fichas, útil pra marcar caminhos, áreas ou anotações visuais sem esconder os tokens. Também é por página.</div>
+          <button id="btn-draw-clear" class="danger" style="width:100%; margin-top:8px;">Apagar todo o desenho desta página</button>
+        </div>
+
+        <div class="panel-block">
           <div class="panel-title">Grade</div>
           <button id="btn-grid-toggle" style="width:100%;">Ativar grade</button>
           <div class="theme-row" style="margin-top:8px;">
@@ -1283,6 +1376,33 @@
           <button id="zoom-reset" title="Redefinir zoom">⤾</button>
           <button id="zoom-out" title="Afastar">−</button>
         </div>
+      </div>
+    </div>
+
+    <div id="music-backdrop"></div>
+    <div id="music-panel">
+      <div id="music-panel-header">
+        <h2>Música Ambiente</h2>
+        <button id="music-panel-close">✕</button>
+      </div>
+      <div id="music-panel-body">
+        <label class="file-btn" for="music-upload">Enviar nova faixa (MP3, WAV, OGG...)</label>
+        <input type="file" id="music-upload" accept="audio/*">
+        <div id="music-track-list"></div>
+        <div id="music-now-playing">
+          <span id="music-now-playing-name">Nenhuma faixa selecionada</span>
+        </div>
+        <div id="music-transport">
+          <button type="button" id="music-prev" title="Faixa anterior">⏮</button>
+          <button type="button" id="music-play-pause" title="Tocar/Pausar">▶️</button>
+          <button type="button" id="music-next" title="Próxima faixa">⏭</button>
+          <button type="button" id="music-stop" class="danger" title="Parar música">⏹</button>
+        </div>
+        <div id="music-volume-row">
+          <label for="music-volume-slider">Volume (todos ouvem neste nível)</label>
+          <input type="range" id="music-volume-slider" min="0" max="100" value="50">
+        </div>
+        <div class="hint">A faixa escolhida toca em loop contínuo para todo mundo, até você trocar ou parar. Jogadores podem silenciar a música pra si mesmos, mas não ajustam o volume.</div>
       </div>
     </div>
 
@@ -1526,6 +1646,10 @@
     playerName:'',
     playerColor:'',
     sends:[],
+    musicTracks:[],
+    musicTrackId:null,
+    musicPlaying:false,
+    musicVolume:0.5,
     sendImage:null,
     handoutGallery:[],
     handoutIndex:0,
@@ -1543,6 +1667,12 @@
     fogColor:'#050402',
     fogOpacity:94,
     fogStroke:null,
+    drawMode:false,
+    drawPaintMode:'pen',
+    drawBrush:10,
+    drawColor:'#e2a53f',
+    drawOpacity:100,
+    drawStroke:null,
     selectedTokenId:null,
     previewAsPlayer:false,
     diceQty:{4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0},
@@ -1632,6 +1762,179 @@
       updateSoundUI();
     }
   });
+
+  // ---------- ambient music (master controls tracks + shared volume; players can only mute for themselves) ----------
+  let musicMuted = false;
+  try{ musicMuted = localStorage.getItem('music-muted') === '1'; }catch(e){}
+  let lastMusicTracksSnapshot = '';
+  let lastMusicStateSnapshot = '';
+  const $ambientAudio = new Audio();
+  $ambientAudio.loop = true;
+
+  function currentMusicTrack(){
+    return state.musicTracks.find(t => t.id === state.musicTrackId) || null;
+  }
+
+  function updateAmbientAudio(){
+    const track = currentMusicTrack();
+    const shouldPlay = !!(track && state.musicPlaying);
+    const targetSrc = track ? track.dataUrl : '';
+    if($ambientAudio.getAttribute('data-src') !== targetSrc){
+      $ambientAudio.setAttribute('data-src', targetSrc);
+      $ambientAudio.src = targetSrc;
+    }
+    $ambientAudio.volume = musicMuted ? 0 : state.musicVolume;
+    if(shouldPlay){
+      if($ambientAudio.paused) $ambientAudio.play().catch(() => {});
+    } else {
+      if(!$ambientAudio.paused) $ambientAudio.pause();
+    }
+  }
+
+  function updateMusicIndicator(){
+    const track = currentMusicTrack();
+    const show = !!(track && state.musicPlaying);
+    el('music-indicator').style.display = show ? 'flex' : 'none';
+    if(show){
+      el('music-indicator-name').textContent = '🎵';
+    }
+    el('music-indicator').removeAttribute('title');
+    el('music-mute-toggle').textContent = musicMuted ? '🔇' : '🔊';
+  }
+
+  el('music-mute-toggle').addEventListener('click', () => {
+    musicMuted = !musicMuted;
+    try{ localStorage.setItem('music-muted', musicMuted ? '1' : '0'); }catch(e){}
+    updateAmbientAudio();
+    updateMusicIndicator();
+  });
+
+  async function persistMusicTracks(){
+    const raw = JSON.stringify({ list: state.musicTracks });
+    lastMusicTracksSnapshot = raw;
+    await safeSet(slotKey('music-tracks'), { list: state.musicTracks });
+  }
+  async function persistMusicState(){
+    const payload = { trackId: state.musicTrackId, playing: state.musicPlaying, volume: state.musicVolume };
+    lastMusicStateSnapshot = JSON.stringify(payload);
+    await safeSet(slotKey('music-state'), payload);
+  }
+
+  function renderMusicTrackList(){
+    const $list = el('music-track-list');
+    if(state.musicTracks.length === 0){
+      $list.innerHTML = '<div class="hint">Nenhuma faixa enviada ainda.</div>';
+    } else {
+      $list.innerHTML = state.musicTracks.map(t =>
+        '<div class="music-track-row'+(t.id===state.musicTrackId?' active':'')+'" data-music-select="'+t.id+'">' +
+          '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
+          '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'">Excluir</button>' +
+        '</div>'
+      ).join('');
+      $list.querySelectorAll('[data-music-select]').forEach(row => {
+        row.addEventListener('click', (e) => {
+          if(e.target.closest('[data-music-delete]')) return;
+          selectMusicTrack(row.getAttribute('data-music-select'));
+        });
+      });
+      $list.querySelectorAll('[data-music-delete]').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); deleteMusicTrack(btn.getAttribute('data-music-delete')); });
+      });
+    }
+    const track = currentMusicTrack();
+    el('music-now-playing-name').textContent = track ? track.name : 'Nenhuma faixa selecionada';
+    el('music-play-pause').textContent = state.musicPlaying ? '⏸️' : '▶️';
+    el('music-volume-slider').value = Math.round(state.musicVolume * 100);
+  }
+
+  async function selectMusicTrack(id){
+    state.musicTrackId = id;
+    state.musicPlaying = true;
+    renderMusicTrackList();
+    updateAmbientAudio();
+    updateMusicIndicator();
+    await persistMusicState();
+  }
+
+  async function deleteMusicTrack(id){
+    if(!confirm('Excluir esta faixa? Isso remove ela pra todo mundo na campanha.')) return;
+    state.musicTracks = state.musicTracks.filter(t => t.id !== id);
+    if(state.musicTrackId === id){ state.musicTrackId = null; state.musicPlaying = false; }
+    renderMusicTrackList();
+    updateAmbientAudio();
+    updateMusicIndicator();
+    await Promise.all([ persistMusicTracks(), persistMusicState() ]);
+  }
+
+  el('music-upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    if(file.size > 8 * 1024 * 1024){
+      alert('Esse arquivo é grande demais (máx. 8MB). Tente uma versão comprimida ou mais curta.');
+      return;
+    }
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const name = file.name.replace(/\.[^.]+$/, '');
+    state.musicTracks.push({ id: newId('m'), name, dataUrl });
+    renderMusicTrackList();
+    await persistMusicTracks();
+  });
+
+  el('music-play-pause').addEventListener('click', async () => {
+    if(!state.musicTrackId){
+      if(state.musicTracks.length === 0) return;
+      state.musicTrackId = state.musicTracks[0].id;
+    }
+    state.musicPlaying = !state.musicPlaying;
+    renderMusicTrackList();
+    updateAmbientAudio();
+    updateMusicIndicator();
+    await persistMusicState();
+  });
+  el('music-prev').addEventListener('click', async () => {
+    if(state.musicTracks.length === 0) return;
+    const idx = state.musicTracks.findIndex(t => t.id === state.musicTrackId);
+    const nextIdx = idx <= 0 ? state.musicTracks.length - 1 : idx - 1;
+    await selectMusicTrack(state.musicTracks[nextIdx].id);
+  });
+  el('music-next').addEventListener('click', async () => {
+    if(state.musicTracks.length === 0) return;
+    const idx = state.musicTracks.findIndex(t => t.id === state.musicTrackId);
+    const nextIdx = idx === -1 || idx === state.musicTracks.length - 1 ? 0 : idx + 1;
+    await selectMusicTrack(state.musicTracks[nextIdx].id);
+  });
+  el('music-stop').addEventListener('click', async () => {
+    state.musicTrackId = null;
+    state.musicPlaying = false;
+    renderMusicTrackList();
+    updateAmbientAudio();
+    updateMusicIndicator();
+    await persistMusicState();
+  });
+  el('music-volume-slider').addEventListener('input', async () => {
+    state.musicVolume = parseInt(el('music-volume-slider').value, 10) / 100;
+    updateAmbientAudio();
+    await persistMusicState();
+  });
+
+  function openMusicPanel(){
+    el('music-panel').classList.add('open');
+    el('music-backdrop').classList.add('open');
+    renderMusicTrackList();
+  }
+  function closeMusicPanel(){
+    el('music-panel').classList.remove('open');
+    el('music-backdrop').classList.remove('open');
+  }
+  el('music-toggle').addEventListener('click', openMusicPanel);
+  el('music-panel-close').addEventListener('click', closeMusicPanel);
+  el('music-backdrop').addEventListener('click', closeMusicPanel);
 
   function formatRollNotation(breakdown){
     return (breakdown || []).map(b => b.results.length + 'd' + b.sides + ': ' + b.results.join(', ')).join(' + ');
@@ -2687,6 +2990,15 @@
     state.handoutGallery = [];
     state.handoutIndex = 0;
     state.handoutMinimized = false;
+    state.musicTracks = [];
+    state.musicTrackId = null;
+    state.musicPlaying = false;
+    state.musicVolume = 0.5;
+    lastMusicTracksSnapshot = '';
+    lastMusicStateSnapshot = '';
+    $ambientAudio.pause();
+    $ambientAudio.removeAttribute('data-src');
+    $ambientAudio.src = '';
     lastSendsSnapshot = '';
     lastSeenRollId = null;
     composeTargets = [];
@@ -2707,6 +3019,8 @@
     el('send-backdrop').classList.remove('open');
     el('tokens-panel').classList.remove('open');
     el('tokens-backdrop').classList.remove('open');
+    el('music-panel').classList.remove('open');
+    el('music-backdrop').classList.remove('open');
     el('handout-gallery').classList.remove('show');
     el('handout-gallery-reopen').classList.remove('show');
     state.tokens = [];
@@ -2838,6 +3152,7 @@
       state.pages.forEach(p => {
         jobs.push(safeDelete(slotKey('page-'+p.id+'-map')));
         jobs.push(safeDelete(slotKey('page-'+p.id+'-fog')));
+        jobs.push(safeDelete(slotKey('page-'+p.id+'-draw')));
         jobs.push(safeDelete(slotKey('page-'+p.id+'-texts')));
         jobs.push(safeDelete(slotKey('page-'+p.id+'-grid')));
       });
@@ -2917,11 +3232,14 @@
       safeDelete('c'+id+'-meta'),
       safeDelete('c'+id+'-tokens'),
       safeDelete('c'+id+'-pages-index'),
-      safeDelete('c'+id+'-dice-log')
+      safeDelete('c'+id+'-dice-log'),
+      safeDelete('c'+id+'-music-tracks'),
+      safeDelete('c'+id+'-music-state')
     ];
     pageIds.forEach(pid => {
       jobs.push(safeDelete('c'+id+'-page-'+pid+'-map'));
       jobs.push(safeDelete('c'+id+'-page-'+pid+'-fog'));
+      jobs.push(safeDelete('c'+id+'-page-'+pid+'-draw'));
       jobs.push(safeDelete('c'+id+'-page-'+pid+'-texts'));
       jobs.push(safeDelete('c'+id+'-page-'+pid+'-grid'));
     });
@@ -2932,8 +3250,8 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, journalRaw, sendsRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('journal')), safeGet(slotKey('sends'))
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
@@ -2941,6 +3259,16 @@
     if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
     if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
+    if(musicTracksRaw){ try{ state.musicTracks = JSON.parse(musicTracksRaw).list || []; lastMusicTracksSnapshot = musicTracksRaw; }catch(e){} }
+    if(musicStateRaw){
+      try{
+        const ms = JSON.parse(musicStateRaw);
+        state.musicTrackId = ms.trackId || null;
+        state.musicPlaying = !!ms.playing;
+        state.musicVolume = typeof ms.volume === 'number' ? ms.volume : 0.5;
+        lastMusicStateSnapshot = musicStateRaw;
+      }catch(e){}
+    }
     if(indexRaw){ lastIndexSnapshot = indexRaw; }
 
     let index = { list: [], currentPageId: null };
@@ -2948,18 +3276,20 @@
     const pageStubs = index.list || [];
 
     const pages = await Promise.all(pageStubs.map(async stub => {
-      const [mapRaw, fogRaw, textsRaw, gridRaw] = await Promise.all([
+      const [mapRaw, fogRaw, drawRaw, textsRaw, gridRaw] = await Promise.all([
         safeGet(slotKey('page-'+stub.id+'-map')),
         safeGet(slotKey('page-'+stub.id+'-fog')),
+        safeGet(slotKey('page-'+stub.id+'-draw')),
         safeGet(slotKey('page-'+stub.id+'-texts')),
         safeGet(slotKey('page-'+stub.id+'-grid'))
       ]);
-      let map = { image:'' }, fog = { image:'' }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
+      let map = { image:'' }, fog = { image:'' }, draw = { image:'' }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
       if(mapRaw){ try{ map = JSON.parse(mapRaw); }catch(e){} }
       if(fogRaw){ try{ fog = JSON.parse(fogRaw); }catch(e){} }
+      if(drawRaw){ try{ draw = JSON.parse(drawRaw); }catch(e){} }
       if(textsRaw){ try{ texts = JSON.parse(textsRaw).list || []; }catch(e){} }
       if(gridRaw){ try{ grid = Object.assign(grid, JSON.parse(gridRaw)); }catch(e){} }
-      return { id: stub.id, name: stub.name, map, fog, texts, grid };
+      return { id: stub.id, name: stub.name, map, fog, draw, texts, grid };
     }));
     state.pages = pages;
     state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
@@ -2975,6 +3305,7 @@
   }
   async function persistPageMap(page){ await safeSet(slotKey('page-'+page.id+'-map'), page.map); }
   async function persistPageFog(page){ await safeSet(slotKey('page-'+page.id+'-fog'), page.fog); }
+  async function persistPageDraw(page){ await safeSet(slotKey('page-'+page.id+'-draw'), page.draw); }
   async function persistPageTexts(page){ await safeSet(slotKey('page-'+page.id+'-texts'), { list: page.texts }); }
   async function persistPageGrid(page){ await safeSet(slotKey('page-'+page.id+'-grid'), page.grid); }
   async function persistTokens(){ await safeSet(slotKey('tokens'), { list: state.tokens }); }
@@ -3010,6 +3341,7 @@
       pageId: state.currentPageId,
       map: page ? page.map.image : '',
       fog: page ? page.fog.image : '',
+      draw: page ? page.draw.image : '',
       texts: page ? JSON.parse(JSON.stringify(page.texts)) : [],
       tokens: JSON.parse(JSON.stringify(state.tokens))
     };
@@ -3034,11 +3366,12 @@
     if(page){
       page.map.image = snap.map;
       page.fog.image = snap.fog;
+      page.draw.image = snap.draw;
       page.texts = snap.texts;
     }
     render();
     const jobs = [ safeSet(slotKey('tokens'), { list: state.tokens }), persistPagesIndex() ];
-    if(page){ jobs.push(persistPageMap(page), persistPageFog(page), persistPageTexts(page)); }
+    if(page){ jobs.push(persistPageMap(page), persistPageFog(page), persistPageDraw(page), persistPageTexts(page)); }
     await Promise.all(jobs);
     updateHistoryButtons();
   }
@@ -3091,6 +3424,7 @@
       $canvas.innerHTML = '<div id="empty-map">✦ Nenhum mapa carregado ainda ✦<small>Entre como mestre para enviar a imagem do mapa de combate</small></div>';
     }
     setupGridOverlay();
+    setupDrawCanvas();
     renderTokens();
     renderTexts();
     setupFogCanvas();
@@ -3112,6 +3446,9 @@
     if(el('my-sheet-panel').classList.contains('open')) renderMySheet();
     el('btn-freeze-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('tokens-panel-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
+    el('music-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
+    updateMusicIndicator();
+    updateAmbientAudio();
     el('btn-freeze-toggle').textContent = state.meta.playersFrozen ? '🔒 Jogadores congelados' : '🔓 Jogadores atualizados';
     el('btn-freeze-toggle').classList.toggle('frozen', !!state.meta.playersFrozen);
     el('ping-toggle').classList.toggle('toggle-active', state.pingArmed);
@@ -3127,16 +3464,28 @@
 
     if(!effectiveMaster()){ state.fogMode = false; }
     $mapViewport.classList.toggle('fog-mode', effectiveMaster() && state.fogMode);
+    $mapViewport.classList.toggle('draw-mode', effectiveMaster() && state.drawMode);
     el('btn-fog-toggle').textContent = state.fogMode ? 'Desativar modo névoa' : 'Ativar modo névoa';
     el('btn-fog-toggle').classList.toggle('toggle-active', state.fogMode);
     el('btn-fog-cover').classList.toggle('toggle-active', state.fogPaintMode === 'cover');
     el('btn-fog-reveal').classList.toggle('toggle-active', state.fogPaintMode === 'reveal');
     el('fog-brush').value = state.fogBrush;
     el('fog-opacity').value = state.fogOpacity;
-    document.querySelectorAll('.fog-swatch').forEach(sw => {
+    document.querySelectorAll('.fog-swatch:not(.draw-swatch)').forEach(sw => {
       sw.classList.toggle('active', sw.getAttribute('data-fog-color').toLowerCase() === state.fogColor.toLowerCase());
     });
     el('fog-color-picker').value = state.fogColor;
+
+    el('btn-draw-toggle').textContent = state.drawMode ? 'Desativar modo desenho' : 'Ativar modo desenho';
+    el('btn-draw-toggle').classList.toggle('toggle-active', state.drawMode);
+    el('btn-draw-pen').classList.toggle('toggle-active', state.drawPaintMode === 'pen');
+    el('btn-draw-erase').classList.toggle('toggle-active', state.drawPaintMode === 'erase');
+    el('draw-brush').value = state.drawBrush;
+    el('draw-opacity').value = state.drawOpacity;
+    document.querySelectorAll('.draw-swatch').forEach(sw => {
+      sw.classList.toggle('active', sw.getAttribute('data-draw-color').toLowerCase() === state.drawColor.toLowerCase());
+    });
+    el('draw-color-picker').value = state.drawColor;
 
     const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f' };
     el('btn-grid-toggle').textContent = gridSettings.enabled ? 'Desativar grade' : 'Ativar grade';
@@ -3215,6 +3564,7 @@
       persistPagesIndex(),
       safeDelete(slotKey('page-'+id+'-map')),
       safeDelete(slotKey('page-'+id+'-fog')),
+      safeDelete(slotKey('page-'+id+'-draw')),
       safeDelete(slotKey('page-'+id+'-texts'))
     ]);
   }
@@ -4452,7 +4802,7 @@
     if(!file) return;
     pushUndo();
     const dataUrl = await resizeImage(file, 1800, 0.82);
-    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), map:{ image:dataUrl }, fog:{ image:'' }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
+    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), map:{ image:dataUrl }, fog:{ image:'' }, draw:{ image:'' }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
     state.pages.push(page);
     state.currentPageId = page.id;
     render();
@@ -4730,6 +5080,10 @@
       startFogPaint(e);
       return;
     }
+    if(effectiveMaster() && state.drawMode){
+      startDrawPaint(e);
+      return;
+    }
     state.panning = { startX: e.clientX, startY: e.clientY, startPanX: state.pan.x, startPanY: state.pan.y };
     $mapViewport.setPointerCapture(e.pointerId);
     $mapViewport.classList.add('panning');
@@ -4739,6 +5093,7 @@
     if(activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
     if(activePointers.size >= 2){ updatePinch(); return; }
     if(state.fogStroke){ moveFogPaint(e); return; }
+    if(state.drawStroke){ moveDrawPaint(e); return; }
     if(!state.panning) return;
     state.pan.x = state.panning.startPanX + (e.clientX - state.panning.startX);
     state.pan.y = state.panning.startPanY + (e.clientY - state.panning.startY);
@@ -4750,6 +5105,7 @@
     if(activePointers.size < 2){ pinch = null; }
     if(activePointers.size >= 1){ return; } // still at least one finger down; let it keep panning next move
     if(state.fogStroke){ endFogPaint(); return; }
+    if(state.drawStroke){ endDrawPaint(); return; }
     state.panning = null;
     $mapViewport.classList.remove('panning');
   }
@@ -4764,15 +5120,41 @@
   }, { passive:false });
 
   // ---------- fog of war: freehand brush (master only, per page) ----------
-  el('btn-fog-toggle').addEventListener('click', () => { state.fogMode = !state.fogMode; render(); });
+  el('btn-fog-toggle').addEventListener('click', () => { state.fogMode = !state.fogMode; if(state.fogMode) state.drawMode = false; render(); });
   el('btn-fog-cover').addEventListener('click', () => { state.fogPaintMode = 'cover'; render(); });
   el('btn-fog-reveal').addEventListener('click', () => { state.fogPaintMode = 'reveal'; render(); });
   el('fog-brush').addEventListener('input', (e) => { state.fogBrush = Number(e.target.value); });
   el('fog-opacity').addEventListener('input', (e) => { state.fogOpacity = Number(e.target.value); });
-  document.querySelectorAll('.fog-swatch').forEach(sw => {
+  document.querySelectorAll('.fog-swatch:not(.draw-swatch)').forEach(sw => {
     sw.addEventListener('click', () => { state.fogColor = sw.getAttribute('data-fog-color'); render(); });
   });
   el('fog-color-picker').addEventListener('input', (e) => { state.fogColor = e.target.value; render(); });
+
+  el('btn-draw-toggle').addEventListener('click', () => { state.drawMode = !state.drawMode; if(state.drawMode) state.fogMode = false; render(); });
+  el('btn-draw-pen').addEventListener('click', () => { state.drawPaintMode = 'pen'; render(); });
+  el('btn-draw-erase').addEventListener('click', () => { state.drawPaintMode = 'erase'; render(); });
+  el('draw-brush').addEventListener('input', (e) => { state.drawBrush = Number(e.target.value); });
+  el('draw-opacity').addEventListener('input', (e) => { state.drawOpacity = Number(e.target.value); });
+  document.querySelectorAll('.draw-swatch').forEach(sw => {
+    sw.addEventListener('click', () => { state.drawColor = sw.getAttribute('data-draw-color'); render(); });
+  });
+  el('draw-color-picker').addEventListener('input', (e) => { state.drawColor = e.target.value; render(); });
+  el('btn-draw-clear').addEventListener('click', async () => {
+    const page = currentPage();
+    const canvas = document.getElementById('draw-canvas');
+    if(!canvas || !page) return;
+    const ctx = canvas.getContext('2d');
+    let hasContent = false;
+    try{
+      const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+      for(let i = 3; i < data.length; i += 4){ if(data[i] !== 0){ hasContent = true; break; } }
+    }catch(e){ hasContent = true; }
+    if(hasContent && !confirm('Apagar todo o desenho desta página?')) return;
+    pushUndo();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    page.draw.image = '';
+    await persistPageDraw(page);
+  });
 
   el('btn-fog-clear').addEventListener('click', async () => {
     const page = currentPage();
@@ -4856,6 +5238,38 @@
     else { img.addEventListener('load', build, { once:true }); }
   }
 
+  function setupDrawCanvas(){
+    const existing = document.getElementById('draw-canvas');
+    if(existing) existing.remove();
+    const img = document.getElementById('map-img');
+    const page = currentPage();
+    if(!img || !page) return;
+    if(!page.draw) page.draw = { image:'' };
+
+    const build = () => {
+      const canvas = document.createElement('canvas');
+      canvas.id = 'draw-canvas';
+      canvas.width = img.naturalWidth || 1200;
+      canvas.height = img.naturalHeight || 800;
+      canvas.style.pointerEvents = (effectiveMaster() && state.drawMode) ? 'auto' : 'none';
+      // Insert before the first token (if any) so the draw layer always renders below tokens,
+      // regardless of DOM append order elsewhere.
+      const firstToken = $canvas.querySelector('.token');
+      if(firstToken) $canvas.insertBefore(canvas, firstToken);
+      else $canvas.appendChild(canvas);
+      if(page.draw.image){
+        const drawImg = new Image();
+        drawImg.onload = () => {
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(drawImg, 0, 0, canvas.width, canvas.height);
+        };
+        drawImg.src = page.draw.image;
+      }
+    };
+    if(img.complete && img.naturalWidth > 0){ build(); }
+    else { img.addEventListener('load', build, { once:true }); }
+  }
+
   function canvasPointFromEvent(e, canvas){
     const rect = canvas.getBoundingClientRect();
     const xRatio = (e.clientX - rect.left) / rect.width;
@@ -4892,6 +5306,49 @@
     }
   }
 
+  function paintDrawDot(ctx, pt, radius, mode){
+    ctx.globalCompositeOperation = mode === 'erase' ? 'destination-out' : 'source-over';
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = mode === 'erase' ? 'rgba(0,0,0,1)' : hexToRgba(state.drawColor, state.drawOpacity / 100);
+    ctx.fill();
+  }
+
+  function paintDrawSegment(ctx, from, to, radius, mode){
+    const dist = Math.hypot(to.x - from.x, to.y - from.y);
+    const steps = Math.max(1, Math.ceil(dist / Math.max(4, radius * 0.35)));
+    for(let i = 1; i <= steps; i++){
+      const t = i / steps;
+      paintDrawDot(ctx, { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }, radius, mode);
+    }
+  }
+
+  function startDrawPaint(e){
+    const canvas = document.getElementById('draw-canvas');
+    if(!canvas) return;
+    pushUndo();
+    const ctx = canvas.getContext('2d');
+    const pt = canvasPointFromEvent(e, canvas);
+    paintDrawDot(ctx, pt, state.drawBrush, state.drawPaintMode);
+    state.drawStroke = { canvas, ctx, last: pt };
+    $mapViewport.setPointerCapture(e.pointerId);
+  }
+  function moveDrawPaint(e){
+    const s = state.drawStroke;
+    if(!s) return;
+    const pt = canvasPointFromEvent(e, s.canvas);
+    paintDrawSegment(s.ctx, s.last, pt, state.drawBrush, state.drawPaintMode);
+    s.last = pt;
+  }
+  async function endDrawPaint(){
+    const s = state.drawStroke;
+    const page = currentPage();
+    if(!s || !page) return;
+    page.draw.image = s.canvas.toDataURL('image/png');
+    state.drawStroke = null;
+    await persistPageDraw(page);
+  }
+
   function startFogPaint(e){
     const canvas = document.getElementById('fog-canvas');
     if(!canvas) return;
@@ -4924,7 +5381,7 @@
   let lastPageContentSnapshot = '';
   async function pollForUpdates(){
     if(!state.currentSlot) return;
-    if(state.dragging || state.fogStroke || state.textDragging) return;
+    if(state.dragging || state.fogStroke || state.drawStroke || state.textDragging) return;
 
     let changed = false;
 
@@ -5003,6 +5460,23 @@
       }catch(e){}
     }
 
+    const musicTracksRaw = await safeGet(slotKey('music-tracks'));
+    if(musicTracksRaw && musicTracksRaw !== lastMusicTracksSnapshot){
+      lastMusicTracksSnapshot = musicTracksRaw;
+      try{ state.musicTracks = JSON.parse(musicTracksRaw).list || []; changed = true; }catch(e){}
+    }
+    const musicStateRaw = await safeGet(slotKey('music-state'));
+    if(musicStateRaw && musicStateRaw !== lastMusicStateSnapshot){
+      lastMusicStateSnapshot = musicStateRaw;
+      try{
+        const ms = JSON.parse(musicStateRaw);
+        state.musicTrackId = ms.trackId || null;
+        state.musicPlaying = !!ms.playing;
+        state.musicVolume = typeof ms.volume === 'number' ? ms.volume : 0.5;
+        changed = true;
+      }catch(e){}
+    }
+
     const pingPage = currentPage();
     if(pingPage){
       const pingRaw = await safeGet(slotKey('page-'+pingPage.id+'-ping'));
@@ -5051,17 +5525,19 @@
     }
 
     if(page){
-      const [mapRaw, fogRaw, textsRaw, gridRaw] = await Promise.all([
+      const [mapRaw, fogRaw, drawRaw, textsRaw, gridRaw] = await Promise.all([
         safeGet(slotKey('page-'+page.id+'-map')),
         safeGet(slotKey('page-'+page.id+'-fog')),
+        safeGet(slotKey('page-'+page.id+'-draw')),
         safeGet(slotKey('page-'+page.id+'-texts')),
         safeGet(slotKey('page-'+page.id+'-grid'))
       ]);
-      const combined = (mapRaw||'') + '|' + (fogRaw||'') + '|' + (textsRaw||'') + '|' + (gridRaw||'');
+      const combined = (mapRaw||'') + '|' + (fogRaw||'') + '|' + (drawRaw||'') + '|' + (textsRaw||'') + '|' + (gridRaw||'');
       if(combined !== lastPageContentSnapshot){
         lastPageContentSnapshot = combined;
         if(mapRaw){ try{ page.map = JSON.parse(mapRaw); changed = true; }catch(e){} }
         if(fogRaw){ try{ page.fog = JSON.parse(fogRaw); changed = true; }catch(e){} }
+        if(drawRaw){ try{ page.draw = JSON.parse(drawRaw); changed = true; }catch(e){} }
         if(textsRaw){ try{ page.texts = JSON.parse(textsRaw).list || []; changed = true; }catch(e){} }
         if(gridRaw){ try{ page.grid = Object.assign({ enabled:false, size:50, thickness:1, color:'#e2a53f' }, JSON.parse(gridRaw)); changed = true; }catch(e){} }
       }
