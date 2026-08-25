@@ -158,6 +158,17 @@
   #topbar-right{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; flex-shrink:0; }
   #topbar-right button{ padding:6px 10px; font-size:10px; }
 
+  #tools-menu-wrap{ position:relative; }
+  #tools-menu-toggle{ background:var(--bg-panel); }
+  #tools-menu-dropdown{
+    display:none; position:absolute; top:calc(100% + 6px); right:0; z-index:80;
+    background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.5);
+    padding:8px; flex-direction:column; gap:6px; min-width:180px;
+  }
+  #tools-menu-dropdown.open{ display:flex; }
+  #tools-menu-dropdown button{ width:100%; text-align:left; padding:8px 10px; }
+
   .theme-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; }
   .theme-row label{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--parchment-dim); letter-spacing:0.5px; }
   .theme-row input[type=color]{ width:44px; height:28px; padding:0; border:1px solid var(--line); border-radius:4px; background:none; cursor:pointer; }
@@ -646,11 +657,12 @@
 
   /* Handout gallery (bottom-left corner, pageable when there's more than one visible image) */
   #handout-gallery{
-    display:none; position:fixed; bottom:16px; left:16px; z-index:70; width:220px;
+    display:none; position:fixed; bottom:132px; right:16px; z-index:70; width:220px;
     background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
     box-shadow:0 4px 16px rgba(0,0,0,0.4); overflow:hidden;
   }
   #handout-gallery.show{ display:block; }
+  #handout-gallery-image{ cursor:zoom-in; }
   #handout-gallery-header{
     display:flex; align-items:center; justify-content:space-between;
     padding:5px 8px; background:#0e0a06; border-bottom:1px solid var(--line);
@@ -663,10 +675,29 @@
   #handout-gallery-nav button{ flex:1; padding:6px; font-size:14px; border-radius:0; border-width:1px 0 0 0; }
   #handout-gallery-nav button:first-child{ border-right-width:1px; }
   #handout-gallery-reopen{
-    display:none; position:fixed; bottom:16px; left:16px; z-index:70;
+    display:none; position:fixed; bottom:132px; right:16px; z-index:70;
     width:40px; height:40px; padding:0; font-size:18px; border-radius:50%;
   }
   #handout-gallery-reopen.show{ display:flex; align-items:center; justify-content:center; }
+
+  #handout-lightbox{
+    display:none; position:fixed; inset:0; z-index:400;
+    background:rgba(6,4,2,0.92); backdrop-filter:blur(2px);
+    align-items:center; justify-content:center; flex-direction:column; gap:12px;
+    cursor:zoom-out; padding:30px;
+  }
+  #handout-lightbox.show{ display:flex; }
+  #handout-lightbox-image{
+    max-width:90vw; max-height:80vh; border-radius:6px; border:1px solid var(--amber);
+    box-shadow:0 10px 40px rgba(0,0,0,0.6); cursor:default;
+  }
+  #handout-lightbox-caption{
+    font-family:'EB Garamond', serif; font-size:16px; color:var(--parchment); text-align:center; max-width:80vw;
+  }
+  #handout-lightbox-close{
+    position:absolute; top:18px; right:22px; width:38px; height:38px; border-radius:50%;
+    font-size:16px; padding:0;
+  }
 
   .dice-type-row{ display:flex; align-items:center; gap:8px; }
   .dice-type-row .die-label{
@@ -904,15 +935,20 @@
         <span id="master-badge" style="display:none;">Mestre</span>
         <button id="btn-preview-toggle" style="display:none;">👁 Ver como jogador</button>
         <button id="btn-freeze-toggle" style="display:none;">🔓 Jogadores atualizados</button>
-        <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
-        <button id="journal-toggle" title="Diário da campanha">📖 Diário</button>
-        <button id="my-sheet-toggle" style="display:none;" title="Sua ficha de personagem">🎴 Minha Ficha</button>
-        <button id="send-toggle" style="display:none;" title="Enviar mensagem ou imagem">📤 Enviar</button>
-        <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
-        <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
-        <button id="measure-toggle" title="Meça uma distância no mapa">📏 Medir</button>
-        <button id="btn-tutorial-open" title="Rever o tutorial">❓ Tutorial</button>
-        <button id="btn-leave-campaign">Trocar de campanha</button>
+        <div id="tools-menu-wrap">
+          <button id="tools-menu-toggle">🧰 Ferramentas</button>
+          <div id="tools-menu-dropdown">
+            <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
+            <button id="journal-toggle" title="Diário da campanha">📖 Diário</button>
+            <button id="my-sheet-toggle" style="display:none;" title="Sua ficha de personagem">🎴 Minha Ficha</button>
+            <button id="send-toggle" style="display:none;" title="Enviar mensagem ou imagem">📤 Enviar</button>
+            <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
+            <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
+            <button id="measure-toggle" title="Meça uma distância no mapa">📏 Medir</button>
+            <button id="btn-tutorial-open" title="Rever o tutorial">❓ Tutorial</button>
+            <button id="btn-leave-campaign">Trocar de campanha</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1178,23 +1214,26 @@
     <div id="send-backdrop"></div>
     <div id="send-panel">
       <div id="send-panel-header">
-        <h2>Enviar</h2>
+        <h2 id="send-panel-title">Enviar</h2>
         <button id="send-panel-close">✕</button>
       </div>
       <div id="send-panel-body">
-        <textarea id="send-text-input" placeholder="Mensagem (opcional)..." rows="3"></textarea>
-        <label class="file-btn" for="send-image-input" style="margin-top:8px;">Anexar imagem (opcional)</label>
-        <input type="file" id="send-image-input" accept="image/*">
-        <div id="send-image-preview" style="display:none;">
-          <img id="send-image-preview-img" alt="Pré-visualização">
-          <button type="button" id="send-image-remove">Remover imagem</button>
+        <textarea id="send-text-input" placeholder="Mensagem..." rows="3"></textarea>
+        <div id="send-image-section">
+          <label class="file-btn" for="send-image-input" style="margin-top:8px;">Anexar imagem (opcional)</label>
+          <input type="file" id="send-image-input" accept="image/*">
+          <div id="send-image-preview" style="display:none;">
+            <img id="send-image-preview-img" alt="Pré-visualização">
+            <button type="button" id="send-image-remove">Remover imagem</button>
+          </div>
         </div>
-        <div class="dice-visibility-row" style="margin-top:10px;">
+        <div id="send-visibility-row" class="dice-visibility-row" style="margin-top:10px;">
           <button type="button" id="send-public" class="toggle-active">Pública (todos)</button>
-          <button type="button" id="send-private">Privada (um jogador)</button>
+          <button type="button" id="send-private">Privada (uma pessoa)</button>
         </div>
-        <input type="text" id="send-target-input" placeholder="Nome do jogador" style="margin-top:8px; display:none;">
+        <input type="text" id="send-target-input" placeholder="Nome do destinatário (Mestre ou um jogador)" style="margin-top:8px; display:none;">
         <button id="btn-send-submit" class="primary" style="width:100%; margin-top:10px;">Enviar</button>
+        <div id="send-hint" class="hint" style="display:none;">Sua mensagem fica visível só para você, o destinatário e o mestre.</div>
       </div>
     </div>
 
@@ -1203,7 +1242,7 @@
         <span id="handout-gallery-counter"></span>
         <button type="button" id="handout-gallery-close" title="Minimizar">−</button>
       </div>
-      <img id="handout-gallery-image" src="" alt="Imagem enviada pelo mestre">
+      <img id="handout-gallery-image" src="" alt="Imagem enviada pelo mestre" title="Clique para ampliar">
       <div id="handout-gallery-caption"></div>
       <div id="handout-gallery-nav">
         <button type="button" id="handout-prev">‹</button>
@@ -1211,6 +1250,12 @@
       </div>
     </div>
     <button type="button" id="handout-gallery-reopen" title="Ver imagens enviadas">🖼</button>
+
+    <div id="handout-lightbox">
+      <button type="button" id="handout-lightbox-close">✕</button>
+      <img id="handout-lightbox-image" src="" alt="Imagem ampliada">
+      <div id="handout-lightbox-caption"></div>
+    </div>
 
     <div id="toast-container"></div>
   </div>
@@ -1398,7 +1443,10 @@
   function isSendVisibleToMe(entry){
     if(effectiveMaster()) return true;
     if(!entry.target) return true;
-    return entry.target.trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
+    const me = (state.playerName || '').trim().toLowerCase();
+    const target = (entry.target || '').trim().toLowerCase();
+    const from = (entry.from || '').trim().toLowerCase();
+    return target === me || from === me;
   }
 
   function recomputeHandoutGallery(){
@@ -1443,6 +1491,18 @@
   el('handout-gallery-close').addEventListener('click', () => { state.handoutMinimized = true; renderHandoutGallery(); });
   el('handout-gallery-reopen').addEventListener('click', () => { state.handoutMinimized = false; renderHandoutGallery(); });
 
+  el('handout-gallery-image').addEventListener('click', () => {
+    const src = el('handout-gallery-image').src;
+    if(!src) return;
+    el('handout-lightbox-image').src = src;
+    el('handout-lightbox-caption').textContent = el('handout-gallery-caption').textContent;
+    el('handout-lightbox').classList.add('show');
+  });
+  function closeHandoutLightbox(){ el('handout-lightbox').classList.remove('show'); }
+  el('handout-lightbox').addEventListener('click', closeHandoutLightbox);
+  el('handout-lightbox-close').addEventListener('click', (e) => { e.stopPropagation(); closeHandoutLightbox(); });
+  el('handout-lightbox-image').addEventListener('click', (e) => e.stopPropagation());
+
   async function pushSend(entry){
     const raw = await safeGet(slotKey('sends'));
     let list = [];
@@ -1464,10 +1524,25 @@
     el('send-image-preview').style.display = 'none';
     el('send-image-input').value = '';
     el('send-target-input').value = '';
-    state.sendVisibility = 'public';
-    el('send-public').classList.add('toggle-active');
-    el('send-private').classList.remove('toggle-active');
-    el('send-target-input').style.display = 'none';
+    if(effectiveMaster()){
+      el('send-panel-title').textContent = 'Enviar';
+      el('send-image-section').style.display = 'block';
+      el('send-visibility-row').style.display = 'flex';
+      el('send-hint').style.display = 'none';
+      state.sendVisibility = 'public';
+      el('send-public').classList.add('toggle-active');
+      el('send-private').classList.remove('toggle-active');
+      el('send-target-input').style.display = 'none';
+      el('send-target-input').placeholder = 'Nome do destinatário (Mestre ou um jogador)';
+    } else {
+      el('send-panel-title').textContent = 'Sussurrar';
+      el('send-image-section').style.display = 'none';
+      el('send-visibility-row').style.display = 'none';
+      el('send-hint').style.display = 'block';
+      state.sendVisibility = 'private';
+      el('send-target-input').style.display = 'block';
+      el('send-target-input').placeholder = 'Para quem? (Mestre ou outro jogador)';
+    }
   }
   function closeSendPanel(){
     el('send-panel').classList.remove('open');
@@ -1505,15 +1580,20 @@
 
   el('btn-send-submit').addEventListener('click', async () => {
     const text = el('send-text-input').value.trim();
-    const image = state.sendImage;
+    const image = effectiveMaster() ? state.sendImage : null;
     if(!text && !image) return;
     let target = null;
-    if(state.sendVisibility === 'private'){
+    if(effectiveMaster()){
+      if(state.sendVisibility === 'private'){
+        target = el('send-target-input').value.trim();
+        if(!target){ el('send-target-input').focus(); return; }
+      }
+    } else {
       target = el('send-target-input').value.trim();
       if(!target){ el('send-target-input').focus(); return; }
     }
     const entry = {
-      id: newId('s'), ts: Date.now(), from:'Mestre',
+      id: newId('s'), ts: Date.now(), from: currentDisplayName(),
       kind: image ? 'image' : 'text',
       text: text || '', image: image || null,
       target: target
@@ -2230,6 +2310,20 @@
     render();
   });
 
+  el('tools-menu-toggle').addEventListener('click', (e) => {
+    e.stopPropagation();
+    el('tools-menu-dropdown').classList.toggle('open');
+  });
+  el('tools-menu-dropdown').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => el('tools-menu-dropdown').classList.remove('open'));
+  });
+  document.addEventListener('click', (e) => {
+    const $dropdown = el('tools-menu-dropdown');
+    if($dropdown.classList.contains('open') && !$dropdown.contains(e.target) && e.target.id !== 'tools-menu-toggle'){
+      $dropdown.classList.remove('open');
+    }
+  });
+
   async function toggleFreeze(){
     state.meta.playersFrozen = !state.meta.playersFrozen;
     render();
@@ -2565,7 +2659,9 @@
     $masterBadge.style.display = effectiveMaster() ? 'inline-flex' : 'none';
     el('btn-preview-toggle').style.display = state.isMaster ? 'inline-block' : 'none';
     el('my-sheet-toggle').style.display = !state.isMaster ? 'inline-block' : 'none';
-    el('send-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
+    el('send-toggle').style.display = state.currentSlot ? 'inline-block' : 'none';
+    el('send-toggle').title = effectiveMaster() ? 'Enviar mensagem ou imagem' : 'Enviar mensagem privada';
+    el('send-toggle').textContent = effectiveMaster() ? '📤 Enviar' : '🤫 Sussurrar';
     renderHandoutGallery();
     if(el('my-sheet-panel').classList.contains('open')) renderMySheet();
     el('btn-freeze-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
@@ -2867,7 +2963,7 @@
     return (
       '<div class="notes-block">' +
         '<button type="button" class="notes-toggle" data-notes-toggle="'+tok.id+'">🎒 ANOTAÇÕES <span>'+(isOpen ? '▲' : '▼')+'</span></button>' +
-        (isOpen ? '<textarea class="notes-textarea" data-notes-input="'+tok.id+'" placeholder="Liste os itens, equipamentos, cifras nomeadas...">'+escapeHtml(notes)+'</textarea>' : '') +
+        (isOpen ? '<textarea class="notes-textarea" data-notes-input="'+tok.id+'" placeholder="Liste itens, informações essenciais...">'+escapeHtml(notes)+'</textarea>' : '') +
       '</div>'
     );
   }
@@ -4210,7 +4306,10 @@
         freshOnes.forEach(entry => {
           if(!isSendVisibleToMe(entry)) return;
           if(entry.kind === 'text' && entry.text){
-            showToast('🤫 ' + (entry.target ? 'O mestre sussurrou: ' : 'Mestre: ') + entry.text, { type:'whisper', duration:7000 });
+            const label = entry.target
+              ? (effectiveMaster() ? entry.from + ' → ' + entry.target + ': ' : entry.from + ' sussurrou: ')
+              : entry.from + ' (a todos): ';
+            showToast('🤫 ' + label + entry.text, { type:'whisper', duration:7000 });
           }
           if(entry.kind === 'image'){
             state.handoutMinimized = false;
