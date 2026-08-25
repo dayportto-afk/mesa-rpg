@@ -194,36 +194,36 @@
 
   #main{ flex:1; display:flex; min-height:0; position:relative;}
 
-  #sidebar{
-    width:420px; flex-shrink:0;
-    background:var(--bg-panel);
-    border-right:1px solid var(--line);
-    padding:16px; overflow-y:auto;
-    display:flex; flex-direction:column; gap:28px;
-    transition:width .22s ease, padding .22s ease;
+  #icon-rail{
+    position:absolute; top:16px; left:16px; z-index:120;
+    display:flex; flex-direction:column; gap:8px;
   }
-  #sidebar.sidebar-collapsed{ width:0; padding:0; border-right:none; overflow:hidden; }
-  #sidebar-collapse-tab{
-    flex-shrink:0; align-self:center; width:20px; height:64px; padding:0;
-    border-radius:0 6px 6px 0; font-size:12px; border-left:none;
+  #icon-rail.hidden{ display:none; }
+  .icon-rail-btn{
+    width:42px; height:42px; padding:0; border-radius:50%; font-size:19px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg-panel); box-shadow:0 3px 10px rgba(0,0,0,0.4);
   }
+  .icon-rail-btn.icon-rail-danger{ border-color:var(--wax); }
 
-  .collapsible-title{
-    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; user-select:none;
+  .float-panel{
+    display:none; flex-direction:column; position:absolute; z-index:130;
+    width:280px; max-width:90vw; max-height:80vh;
+    background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5);
   }
-  .collapse-arrow{ font-size:10px; transition:transform .15s; }
-  .collapsible-block.collapsed .collapse-arrow{ transform:rotate(-90deg); }
-  .collapsible-block.collapsed .collapsible-content{ display:none; }
-  .danger-zone-block .panel-title{ color:var(--wax); font-weight:bold; }
-  .danger-zone-block .hint{ font-weight:bold; color:#d99; }
-  #sidebar.hidden{ display:none; }
-  .panel-block{ border-bottom:2px solid var(--line); padding-bottom:22px; }
-  .panel-block:last-child{ border-bottom:none; padding-bottom:0; }
-  .panel-title{
-    font-family:'JetBrains Mono', monospace; font-size:14px; letter-spacing:2.5px;
-    text-transform:uppercase; color:var(--amber-bright); margin-bottom:12px;
-    padding-bottom:7px; border-bottom:1px solid var(--line); text-align:center;
+  .float-panel.open{ display:flex; }
+  .float-panel-header{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:9px 8px 9px 14px; border-bottom:1px solid var(--line);
+    cursor:grab; flex-shrink:0; touch-action:none;
+    font-family:'Cinzel', serif; font-size:13px; color:var(--amber-bright); letter-spacing:0.5px;
   }
+  .float-panel-header:active{ cursor:grabbing; }
+  .float-panel-close{ padding:3px 8px; font-size:11px; flex-shrink:0; }
+  .float-panel-body{ flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:2px; }
+  #float-danger .float-panel-header{ color:var(--wax); }
+  #float-danger .hint{ font-weight:bold; color:#d99; }
   .file-btn{
     display:block; width:100%; text-align:center; padding:10px; margin-top:8px;
     border:1px dashed var(--line); border-radius:3px; cursor:pointer;
@@ -542,8 +542,6 @@
     position:absolute; bottom:16px; right:16px; display:flex; flex-direction:column; gap:6px; z-index:60;
   }
   #zoom-controls button{ width:36px; height:36px; padding:0; font-size:16px; }
-
-  #sidebar-toggle{ display:none; }
 
   /* Dice roller (available to master and players alike, opened from the topbar) */
   #dice-backdrop{
@@ -1074,11 +1072,7 @@
   .crop-hint{ text-align:center; margin-top:10px; }
 
   @media (max-width:760px){
-    #sidebar{ position:absolute; left:0; top:0; bottom:0; z-index:100; width:86vw; max-width:420px; box-shadow:10px 0 30px var(--shadow);}
-    #sidebar.hidden{ display:none; }
     #campaign-title{ max-width:24vw; font-size:16px; }
-    #sidebar-toggle{ display:inline-block; }
-    #sidebar-collapse-tab{ display:none; }
     #portal-columns{ flex-direction:column; align-items:center; }
     .portal-col{ width:100%; max-width:340px; }
 
@@ -1092,7 +1086,7 @@
     .fog-swatch, #fog-color-picker{ width:30px; height:30px; }
     #zoom-controls button{ width:44px; height:44px; font-size:18px; }
     .style-toggle{ width:36px; height:36px; }
-    #sidebar-toggle{ width:38px; height:38px; font-size:16px; }
+    .icon-rail-btn{ width:38px; height:38px; font-size:17px; }
     button{ padding:9px 12px; }
 
     /* Keep the topbar compact so the map keeps most of the screen. */
@@ -1144,7 +1138,6 @@
   <div id="app-screen" class="screen hidden">
     <div id="topbar">
       <div id="title-wrap">
-        <button id="sidebar-toggle" title="Menu do mestre">☰</button>
         <div>
           <div class="eyebrow" id="slot-eyebrow">Mesa de Jogo</div>
           <input id="campaign-title" type="text" value="Campanha sem nome" disabled>
@@ -1186,49 +1179,70 @@
     </div>
 
     <div id="main">
-      <div id="sidebar" class="hidden">
-        <div class="panel-block collapsible-block">
-          <div class="panel-title collapsible-title">Nome da campanha <span class="collapse-arrow">▾</span></div>
-          <div class="collapsible-content">
-            <input id="title-input" type="text" placeholder="Ex: A Torre Esquecida">
-            <select id="title-font-input" style="margin-top:8px;">
-              <option value="'Cinzel', serif">Cinzel (padrão)</option>
-              <option value="'EB Garamond', serif">EB Garamond</option>
-              <option value="'IM Fell English', serif">IM Fell English</option>
-              <option value="'Uncial Antiqua', serif">Uncial Antiqua</option>
-              <option value="'Special Elite', monospace">Special Elite</option>
-              <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
-            </select>
-            <button id="btn-save-title" class="primary" style="width:100%; margin-top:8px;">Salvar nome</button>
-          </div>
-        </div>
+      <div id="icon-rail" class="hidden">
+        <button type="button" class="icon-rail-btn" data-panel="float-name" title="Nome da campanha">🏷️</button>
+        <button type="button" class="icon-rail-btn" data-panel="float-appearance" title="Aparência da campanha">🎨</button>
+        <button type="button" class="icon-rail-btn" data-panel="float-code" title="Código de acesso dos jogadores">🔑</button>
+        <button type="button" class="icon-rail-btn" data-panel="float-maps" title="Histórico de mapas">🗺️</button>
+        <button type="button" class="icon-rail-btn" data-panel="float-newtoken" title="Nova ficha">➕</button>
+        <button type="button" class="icon-rail-btn" data-panel="float-fog" title="Névoa de guerra">🌫️</button>
+        <button type="button" class="icon-rail-btn" data-panel="float-grid" title="Grade">🔲</button>
+        <button type="button" class="icon-rail-btn" data-panel="float-text" title="Texto no mapa">📝</button>
+        <button type="button" class="icon-rail-btn icon-rail-danger" data-panel="float-danger" title="Zona de perigo">⚠️</button>
+      </div>
 
-        <div class="panel-block collapsible-block">
-          <div class="panel-title collapsible-title">Aparência da campanha <span class="collapse-arrow">▾</span></div>
-          <div class="collapsible-content">
-            <div class="theme-row">
-              <label for="theme-bg">Fundo</label>
-              <input type="color" id="theme-bg">
-            </div>
-            <div class="theme-row">
-              <label for="theme-panel">Painéis</label>
-              <input type="color" id="theme-panel">
-            </div>
-            <div class="theme-row">
-              <label for="theme-text">Texto</label>
-              <input type="color" id="theme-text">
-            </div>
-            <div class="theme-row">
-              <label for="theme-accent">Destaque</label>
-              <input type="color" id="theme-accent">
-            </div>
-            <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
-            <div class="hint">As cores valem para todo mundo que acessar esta campanha, mestre e jogadores.</div>
-          </div>
+      <div class="float-panel" id="float-name" style="left:64px; top:16px;">
+        <div class="float-panel-header">
+          <span>🏷️ Nome da campanha</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-name">✕</button>
         </div>
+        <div class="float-panel-body">
+          <input id="title-input" type="text" placeholder="Ex: A Torre Esquecida">
+          <select id="title-font-input" style="margin-top:8px;">
+            <option value="'Cinzel', serif">Cinzel (padrão)</option>
+            <option value="'EB Garamond', serif">EB Garamond</option>
+            <option value="'IM Fell English', serif">IM Fell English</option>
+            <option value="'Uncial Antiqua', serif">Uncial Antiqua</option>
+            <option value="'Special Elite', monospace">Special Elite</option>
+            <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+          </select>
+          <button id="btn-save-title" class="primary" style="width:100%; margin-top:8px;">Salvar nome</button>
+        </div>
+      </div>
 
-        <div class="panel-block">
-          <div class="panel-title">Código de acesso dos jogadores</div>
+      <div class="float-panel" id="float-appearance" style="left:88px; top:40px;">
+        <div class="float-panel-header">
+          <span>🎨 Aparência da campanha</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-appearance">✕</button>
+        </div>
+        <div class="float-panel-body">
+          <div class="theme-row">
+            <label for="theme-bg">Fundo</label>
+            <input type="color" id="theme-bg">
+          </div>
+          <div class="theme-row">
+            <label for="theme-panel">Painéis</label>
+            <input type="color" id="theme-panel">
+          </div>
+          <div class="theme-row">
+            <label for="theme-text">Texto</label>
+            <input type="color" id="theme-text">
+          </div>
+          <div class="theme-row">
+            <label for="theme-accent">Destaque</label>
+            <input type="color" id="theme-accent">
+          </div>
+          <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
+          <div class="hint">As cores valem para todo mundo que acessar esta campanha, mestre e jogadores.</div>
+        </div>
+      </div>
+
+      <div class="float-panel" id="float-code" style="left:112px; top:64px;">
+        <div class="float-panel-header">
+          <span>🔑 Código de acesso dos jogadores</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-code">✕</button>
+        </div>
+        <div class="float-panel-body">
           <input type="text" id="access-code-input" maxlength="8" readonly style="text-align:center; letter-spacing:4px; text-transform:uppercase; font-family:'JetBrains Mono', monospace; cursor:default;">
           <div id="access-code-actions">
             <button id="btn-copy-code">Copiar</button>
@@ -1236,18 +1250,27 @@
           </div>
           <div class="hint">O código é sempre gerado automaticamente, sem risco de repetir o de outra campanha. Copie e compartilhe com seus jogadores; gere um novo a qualquer momento se precisar trocar.</div>
         </div>
+      </div>
 
-        <div class="panel-block">
-          <div class="panel-title">Histórico de mapas</div>
+      <div class="float-panel" id="float-maps" style="left:136px; top:88px;">
+        <div class="float-panel-header">
+          <span>🗺️ Histórico de mapas</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-maps">✕</button>
+        </div>
+        <div class="float-panel-body">
           <label class="file-btn" for="map-upload">Adicionar nova página de mapa</label>
           <input type="file" id="map-upload" accept="image/*">
           <div id="page-history-list"></div>
           <div class="hint">Cada imagem enviada vira uma nova página no histórico — as anteriores continuam salvas. As fichas de personagem aparecem em todas as páginas por padrão; "Remover desta página" só as esconde ali, sem apagá-las das demais.</div>
         </div>
+      </div>
 
-        <div class="panel-block collapsible-block">
-          <div class="panel-title collapsible-title">Nova ficha <span class="collapse-arrow">▾</span></div>
-          <div class="collapsible-content">
+      <div class="float-panel" id="float-newtoken" style="left:160px; top:112px;">
+        <div class="float-panel-header">
+          <span>➕ Nova ficha</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-newtoken">✕</button>
+        </div>
+        <div class="float-panel-body">
           <form id="token-form">
             <input type="text" id="token-name" placeholder="Nome do personagem" required>
             <label class="file-btn" for="token-upload">Escolher imagem</label>
@@ -1277,11 +1300,15 @@
             </div>
             <button type="submit" class="primary" style="margin-top:8px;">Adicionar ficha ao mapa</button>
           </form>
-          </div>
         </div>
+      </div>
 
-        <div class="panel-block">
-          <div class="panel-title">Névoa de guerra</div>
+      <div class="float-panel" id="float-fog" style="left:184px; top:16px;">
+        <div class="float-panel-header">
+          <span>🌫️ Névoa de guerra</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-fog">✕</button>
+        </div>
+        <div class="float-panel-body">
           <button id="btn-fog-toggle" style="width:100%;">Ativar modo névoa</button>
           <div class="fog-mode-row">
             <button id="btn-fog-cover" class="toggle-active">Cobrir</button>
@@ -1307,9 +1334,14 @@
           <div class="hint">Com o modo ativo, pinte livremente sobre o mapa para cobrir ou revelar áreas — como um pincel, sem ficar preso a retângulos. A névoa é própria de cada página do histórico.</div>
           <button id="btn-fog-clear" class="danger" style="width:100%; margin-top:8px;">Remover toda a névoa desta página</button>
         </div>
+      </div>
 
-        <div class="panel-block">
-          <div class="panel-title">Grade</div>
+      <div class="float-panel" id="float-grid" style="left:208px; top:40px;">
+        <div class="float-panel-header">
+          <span>🔲 Grade</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-grid">✕</button>
+        </div>
+        <div class="float-panel-body">
           <button id="btn-grid-toggle" style="width:100%;">Ativar grade</button>
           <div class="theme-row" style="margin-top:8px;">
             <label for="grid-size-input">Tam. da célula</label>
@@ -1325,9 +1357,14 @@
           </div>
           <div class="hint">A grade é própria de cada página do histórico e aparece para todos.</div>
         </div>
+      </div>
 
-        <div class="panel-block">
-          <div class="panel-title">Texto no mapa</div>
+      <div class="float-panel" id="float-text" style="left:232px; top:64px;">
+        <div class="float-panel-header">
+          <span>📝 Texto no mapa</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-text">✕</button>
+        </div>
+        <div class="float-panel-body">
           <input type="text" id="text-content-input" placeholder="Escreva um texto">
           <select id="text-font-input" style="margin-top:8px;">
             <option value="'Cinzel', serif">Cinzel (padrão)</option>
@@ -1349,16 +1386,18 @@
           <div id="text-list" style="margin-top:10px;"></div>
           <div class="hint">Arraste o texto no mapa para posicioná-lo. O texto é próprio de cada página do histórico.</div>
         </div>
+      </div>
 
-        <div class="panel-block collapsible-block danger-zone-block">
-          <div class="panel-title collapsible-title">Zona de perigo <span class="collapse-arrow">▾</span></div>
-          <div class="collapsible-content">
-            <button id="btn-delete-campaign" class="danger" style="width:100%;">Excluir esta campanha</button>
-            <div class="hint">Apaga todo o histórico de mapas, fichas, névoa e configurações desta campanha. A vaga volta a ficar livre para uma campanha futura. Não pode ser desfeito.</div>
-          </div>
+      <div class="float-panel" id="float-danger" style="left:256px; top:88px;">
+        <div class="float-panel-header">
+          <span>⚠️ Zona de perigo</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-danger">✕</button>
+        </div>
+        <div class="float-panel-body">
+          <button id="btn-delete-campaign" class="danger" style="width:100%;">Excluir esta campanha</button>
+          <div class="hint">Apaga todo o histórico de mapas, fichas, névoa e configurações desta campanha. A vaga volta a ficar livre para uma campanha futura. Não pode ser desfeito.</div>
         </div>
       </div>
-      <button id="sidebar-collapse-tab" title="Recolher/expandir barra lateral">◀</button>
 
       <div id="map-area">
         <div id="map-viewport">
@@ -1727,14 +1766,13 @@
   const el = id => document.getElementById(id);
   const $portalScreen = el('portal-screen');
   const $appScreen = el('app-screen');
-  const $sidebar = el('sidebar');
+  const $iconRail = el('icon-rail');
   const $title = el('campaign-title');
   const $canvas = el('map-canvas');
   const $tokenList = el('token-list');
   const $masterBadge = el('master-badge');
   const $btnUndo = el('btn-undo');
   const $btnRedo = el('btn-redo');
-  const $sidebarToggle = el('sidebar-toggle');
   const $mapViewport = el('map-viewport');
 
   function slotKey(name){ return 'c' + state.currentSlot + '-' + name; }
@@ -2039,10 +2077,8 @@
   }
 
   function updateHandoutGalleryPosition(){
-    const sidebarOpen = effectiveMaster() && !$sidebar.classList.contains('hidden') && !$sidebar.classList.contains('sidebar-collapsed');
-    const leftOffset = (sidebarOpen ? $sidebar.offsetWidth : 0) + 16;
-    el('handout-gallery').style.left = leftOffset + 'px';
-    el('handout-gallery-reopen').style.left = leftOffset + 'px';
+    el('handout-gallery').style.left = '16px';
+    el('handout-gallery-reopen').style.left = '16px';
   }
 
   function renderHandoutGallery(){
@@ -2287,16 +2323,65 @@
   }
   el('tokens-panel-toggle').addEventListener('click', openTokensPanel);
 
-  document.querySelectorAll('.collapsible-title').forEach(title => {
-    title.addEventListener('click', () => {
-      title.closest('.collapsible-block').classList.toggle('collapsed');
+  // ---------- floating panels (icon rail): open/close, bring-to-front, drag to reposition ----------
+  let floatZCounter = 500;
+  function bringFloatToFront(panel){
+    floatZCounter++;
+    panel.style.zIndex = floatZCounter;
+  }
+  function openFloatPanel(id){
+    const panel = el(id);
+    if(!panel) return;
+    panel.classList.add('open');
+    bringFloatToFront(panel);
+  }
+  function closeFloatPanel(id){
+    const panel = el(id);
+    if(panel) panel.classList.remove('open');
+  }
+  function closeAllFloatPanels(){
+    document.querySelectorAll('.float-panel.open').forEach(p => p.classList.remove('open'));
+  }
+  document.querySelectorAll('.icon-rail-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-panel');
+      const panel = el(id);
+      if(panel.classList.contains('open')) closeFloatPanel(id);
+      else openFloatPanel(id);
     });
   });
-  el('sidebar-collapse-tab').addEventListener('click', () => {
-    const collapsed = $sidebar.classList.toggle('sidebar-collapsed');
-    el('sidebar-collapse-tab').textContent = collapsed ? '▶' : '◀';
-    updateHandoutGalleryPosition();
+  document.querySelectorAll('.float-panel-close').forEach(btn => {
+    btn.addEventListener('click', () => closeFloatPanel(btn.getAttribute('data-close-panel')));
   });
+  document.querySelectorAll('.float-panel').forEach(panel => {
+    panel.addEventListener('pointerdown', () => bringFloatToFront(panel));
+    const header = panel.querySelector('.float-panel-header');
+    header.addEventListener('pointerdown', (e) => {
+      if(e.target.closest('.float-panel-close')) return;
+      const startX = e.clientX, startY = e.clientY;
+      const startLeft = panel.offsetLeft, startTop = panel.offsetTop;
+      bringFloatToFront(panel);
+      header.setPointerCapture(e.pointerId);
+      function onMove(ev){
+        const w = panel.offsetWidth, h = panel.offsetHeight;
+        let left = startLeft + (ev.clientX - startX);
+        let top = startTop + (ev.clientY - startY);
+        left = Math.max(4, Math.min(window.innerWidth - w - 4, left));
+        top = Math.max(4, Math.min(window.innerHeight - h - 4, top));
+        panel.style.left = left + 'px';
+        panel.style.top = top + 'px';
+      }
+      function onUp(){
+        header.removeEventListener('pointermove', onMove);
+        header.removeEventListener('pointerup', onUp);
+        header.removeEventListener('pointercancel', onUp);
+      }
+      header.addEventListener('pointermove', onMove);
+      header.addEventListener('pointerup', onUp);
+      header.addEventListener('pointercancel', onUp);
+    });
+  });
+
   el('tokens-panel-close').addEventListener('click', closeTokensPanel);
   el('tokens-backdrop').addEventListener('click', closeTokensPanel);
   el('send-panel-close').addEventListener('click', closeSendPanel);
@@ -3054,6 +3139,7 @@
     el('tokens-backdrop').classList.remove('open');
     el('music-panel').classList.remove('open');
     el('music-backdrop').classList.remove('open');
+    closeAllFloatPanels();
     el('handout-gallery').classList.remove('show');
     el('handout-gallery-reopen').classList.remove('show');
     state.tokens = [];
@@ -3514,7 +3600,7 @@
     el('btn-preview-toggle').textContent = state.previewAsPlayer ? '👁 Voltar ao mestre' : '👁 Ver como jogador';
     el('btn-preview-toggle').classList.toggle('toggle-active', state.previewAsPlayer);
     $appScreen.classList.toggle('is-master', effectiveMaster());
-    $sidebar.classList.toggle('hidden', !effectiveMaster());
+    $iconRail.classList.toggle('hidden', !effectiveMaster());
     $title.disabled = true;
 
     if(!effectiveMaster()){ state.fogMode = false; }
@@ -3788,7 +3874,6 @@
       state.selectedTokenId = tok.id;
       render();
     }
-    if(window.innerWidth <= 760){ $sidebar.classList.add('hidden'); }
   }
 
   function renderTokens(){
@@ -4964,8 +5049,6 @@
     el('new-numenera-fields').style.display = 'none';
   });
 
-  $sidebarToggle.addEventListener('click', () => $sidebar.classList.toggle('hidden'));
-
   // ---------- image crop modal ----------
   const $cropOverlay = el('crop-overlay');
   const $cropViewport = el('crop-viewport');
@@ -5662,6 +5745,21 @@
     if(e.key === 'Escape' && document.activeElement && typeof document.activeElement.blur === 'function'){
       document.activeElement.blur();
     }
+    if(e.key === 'Escape' && (state.drawMode || state.fogMode)){
+      state.drawMode = false;
+      state.fogMode = false;
+      render();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if(!state.drawMode && !state.fogMode) return;
+    if($mapViewport.contains(e.target)) return;
+    if(e.target.closest('#icon-rail')) return;
+    if(state.fogMode && e.target.closest('#float-fog')) return;
+    if(state.drawMode && e.target.closest('#draw-panel')) return;
+    state.drawMode = false;
+    state.fogMode = false;
+    render();
   });
   (function resumeSessionOrShowPortal(){
     try{
