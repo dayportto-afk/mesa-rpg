@@ -196,15 +196,23 @@
 
   #icon-rail{
     position:absolute; top:16px; left:16px; z-index:120;
-    display:flex; flex-direction:column; gap:8px;
+    display:flex; flex-direction:column; gap:10px;
   }
   #icon-rail.hidden{ display:none; }
+  .icon-rail-item{
+    display:flex; flex-direction:column; align-items:center; gap:3px; width:56px;
+  }
   .icon-rail-btn{
     width:42px; height:42px; padding:0; border-radius:50%; font-size:19px;
     display:flex; align-items:center; justify-content:center;
     background:var(--bg-panel); box-shadow:0 3px 10px rgba(0,0,0,0.4);
   }
   .icon-rail-btn.icon-rail-danger{ border-color:var(--wax); }
+  .icon-rail-label{
+    font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim);
+    letter-spacing:0.3px; text-align:center; line-height:1.1;
+    text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.9);
+  }
 
   .float-panel{
     display:none; flex-direction:column; position:absolute; z-index:130;
@@ -522,8 +530,9 @@
   #initiative-hud{
     display:none; position:absolute; top:16px; left:16px; z-index:70; max-width:220px;
     background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
-    padding:8px 10px; box-shadow:0 4px 16px rgba(0,0,0,0.4); cursor:pointer;
+    padding:8px 10px; box-shadow:0 4px 16px rgba(0,0,0,0.4); cursor:grab; touch-action:none;
   }
+  #initiative-hud.dragging{ cursor:grabbing; }
   #initiative-hud.show{ display:block; }
   #initiative-hud:hover{ border-color:var(--amber-bright); }
   #initiative-hud-round{
@@ -1087,6 +1096,8 @@
     #zoom-controls button{ width:44px; height:44px; font-size:18px; }
     .style-toggle{ width:36px; height:36px; }
     .icon-rail-btn{ width:38px; height:38px; font-size:17px; }
+    .icon-rail-item{ width:50px; }
+    .icon-rail-label{ font-size:8px; }
     button{ padding:9px 12px; }
 
     /* Keep the topbar compact so the map keeps most of the screen. */
@@ -1180,18 +1191,45 @@
 
     <div id="main">
       <div id="icon-rail" class="hidden">
-        <button type="button" class="icon-rail-btn" data-panel="float-name" title="Nome da campanha">🏷️</button>
-        <button type="button" class="icon-rail-btn" data-panel="float-appearance" title="Aparência da campanha">🎨</button>
-        <button type="button" class="icon-rail-btn" data-panel="float-code" title="Código de acesso dos jogadores">🔑</button>
-        <button type="button" class="icon-rail-btn" data-panel="float-maps" title="Histórico de mapas">🗺️</button>
-        <button type="button" class="icon-rail-btn" data-panel="float-newtoken" title="Nova ficha">➕</button>
-        <button type="button" class="icon-rail-btn" data-panel="float-fog" title="Névoa de guerra">🌫️</button>
-        <button type="button" class="icon-rail-btn" data-panel="float-grid" title="Grade">🔲</button>
-        <button type="button" class="icon-rail-btn" data-panel="float-text" title="Texto no mapa">📝</button>
-        <button type="button" class="icon-rail-btn icon-rail-danger" data-panel="float-danger" title="Zona de perigo">⚠️</button>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-name" title="Nome da campanha">🏷️</button>
+          <span class="icon-rail-label">Nome</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-appearance" title="Aparência da campanha">🎨</button>
+          <span class="icon-rail-label">Visual</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-code" title="Código de acesso dos jogadores">🔑</button>
+          <span class="icon-rail-label">Código</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-maps" title="Histórico de mapas">🗺️</button>
+          <span class="icon-rail-label">Mapas</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-newtoken" title="Nova ficha">➕</button>
+          <span class="icon-rail-label">Ficha</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-fog" title="Névoa de guerra">🌫️</button>
+          <span class="icon-rail-label">Névoa</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-grid" title="Grade">🔲</button>
+          <span class="icon-rail-label">Grade</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-text" title="Texto no mapa">📝</button>
+          <span class="icon-rail-label">Texto</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn icon-rail-danger" data-panel="float-danger" title="Zona de perigo">⚠️</button>
+          <span class="icon-rail-label">Perigo</span>
+        </div>
       </div>
 
-      <div class="float-panel" id="float-name" style="left:64px; top:16px;">
+      <div class="float-panel" id="float-name" style="left:80px; top:16px;">
         <div class="float-panel-header">
           <span>🏷️ Nome da campanha</span>
           <button type="button" class="float-panel-close" data-close-panel="float-name">✕</button>
@@ -1210,7 +1248,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-appearance" style="left:88px; top:40px;">
+      <div class="float-panel" id="float-appearance" style="left:104px; top:40px;">
         <div class="float-panel-header">
           <span>🎨 Aparência da campanha</span>
           <button type="button" class="float-panel-close" data-close-panel="float-appearance">✕</button>
@@ -1237,7 +1275,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-code" style="left:112px; top:64px;">
+      <div class="float-panel" id="float-code" style="left:128px; top:64px;">
         <div class="float-panel-header">
           <span>🔑 Código de acesso dos jogadores</span>
           <button type="button" class="float-panel-close" data-close-panel="float-code">✕</button>
@@ -1252,7 +1290,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-maps" style="left:136px; top:88px;">
+      <div class="float-panel" id="float-maps" style="left:152px; top:88px;">
         <div class="float-panel-header">
           <span>🗺️ Histórico de mapas</span>
           <button type="button" class="float-panel-close" data-close-panel="float-maps">✕</button>
@@ -1265,7 +1303,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-newtoken" style="left:160px; top:112px;">
+      <div class="float-panel" id="float-newtoken" style="left:176px; top:112px;">
         <div class="float-panel-header">
           <span>➕ Nova ficha</span>
           <button type="button" class="float-panel-close" data-close-panel="float-newtoken">✕</button>
@@ -1303,7 +1341,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-fog" style="left:184px; top:16px;">
+      <div class="float-panel" id="float-fog" style="left:200px; top:16px;">
         <div class="float-panel-header">
           <span>🌫️ Névoa de guerra</span>
           <button type="button" class="float-panel-close" data-close-panel="float-fog">✕</button>
@@ -1336,7 +1374,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-grid" style="left:208px; top:40px;">
+      <div class="float-panel" id="float-grid" style="left:224px; top:40px;">
         <div class="float-panel-header">
           <span>🔲 Grade</span>
           <button type="button" class="float-panel-close" data-close-panel="float-grid">✕</button>
@@ -1359,7 +1397,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-text" style="left:232px; top:64px;">
+      <div class="float-panel" id="float-text" style="left:248px; top:64px;">
         <div class="float-panel-header">
           <span>📝 Texto no mapa</span>
           <button type="button" class="float-panel-close" data-close-panel="float-text">✕</button>
@@ -1388,7 +1426,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-danger" style="left:256px; top:88px;">
+      <div class="float-panel" id="float-danger" style="left:272px; top:88px;">
         <div class="float-panel-header">
           <span>⚠️ Zona de perigo</span>
           <button type="button" class="float-panel-close" data-close-panel="float-danger">✕</button>
@@ -1412,7 +1450,7 @@
           <span>🔒 Jogadores congelados — eles não veem suas mudanças ainda</span>
           <button type="button" id="btn-freeze-banner-release">Liberar agora</button>
         </div>
-        <div id="initiative-hud" title="Clique para abrir a iniciativa completa">
+        <div id="initiative-hud" title="Clique para abrir a iniciativa completa — arraste para mover">
           <div id="initiative-hud-round"></div>
           <div id="initiative-hud-list"></div>
         </div>
@@ -2634,7 +2672,35 @@
     el('initiative-backdrop').classList.remove('open');
   }
   el('initiative-toggle').addEventListener('click', openInitiativePanel);
-  el('initiative-hud').addEventListener('click', openInitiativePanel);
+  (function setupInitiativeHudDrag(){
+    const $hud = el('initiative-hud');
+    const $area = el('map-area');
+    let dragging = false, moved = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+    $hud.addEventListener('pointerdown', (e) => {
+      dragging = true; moved = false;
+      startX = e.clientX; startY = e.clientY;
+      startLeft = $hud.offsetLeft; startTop = $hud.offsetTop;
+      $hud.setPointerCapture(e.pointerId);
+    });
+    $hud.addEventListener('pointermove', (e) => {
+      if(!dragging) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if(!moved && Math.hypot(dx, dy) < 4) return;
+      moved = true;
+      $hud.classList.add('dragging');
+      const w = $hud.offsetWidth, h = $hud.offsetHeight;
+      const maxLeft = Math.max(0, $area.clientWidth - w);
+      const maxTop = Math.max(0, $area.clientHeight - h);
+      $hud.style.left = Math.max(0, Math.min(maxLeft, startLeft + dx)) + 'px';
+      $hud.style.top = Math.max(0, Math.min(maxTop, startTop + dy)) + 'px';
+    });
+    $hud.addEventListener('pointerup', (e) => {
+      dragging = false;
+      $hud.classList.remove('dragging');
+      if(!moved) openInitiativePanel();
+    });
+    $hud.addEventListener('pointercancel', () => { dragging = false; $hud.classList.remove('dragging'); });
+  })();
   el('initiative-panel-close').addEventListener('click', closeInitiativePanel);
   el('initiative-backdrop').addEventListener('click', closeInitiativePanel);
   el('btn-initiative-d20').addEventListener('click', () => {
