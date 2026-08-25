@@ -603,6 +603,71 @@
   .my-sheet-header-row img{ width:44px; height:44px; border-radius:50%; object-fit:cover; border:1px solid var(--amber); flex-shrink:0; }
   .my-sheet-header-row .my-sheet-name{ font-family:'Cinzel', serif; font-size:17px; color:var(--amber-bright); }
 
+  #toast-container{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:300;
+    display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;
+  }
+  .toast{
+    background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px;
+    padding:10px 18px; font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment);
+    box-shadow:0 6px 20px rgba(0,0,0,0.5); opacity:0; transform:translateY(10px);
+    transition:opacity .25s ease, transform .25s ease; max-width:320px; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateY(0); }
+  .toast.whisper{ border-color:var(--wax); background:#2a1414; color:#f4dede; }
+
+  /* Send panel (master only: whisper text and/or image handouts) */
+  #send-backdrop{ display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55); }
+  #send-backdrop.open{ display:block; }
+  #send-panel{
+    position:fixed; top:0; right:0; bottom:0; width:340px; max-width:88vw; z-index:150;
+    background:var(--bg-panel); border-left:1px solid var(--amber);
+    box-shadow:-6px 0 24px rgba(0,0,0,0.5);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .22s ease;
+  }
+  #send-panel.open{ transform:translateX(0); }
+  #send-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
+  }
+  #send-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
+  #send-panel-close{ padding:4px 9px; font-size:12px; }
+  #send-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; }
+  #send-text-input{
+    width:100%; background:#120e08; border:1px solid var(--line); border-radius:3px;
+    color:var(--parchment); padding:9px 10px; font-family:'EB Garamond', serif; font-size:15px;
+    outline:none; resize:vertical; min-height:64px;
+  }
+  #send-text-input:focus{ border-color:var(--amber); }
+  #send-image-preview{ display:flex; align-items:center; gap:10px; margin-top:8px; }
+  #send-image-preview img{ width:56px; height:56px; border-radius:4px; object-fit:cover; border:1px solid var(--amber); }
+  #send-image-preview button{ padding:4px 8px; font-size:10px; }
+
+  /* Handout gallery (bottom-left corner, pageable when there's more than one visible image) */
+  #handout-gallery{
+    display:none; position:fixed; bottom:16px; left:16px; z-index:70; width:220px;
+    background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
+    box-shadow:0 4px 16px rgba(0,0,0,0.4); overflow:hidden;
+  }
+  #handout-gallery.show{ display:block; }
+  #handout-gallery-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:5px 8px; background:#0e0a06; border-bottom:1px solid var(--line);
+  }
+  #handout-gallery-counter{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:0.5px; }
+  #handout-gallery-close{ padding:1px 7px; font-size:11px; line-height:1.4; }
+  #handout-gallery-image{ display:block; width:100%; max-height:220px; object-fit:contain; background:#0a0704; }
+  #handout-gallery-caption{ padding:6px 8px; font-family:'EB Garamond', serif; font-size:13px; color:var(--parchment); text-align:center; }
+  #handout-gallery-nav{ display:flex; }
+  #handout-gallery-nav button{ flex:1; padding:6px; font-size:14px; border-radius:0; border-width:1px 0 0 0; }
+  #handout-gallery-nav button:first-child{ border-right-width:1px; }
+  #handout-gallery-reopen{
+    display:none; position:fixed; bottom:16px; left:16px; z-index:70;
+    width:40px; height:40px; padding:0; font-size:18px; border-radius:50%;
+  }
+  #handout-gallery-reopen.show{ display:flex; align-items:center; justify-content:center; }
+
   .dice-type-row{ display:flex; align-items:center; gap:8px; }
   .dice-type-row .die-label{
     font-family:'Cinzel', serif; font-size:14px; color:var(--parchment); width:44px; flex-shrink:0;
@@ -689,6 +754,20 @@
       content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
       width:36px; height:4px; border-radius:2px; background:var(--line);
     }
+    #send-panel{
+      top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
+      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      border-radius:16px 16px 0 0;
+      transform:translateY(100%);
+    }
+    #send-panel.open{ transform:translateY(0); }
+    #send-panel-header{ padding:10px 16px 12px; position:relative; }
+    #send-panel-header::before{
+      content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
+      width:36px; height:4px; border-radius:2px; background:var(--line);
+    }
+    #handout-gallery{ width:150px; }
+    #handout-gallery-image{ max-height:150px; }
   }
 
   /* Modals */
@@ -796,8 +875,11 @@
         <div class="portal-col-title">Entrar como jogador</div>
         <div class="portal-col-desc">Peça o código de acesso ao seu mestre. Ele leva direto para o mapa daquela campanha.</div>
         <form id="player-join-form">
-          <input type="text" id="player-name-input" placeholder="Seu nome" maxlength="24" autocomplete="off">
-          <input type="text" id="player-code-input" placeholder="CÓDIGO" maxlength="8" autocomplete="off">
+          <div class="theme-row" style="gap:8px;">
+            <input type="text" id="player-name-input" placeholder="Seu nome" maxlength="24" autocomplete="off" style="flex:1;">
+            <input type="color" id="player-color-input" value="#e2a53f" title="Escolha sua cor">
+          </div>
+          <input type="text" id="player-code-input" placeholder="CÓDIGO" maxlength="8" autocomplete="off" style="margin-top:8px;">
           <div id="player-code-error"></div>
           <button type="submit" class="primary" style="width:100%;">Entrar na campanha</button>
         </form>
@@ -825,6 +907,7 @@
         <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
         <button id="journal-toggle" title="Diário da campanha">📖 Diário</button>
         <button id="my-sheet-toggle" style="display:none;" title="Sua ficha de personagem">🎴 Minha Ficha</button>
+        <button id="send-toggle" style="display:none;" title="Enviar mensagem ou imagem">📤 Enviar</button>
         <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
         <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
         <button id="measure-toggle" title="Meça uma distância no mapa">📏 Medir</button>
@@ -1091,6 +1174,45 @@
       </div>
       <div id="my-sheet-panel-body"></div>
     </div>
+
+    <div id="send-backdrop"></div>
+    <div id="send-panel">
+      <div id="send-panel-header">
+        <h2>Enviar</h2>
+        <button id="send-panel-close">✕</button>
+      </div>
+      <div id="send-panel-body">
+        <textarea id="send-text-input" placeholder="Mensagem (opcional)..." rows="3"></textarea>
+        <label class="file-btn" for="send-image-input" style="margin-top:8px;">Anexar imagem (opcional)</label>
+        <input type="file" id="send-image-input" accept="image/*">
+        <div id="send-image-preview" style="display:none;">
+          <img id="send-image-preview-img" alt="Pré-visualização">
+          <button type="button" id="send-image-remove">Remover imagem</button>
+        </div>
+        <div class="dice-visibility-row" style="margin-top:10px;">
+          <button type="button" id="send-public" class="toggle-active">Pública (todos)</button>
+          <button type="button" id="send-private">Privada (um jogador)</button>
+        </div>
+        <input type="text" id="send-target-input" placeholder="Nome do jogador" style="margin-top:8px; display:none;">
+        <button id="btn-send-submit" class="primary" style="width:100%; margin-top:10px;">Enviar</button>
+      </div>
+    </div>
+
+    <div id="handout-gallery">
+      <div id="handout-gallery-header">
+        <span id="handout-gallery-counter"></span>
+        <button type="button" id="handout-gallery-close" title="Minimizar">−</button>
+      </div>
+      <img id="handout-gallery-image" src="" alt="Imagem enviada pelo mestre">
+      <div id="handout-gallery-caption"></div>
+      <div id="handout-gallery-nav">
+        <button type="button" id="handout-prev">‹</button>
+        <button type="button" id="handout-next">›</button>
+      </div>
+    </div>
+    <button type="button" id="handout-gallery-reopen" title="Ver imagens enviadas">🖼</button>
+
+    <div id="toast-container"></div>
   </div>
 
   <!-- ===================== MODALS ===================== -->
@@ -1186,6 +1308,13 @@
     role:null,
     isAdmin:false,
     playerName:'',
+    playerColor:'',
+    sends:[],
+    sendVisibility:'public',
+    sendImage:null,
+    handoutGallery:[],
+    handoutIndex:0,
+    handoutMinimized:false,
     tutorialRole:null,
     tutorialStep:0,
     isMaster:false,
@@ -1247,6 +1376,152 @@
   let lastJournalSnapshot = '';
   let openNotesTokens = new Set();
 
+  function showToast(message, opts){
+    opts = opts || {};
+    const container = el('toast-container');
+    if(!container) return;
+    const div = document.createElement('div');
+    div.className = 'toast' + (opts.type ? ' ' + opts.type : '');
+    div.textContent = message;
+    container.appendChild(div);
+    requestAnimationFrame(() => div.classList.add('show'));
+    setTimeout(() => {
+      div.classList.remove('show');
+      setTimeout(() => div.remove(), 300);
+    }, opts.duration || 4000);
+  }
+
+  // ---------- send system: whisper text and/or handout images, public or targeted ----------
+  let lastSendsSnapshot = '';
+  let lastSeenRollId = null;
+
+  function isSendVisibleToMe(entry){
+    if(effectiveMaster()) return true;
+    if(!entry.target) return true;
+    return entry.target.trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
+  }
+
+  function recomputeHandoutGallery(){
+    state.handoutGallery = state.sends.filter(e => e.kind === 'image' && e.image && isSendVisibleToMe(e));
+    if(state.handoutIndex >= state.handoutGallery.length) state.handoutIndex = Math.max(0, state.handoutGallery.length - 1);
+  }
+
+  function renderHandoutGallery(){
+    recomputeHandoutGallery();
+    const has = state.handoutGallery.length > 0;
+    const $gallery = el('handout-gallery');
+    const $reopen = el('handout-gallery-reopen');
+    if(!has){
+      $gallery.classList.remove('show');
+      $reopen.classList.remove('show');
+      return;
+    }
+    if(state.handoutMinimized){
+      $gallery.classList.remove('show');
+      $reopen.classList.add('show');
+      return;
+    }
+    $gallery.classList.add('show');
+    $reopen.classList.remove('show');
+    const entry = state.handoutGallery[state.handoutIndex];
+    el('handout-gallery-image').src = entry.image;
+    el('handout-gallery-caption').textContent = entry.text || '';
+    el('handout-gallery-caption').style.display = entry.text ? 'block' : 'none';
+    el('handout-gallery-counter').textContent = (state.handoutIndex+1) + ' / ' + state.handoutGallery.length + (entry.target ? ' 🔒' : '');
+  }
+
+  el('handout-prev').addEventListener('click', () => {
+    if(state.handoutGallery.length === 0) return;
+    state.handoutIndex = (state.handoutIndex - 1 + state.handoutGallery.length) % state.handoutGallery.length;
+    renderHandoutGallery();
+  });
+  el('handout-next').addEventListener('click', () => {
+    if(state.handoutGallery.length === 0) return;
+    state.handoutIndex = (state.handoutIndex + 1) % state.handoutGallery.length;
+    renderHandoutGallery();
+  });
+  el('handout-gallery-close').addEventListener('click', () => { state.handoutMinimized = true; renderHandoutGallery(); });
+  el('handout-gallery-reopen').addEventListener('click', () => { state.handoutMinimized = false; renderHandoutGallery(); });
+
+  async function pushSend(entry){
+    const raw = await safeGet(slotKey('sends'));
+    let list = [];
+    if(raw){ try{ list = JSON.parse(raw).list || []; }catch(e){} }
+    list.unshift(entry);
+    if(list.length > 40) list = list.slice(0, 40);
+    state.sends = list;
+    lastSendsSnapshot = JSON.stringify({ list });
+    if(entry.kind === 'image'){ state.handoutIndex = 0; state.handoutMinimized = false; }
+    renderHandoutGallery();
+    await safeSet(slotKey('sends'), { list });
+  }
+
+  function openSendPanel(){
+    el('send-panel').classList.add('open');
+    el('send-backdrop').classList.add('open');
+    el('send-text-input').value = '';
+    state.sendImage = null;
+    el('send-image-preview').style.display = 'none';
+    el('send-image-input').value = '';
+    el('send-target-input').value = '';
+    state.sendVisibility = 'public';
+    el('send-public').classList.add('toggle-active');
+    el('send-private').classList.remove('toggle-active');
+    el('send-target-input').style.display = 'none';
+  }
+  function closeSendPanel(){
+    el('send-panel').classList.remove('open');
+    el('send-backdrop').classList.remove('open');
+  }
+  el('send-toggle').addEventListener('click', openSendPanel);
+  el('send-panel-close').addEventListener('click', closeSendPanel);
+  el('send-backdrop').addEventListener('click', closeSendPanel);
+
+  el('send-public').addEventListener('click', () => {
+    state.sendVisibility = 'public';
+    el('send-public').classList.add('toggle-active');
+    el('send-private').classList.remove('toggle-active');
+    el('send-target-input').style.display = 'none';
+  });
+  el('send-private').addEventListener('click', () => {
+    state.sendVisibility = 'private';
+    el('send-private').classList.add('toggle-active');
+    el('send-public').classList.remove('toggle-active');
+    el('send-target-input').style.display = 'block';
+  });
+
+  el('send-image-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    state.sendImage = await resizeImage(file, 900, 0.85);
+    el('send-image-preview-img').src = state.sendImage;
+    el('send-image-preview').style.display = 'flex';
+  });
+  el('send-image-remove').addEventListener('click', () => {
+    state.sendImage = null;
+    el('send-image-preview').style.display = 'none';
+    el('send-image-input').value = '';
+  });
+
+  el('btn-send-submit').addEventListener('click', async () => {
+    const text = el('send-text-input').value.trim();
+    const image = state.sendImage;
+    if(!text && !image) return;
+    let target = null;
+    if(state.sendVisibility === 'private'){
+      target = el('send-target-input').value.trim();
+      if(!target){ el('send-target-input').focus(); return; }
+    }
+    const entry = {
+      id: newId('s'), ts: Date.now(), from:'Mestre',
+      kind: image ? 'image' : 'text',
+      text: text || '', image: image || null,
+      target: target
+    };
+    await pushSend(entry);
+    closeSendPanel();
+  });
+
   function renderDiceTypes(){
     const $wrap = el('dice-types');
     $wrap.innerHTML = DICE_TYPES.map(sides =>
@@ -1297,6 +1572,7 @@
     const entry = {
       id: newId('r'), ts: Date.now(),
       roller: state.isMaster ? 'Mestre' : (state.playerName || 'Jogador'),
+      color: state.isMaster ? '#e2a53f' : (state.playerColor || '#e2a53f'),
       breakdown, total,
       private: state.diceVisibility === 'private'
     };
@@ -1336,7 +1612,7 @@
       return (
         '<div class="dice-log-entry'+(entry.private ? ' private' : '')+'">' +
           '<div class="dice-log-meta">' +
-            '<span class="roller">'+escapeHtml(entry.roller)+(entry.private ? ' 🔒 privado' : '')+'</span>' +
+            '<span class="roller" style="color:'+(entry.color||'var(--amber-bright)')+';">'+escapeHtml(entry.roller)+(entry.private ? ' 🔒 privado' : '')+'</span>' +
             '<span>'+formatDiceTime(entry.ts)+'</span>' +
           '</div>' +
           '<div class="dice-log-breakdown">'+escapeHtml(breakdownText)+'</div>' +
@@ -1499,7 +1775,7 @@
       return (
         '<div class="journal-entry">' +
           '<div class="journal-entry-meta">' +
-            '<span class="journal-author">'+escapeHtml(entry.author)+'</span>' +
+            '<span class="journal-author" style="color:'+(entry.color||'var(--amber-bright)')+';">'+escapeHtml(entry.author)+'</span>' +
             '<span>'+formatJournalTime(entry.ts)+'</span>' +
             (canRemove ? '<button type="button" class="danger journal-remove" data-journal-remove="'+entry.id+'">✕</button>' : '') +
           '</div>' +
@@ -1515,7 +1791,7 @@
   async function addJournalEntry(){
     const text = el('journal-input').value.trim();
     if(!text) return;
-    const entry = { id:newId('j'), author:currentDisplayName(), ts:Date.now(), text };
+    const entry = { id:newId('j'), author:currentDisplayName(), color:(state.isMaster ? '#e2a53f' : (state.playerColor || '#e2a53f')), ts:Date.now(), text };
     state.journal.unshift(entry);
     if(state.journal.length > 100) state.journal = state.journal.slice(0, 100);
     lastJournalSnapshot = JSON.stringify({ list: state.journal });
@@ -1802,6 +2078,7 @@
   el('player-join-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = el('player-name-input').value.trim().slice(0, 24);
+    const color = el('player-color-input').value;
     const code = el('player-code-input').value.trim().toUpperCase();
     const $err = el('player-code-error');
     $err.textContent = '';
@@ -1813,7 +2090,7 @@
       if(m.playerCode && m.playerCode.toUpperCase() === code) foundId = ids[idx];
     });
     if(!foundId){ $err.textContent = 'Código inválido.'; return; }
-    await enterSlot(foundId, 'player', name);
+    await enterSlot(foundId, 'player', name, color);
   });
 
   // ---------- master login modal ----------
@@ -1882,12 +2159,13 @@
   $pass.addEventListener('keydown', e => { if(e.key==='Enter') submitLogin(); });
 
   // ---------- entering a slot ----------
-  async function enterSlot(slotN, role, playerName){
+  async function enterSlot(slotN, role, playerName, playerColor){
     if(!slotN) return;
     state.currentSlot = slotN;
     state.role = role;
     state.isMaster = role === 'master';
     state.playerName = role === 'player' ? (playerName && playerName.trim() ? playerName.trim().slice(0,24) : 'Jogador') : '';
+    state.playerColor = role === 'player' ? (playerColor || '#e2a53f') : '';
     state.zoom = 1; state.pan = {x:0,y:0};
     state.undoStack = []; state.redoStack = [];
     state.fogMode = false;
@@ -1901,6 +2179,14 @@
     state.measureDrag = null;
     state.initiative = { list:[], activeId:null, round:1 };
     state.journal = [];
+    state.sends = [];
+    state.sendVisibility = 'public';
+    state.sendImage = null;
+    state.handoutGallery = [];
+    state.handoutIndex = 0;
+    state.handoutMinimized = false;
+    lastSendsSnapshot = '';
+    lastSeenRollId = null;
     openNotesTokens = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
@@ -1913,6 +2199,10 @@
     el('journal-backdrop').classList.remove('open');
     el('my-sheet-panel').classList.remove('open');
     el('my-sheet-backdrop').classList.remove('open');
+    el('send-panel').classList.remove('open');
+    el('send-backdrop').classList.remove('open');
+    el('handout-gallery').classList.remove('show');
+    el('handout-gallery-reopen').classList.remove('show');
     state.tokens = [];
     state.pages = [];
     state.currentPageId = null;
@@ -2106,14 +2396,15 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, journalRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('journal'))
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, journalRaw, sendsRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('journal')), safeGet(slotKey('sends'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; }catch(e){} }
-    if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; }catch(e){} }
+    if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; lastSeenRollId = state.diceRolls[0] ? state.diceRolls[0].id : 'NONE'; }catch(e){} }
     if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
+    if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
 
     let index = { list: [], currentPageId: null };
     if(indexRaw){ try{ index = JSON.parse(indexRaw); }catch(e){} }
@@ -2274,6 +2565,8 @@
     $masterBadge.style.display = effectiveMaster() ? 'inline-flex' : 'none';
     el('btn-preview-toggle').style.display = state.isMaster ? 'inline-block' : 'none';
     el('my-sheet-toggle').style.display = !state.isMaster ? 'inline-block' : 'none';
+    el('send-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
+    renderHandoutGallery();
     if(el('my-sheet-panel').classList.contains('open')) renderMySheet();
     el('btn-freeze-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('btn-freeze-toggle').textContent = state.meta.playersFrozen ? '🔒 Jogadores congelados' : '🔓 Jogadores atualizados';
@@ -3877,7 +4170,21 @@
     }
     if(diceLogRaw && diceLogRaw !== lastDiceLogSnapshot){
       lastDiceLogSnapshot = diceLogRaw;
-      try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; changed = true; }catch(e){}
+      try{
+        const newRolls = JSON.parse(diceLogRaw).list || [];
+        const myName = state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
+        const newest = newRolls[0];
+        if(newest && newest.id !== lastSeenRollId){
+          const visible = !newest.private || effectiveMaster() || newest.roller === myName;
+          const isMine = newest.roller === myName;
+          if(visible && !isMine){
+            showToast('🎲 ' + newest.roller + ' rolou ' + newest.total + (newest.private ? ' (privado)' : ''));
+          }
+        }
+        if(newest) lastSeenRollId = newest.id;
+        state.diceRolls = newRolls;
+        changed = true;
+      }catch(e){}
     }
 
     const initRaw = await safeGet(slotKey('initiative'));
@@ -3890,6 +4197,28 @@
     if(journalRaw && journalRaw !== lastJournalSnapshot){
       lastJournalSnapshot = journalRaw;
       try{ state.journal = JSON.parse(journalRaw).list || []; changed = true; }catch(e){}
+    }
+
+    const sendsRaw = await safeGet(slotKey('sends'));
+    if(sendsRaw && sendsRaw !== lastSendsSnapshot){
+      const prevIds = new Set(state.sends.map(e => e.id));
+      lastSendsSnapshot = sendsRaw;
+      try{
+        const newSends = JSON.parse(sendsRaw).list || [];
+        const freshOnes = newSends.filter(e => !prevIds.has(e.id));
+        state.sends = newSends;
+        freshOnes.forEach(entry => {
+          if(!isSendVisibleToMe(entry)) return;
+          if(entry.kind === 'text' && entry.text){
+            showToast('🤫 ' + (entry.target ? 'O mestre sussurrou: ' : 'Mestre: ') + entry.text, { type:'whisper', duration:7000 });
+          }
+          if(entry.kind === 'image'){
+            state.handoutMinimized = false;
+          }
+        });
+        renderHandoutGallery();
+        changed = true;
+      }catch(e){}
     }
 
     const pingPage = currentPage();
