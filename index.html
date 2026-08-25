@@ -454,9 +454,12 @@
     transform-origin:center center;
     box-shadow:0 0 60px var(--shadow);
     border:2px solid #000;
+    overflow:hidden;
+    display:inline-block;
   }
   #map-canvas img{ display:block; max-width:none; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
   #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 
   #empty-map{
@@ -664,14 +667,10 @@
   }
   .music-track-row:hover{ border-color:var(--amber); }
   .music-track-row.active{ border-color:var(--amber-bright); background:#241a0a; }
+  .music-track-row .music-track-playicon{ flex-shrink:0; padding:4px 8px; font-size:12px; }
   .music-track-row .music-track-name{ flex:1; font-size:13px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .music-track-row .music-track-delete{ flex-shrink:0; padding:3px 8px; font-size:9px; }
-  #music-now-playing{
-    text-align:center; font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright);
-    padding:8px; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
-  }
-  #music-transport{ display:flex; gap:6px; }
-  #music-transport button{ flex:1; padding:9px; font-size:14px; }
+  #music-transport{ display:flex; }
   #music-volume-row{ display:flex; flex-direction:column; gap:5px; }
   #music-volume-row label{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:0.5px; text-transform:uppercase; }
   #music-volume-slider{ width:100%; accent-color:var(--amber); cursor:pointer; }
@@ -1389,20 +1388,14 @@
         <label class="file-btn" for="music-upload">Enviar nova faixa (MP3, WAV, OGG...)</label>
         <input type="file" id="music-upload" accept="audio/*">
         <div id="music-track-list"></div>
-        <div id="music-now-playing">
-          <span id="music-now-playing-name">Nenhuma faixa selecionada</span>
-        </div>
         <div id="music-transport">
-          <button type="button" id="music-prev" title="Faixa anterior">⏮</button>
-          <button type="button" id="music-play-pause" title="Tocar/Pausar">▶️</button>
-          <button type="button" id="music-next" title="Próxima faixa">⏭</button>
-          <button type="button" id="music-stop" class="danger" title="Parar música">⏹</button>
+          <button type="button" id="music-stop" class="danger" style="width:100%;" title="Parar todas as faixas">⏹ Parar tudo</button>
         </div>
         <div id="music-volume-row">
           <label for="music-volume-slider">Volume (todos ouvem neste nível)</label>
           <input type="range" id="music-volume-slider" min="0" max="100" value="50">
         </div>
-        <div class="hint">A faixa escolhida toca em loop contínuo para todo mundo, até você trocar ou parar. Jogadores podem silenciar a música pra si mesmos, mas não ajustam o volume.</div>
+        <div class="hint">Clique em uma faixa pra tocar ou pausar — dá pra ter várias tocando ao mesmo tempo, em camadas (chuva + taverna + tensão, por exemplo). Cada uma toca em loop contínuo até você pausar ou excluir. Jogadores podem silenciar a música pra si mesmos, mas não ajustam o volume.</div>
       </div>
     </div>
 
@@ -1647,8 +1640,7 @@
     playerColor:'',
     sends:[],
     musicTracks:[],
-    musicTrackId:null,
-    musicPlaying:false,
+    musicPlayingIds:[],
     musicVolume:0.5,
     sendImage:null,
     handoutGallery:[],
@@ -1763,41 +1755,42 @@
     }
   });
 
-  // ---------- ambient music (master controls tracks + shared volume; players can only mute for themselves) ----------
+  // ---------- ambient music (master controls tracks + shared volume; multiple tracks can play layered at once; players can only mute for themselves) ----------
   let musicMuted = false;
   try{ musicMuted = localStorage.getItem('music-muted') === '1'; }catch(e){}
   let lastMusicTracksSnapshot = '';
   let lastMusicStateSnapshot = '';
-  const $ambientAudio = new Audio();
-  $ambientAudio.loop = true;
-
-  function currentMusicTrack(){
-    return state.musicTracks.find(t => t.id === state.musicTrackId) || null;
-  }
+  const musicAudioElements = new Map(); // trackId -> HTMLAudioElement
 
   function updateAmbientAudio(){
-    const track = currentMusicTrack();
-    const shouldPlay = !!(track && state.musicPlaying);
-    const targetSrc = track ? track.dataUrl : '';
-    if($ambientAudio.getAttribute('data-src') !== targetSrc){
-      $ambientAudio.setAttribute('data-src', targetSrc);
-      $ambientAudio.src = targetSrc;
-    }
-    $ambientAudio.volume = musicMuted ? 0 : state.musicVolume;
-    if(shouldPlay){
-      if($ambientAudio.paused) $ambientAudio.play().catch(() => {});
-    } else {
-      if(!$ambientAudio.paused) $ambientAudio.pause();
-    }
+    const playingIds = new Set(state.musicPlayingIds || []);
+    // Start/update every track that should be playing
+    playingIds.forEach(id => {
+      const track = state.musicTracks.find(t => t.id === id);
+      if(!track) return;
+      let audio = musicAudioElements.get(id);
+      if(!audio){
+        audio = new Audio();
+        audio.loop = true;
+        musicAudioElements.set(id, audio);
+      }
+      if(audio.getAttribute('data-src') !== track.dataUrl){
+        audio.setAttribute('data-src', track.dataUrl);
+        audio.src = track.dataUrl;
+      }
+      audio.volume = musicMuted ? 0 : state.musicVolume;
+      if(audio.paused) audio.play().catch(() => {});
+    });
+    // Pause anything that's no longer supposed to be playing
+    musicAudioElements.forEach((audio, id) => {
+      if(!playingIds.has(id) && !audio.paused) audio.pause();
+    });
   }
 
   function updateMusicIndicator(){
-    const track = currentMusicTrack();
-    const show = !!(track && state.musicPlaying);
+    const show = (state.musicPlayingIds || []).length > 0;
     el('music-indicator').style.display = show ? 'flex' : 'none';
-    if(show){
-      el('music-indicator-name').textContent = '🎵';
-    }
+    if(show) el('music-indicator-name').textContent = '🎵';
     el('music-indicator').removeAttribute('title');
     el('music-mute-toggle').textContent = musicMuted ? '🔇' : '🔊';
   }
@@ -1815,41 +1808,45 @@
     await safeSet(slotKey('music-tracks'), { list: state.musicTracks });
   }
   async function persistMusicState(){
-    const payload = { trackId: state.musicTrackId, playing: state.musicPlaying, volume: state.musicVolume };
+    const payload = { playingIds: state.musicPlayingIds, volume: state.musicVolume };
     lastMusicStateSnapshot = JSON.stringify(payload);
     await safeSet(slotKey('music-state'), payload);
   }
 
   function renderMusicTrackList(){
     const $list = el('music-track-list');
+    const playingIds = state.musicPlayingIds || [];
     if(state.musicTracks.length === 0){
       $list.innerHTML = '<div class="hint">Nenhuma faixa enviada ainda.</div>';
     } else {
-      $list.innerHTML = state.musicTracks.map(t =>
-        '<div class="music-track-row'+(t.id===state.musicTrackId?' active':'')+'" data-music-select="'+t.id+'">' +
-          '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
-          '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'">Excluir</button>' +
-        '</div>'
-      ).join('');
-      $list.querySelectorAll('[data-music-select]').forEach(row => {
+      $list.innerHTML = state.musicTracks.map(t => {
+        const isPlaying = playingIds.includes(t.id);
+        return (
+          '<div class="music-track-row'+(isPlaying?' active':'')+'" data-music-toggle="'+t.id+'">' +
+            '<button type="button" class="music-track-playicon" data-music-toggle-btn="'+t.id+'" title="'+(isPlaying?'Pausar':'Tocar')+'">'+(isPlaying?'⏸️':'▶️')+'</button>' +
+            '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
+            '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'">Excluir</button>' +
+          '</div>'
+        );
+      }).join('');
+      $list.querySelectorAll('[data-music-toggle]').forEach(row => {
         row.addEventListener('click', (e) => {
           if(e.target.closest('[data-music-delete]')) return;
-          selectMusicTrack(row.getAttribute('data-music-select'));
+          toggleMusicTrack(row.getAttribute('data-music-toggle'));
         });
       });
       $list.querySelectorAll('[data-music-delete]').forEach(btn => {
         btn.addEventListener('click', (e) => { e.stopPropagation(); deleteMusicTrack(btn.getAttribute('data-music-delete')); });
       });
     }
-    const track = currentMusicTrack();
-    el('music-now-playing-name').textContent = track ? track.name : 'Nenhuma faixa selecionada';
-    el('music-play-pause').textContent = state.musicPlaying ? '⏸️' : '▶️';
     el('music-volume-slider').value = Math.round(state.musicVolume * 100);
   }
 
-  async function selectMusicTrack(id){
-    state.musicTrackId = id;
-    state.musicPlaying = true;
+  async function toggleMusicTrack(id){
+    if(!state.musicPlayingIds) state.musicPlayingIds = [];
+    const idx = state.musicPlayingIds.indexOf(id);
+    if(idx === -1) state.musicPlayingIds.push(id);
+    else state.musicPlayingIds.splice(idx, 1);
     renderMusicTrackList();
     updateAmbientAudio();
     updateMusicIndicator();
@@ -1859,7 +1856,9 @@
   async function deleteMusicTrack(id){
     if(!confirm('Excluir esta faixa? Isso remove ela pra todo mundo na campanha.')) return;
     state.musicTracks = state.musicTracks.filter(t => t.id !== id);
-    if(state.musicTrackId === id){ state.musicTrackId = null; state.musicPlaying = false; }
+    state.musicPlayingIds = (state.musicPlayingIds || []).filter(pid => pid !== id);
+    const audio = musicAudioElements.get(id);
+    if(audio){ audio.pause(); musicAudioElements.delete(id); }
     renderMusicTrackList();
     updateAmbientAudio();
     updateMusicIndicator();
@@ -1886,32 +1885,8 @@
     await persistMusicTracks();
   });
 
-  el('music-play-pause').addEventListener('click', async () => {
-    if(!state.musicTrackId){
-      if(state.musicTracks.length === 0) return;
-      state.musicTrackId = state.musicTracks[0].id;
-    }
-    state.musicPlaying = !state.musicPlaying;
-    renderMusicTrackList();
-    updateAmbientAudio();
-    updateMusicIndicator();
-    await persistMusicState();
-  });
-  el('music-prev').addEventListener('click', async () => {
-    if(state.musicTracks.length === 0) return;
-    const idx = state.musicTracks.findIndex(t => t.id === state.musicTrackId);
-    const nextIdx = idx <= 0 ? state.musicTracks.length - 1 : idx - 1;
-    await selectMusicTrack(state.musicTracks[nextIdx].id);
-  });
-  el('music-next').addEventListener('click', async () => {
-    if(state.musicTracks.length === 0) return;
-    const idx = state.musicTracks.findIndex(t => t.id === state.musicTrackId);
-    const nextIdx = idx === -1 || idx === state.musicTracks.length - 1 ? 0 : idx + 1;
-    await selectMusicTrack(state.musicTracks[nextIdx].id);
-  });
   el('music-stop').addEventListener('click', async () => {
-    state.musicTrackId = null;
-    state.musicPlaying = false;
+    state.musicPlayingIds = [];
     renderMusicTrackList();
     updateAmbientAudio();
     updateMusicIndicator();
@@ -2991,14 +2966,12 @@
     state.handoutIndex = 0;
     state.handoutMinimized = false;
     state.musicTracks = [];
-    state.musicTrackId = null;
-    state.musicPlaying = false;
+    state.musicPlayingIds = [];
     state.musicVolume = 0.5;
     lastMusicTracksSnapshot = '';
     lastMusicStateSnapshot = '';
-    $ambientAudio.pause();
-    $ambientAudio.removeAttribute('data-src');
-    $ambientAudio.src = '';
+    musicAudioElements.forEach(audio => { audio.pause(); audio.removeAttribute('data-src'); audio.src = ''; });
+    musicAudioElements.clear();
     lastSendsSnapshot = '';
     lastSeenRollId = null;
     composeTargets = [];
@@ -3263,8 +3236,7 @@
     if(musicStateRaw){
       try{
         const ms = JSON.parse(musicStateRaw);
-        state.musicTrackId = ms.trackId || null;
-        state.musicPlaying = !!ms.playing;
+        state.musicPlayingIds = Array.isArray(ms.playingIds) ? ms.playingIds : [];
         state.musicVolume = typeof ms.volume === 'number' ? ms.volume : 0.5;
         lastMusicStateSnapshot = musicStateRaw;
       }catch(e){}
@@ -3420,7 +3392,16 @@
     const page = currentPage();
     if(page && page.map.image){
       $canvas.innerHTML = '<img id="map-img" src="'+page.map.image+'" alt="Mapa de combate">';
+      const imgEl = document.getElementById('map-img');
+      const pinCanvasSize = () => {
+        $canvas.style.width = (imgEl.naturalWidth || 1200) + 'px';
+        $canvas.style.height = (imgEl.naturalHeight || 800) + 'px';
+      };
+      if(imgEl.complete && imgEl.naturalWidth > 0){ pinCanvasSize(); }
+      else { imgEl.addEventListener('load', pinCanvasSize, { once:true }); }
     } else {
+      $canvas.style.width = '';
+      $canvas.style.height = '';
       $canvas.innerHTML = '<div id="empty-map">✦ Nenhum mapa carregado ainda ✦<small>Entre como mestre para enviar a imagem do mapa de combate</small></div>';
     }
     setupGridOverlay();
@@ -5470,8 +5451,7 @@
       lastMusicStateSnapshot = musicStateRaw;
       try{
         const ms = JSON.parse(musicStateRaw);
-        state.musicTrackId = ms.trackId || null;
-        state.musicPlaying = !!ms.playing;
+        state.musicPlayingIds = Array.isArray(ms.playingIds) ? ms.playingIds : [];
         state.musicVolume = typeof ms.volume === 'number' ? ms.volume : 0.5;
         changed = true;
       }catch(e){}
