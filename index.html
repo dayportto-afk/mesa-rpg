@@ -648,8 +648,9 @@
   #tokens-panel-close{ padding:4px 9px; font-size:12px; }
   #tokens-panel-body{ flex:1; min-height:0; overflow-y:auto; padding:14px 16px; }
   #tokens-panel-body #token-list{
-    display:flex; flex-direction:column; gap:22px; max-height:none; overflow-y:visible; margin-top:0;
+    display:flex; flex-direction:row; align-items:flex-start; gap:22px; max-height:none; overflow-y:visible; margin-top:0;
   }
+  .token-group{ flex:1; min-width:0; }
   .token-group-title{
     font-family:'Cinzel', serif; font-size:13px; color:var(--amber-bright); letter-spacing:1px;
     text-transform:uppercase; border-bottom:1px solid var(--amber); padding-bottom:7px; margin-bottom:12px;
@@ -896,6 +897,7 @@
       transform:translateY(100%);
     }
     #tokens-panel.open{ transform:translateY(0); }
+    #tokens-panel-body #token-list{ flex-direction:column; }
     #tokens-panel-header{ padding:10px 16px 12px; position:relative; }
     #tokens-panel-header::before{
       content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
