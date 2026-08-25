@@ -480,8 +480,10 @@
     border:2px solid #000;
     overflow:hidden;
     display:inline-block;
+    max-width:100%;
+    max-height:100%;
   }
-  #map-canvas img{ display:block; max-width:none; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  #map-canvas img{ display:block; max-width:100%; max-height:100%; width:auto; height:auto; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
   #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
@@ -2798,54 +2800,7 @@
   }
   el('initiative-toggle').addEventListener('click', openInitiativePanel);
   let hudUserPositioned = false;
-  let needsZoomFit = false;
   let userZoomedManually = false;
-
-  function applyZoomFit(){
-    const imgEl = document.getElementById('map-img');
-    const $area = el('map-area');
-    if(!imgEl || !$area) return;
-    const areaW = $area.clientWidth || window.innerWidth;
-    const areaH = $area.clientHeight || window.innerHeight;
-    const naturalW = imgEl.naturalWidth || areaW;
-    const naturalH = imgEl.naturalHeight || areaH;
-    if(!areaW || !areaH || !naturalW || !naturalH) return;
-    const fitScale = Math.min(areaW / naturalW, areaH / naturalH);
-    state.zoom = Math.max(0.05, Math.min(1, fitScale * 0.96));
-    state.pan = {x:0, y:0};
-    applyTransform();
-  }
-
-  let zoomFitPollHandle = null;
-  function startZoomFitPolling(){
-    if(zoomFitPollHandle) clearInterval(zoomFitPollHandle);
-    let ticks = 0;
-    applyZoomFit();
-    zoomFitPollHandle = setInterval(() => {
-      ticks++;
-      if(userZoomedManually || ticks > 20){
-        clearInterval(zoomFitPollHandle);
-        zoomFitPollHandle = null;
-        return;
-      }
-      applyZoomFit();
-    }, 200);
-  }
-
-  let resizeRefitTimer = null;
-  function scheduleZoomRefit(){
-    if(userZoomedManually) return;
-    if(!document.getElementById('map-img')) return;
-    clearTimeout(resizeRefitTimer);
-    resizeRefitTimer = setTimeout(applyZoomFit, 150);
-  }
-  window.addEventListener('resize', scheduleZoomRefit);
-  if(window.visualViewport){
-    window.visualViewport.addEventListener('resize', scheduleZoomRefit);
-  }
-  if(window.ResizeObserver){
-    new ResizeObserver(scheduleZoomRefit).observe(el('map-area'));
-  }
 
   function centerInitiativeHud(){
     if(hudUserPositioned) return;
@@ -3344,7 +3299,7 @@
     state.isMaster = role === 'master';
     state.playerName = role === 'player' ? (playerName && playerName.trim() ? playerName.trim().slice(0,24) : 'Jogador') : '';
     state.playerColor = role === 'player' ? (playerColor || '#e2a53f') : '';
-    state.zoom = 1; state.pan = {x:0,y:0}; needsZoomFit = true; userZoomedManually = false;
+    state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
     state.undoStack = []; state.redoStack = [];
     state.fogMode = false;
     state.selectedTokenId = null;
@@ -3830,10 +3785,6 @@
       const pinCanvasSize = () => {
         $canvas.style.width = (imgEl.naturalWidth || 1200) + 'px';
         $canvas.style.height = (imgEl.naturalHeight || 800) + 'px';
-        if(needsZoomFit){
-          needsZoomFit = false;
-          startZoomFitPolling();
-        }
       };
       if(imgEl.complete && imgEl.naturalWidth > 0){ pinCanvasSize(); }
       else { imgEl.addEventListener('load', pinCanvasSize, { once:true }); }
@@ -3963,7 +3914,7 @@
     if(id === state.currentPageId) return;
     state.currentPageId = id;
     state.selectedTokenId = null;
-    state.zoom = 1; state.pan = {x:0,y:0}; needsZoomFit = true; userZoomedManually = false;
+    state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
     render();
     await persistPagesIndex();
   }
@@ -5236,7 +5187,7 @@
     const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), map:{ image:dataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
     state.pages.push(page);
     state.currentPageId = page.id;
-    state.zoom = 1; state.pan = {x:0,y:0}; needsZoomFit = true; userZoomedManually = false;
+    state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
     render();
     await Promise.all([ persistPageMap(page), persistPagesIndex() ]);
     e.target.value = '';
