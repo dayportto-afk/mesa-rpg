@@ -2816,6 +2816,22 @@
     applyTransform();
   }
 
+  let zoomFitPollHandle = null;
+  function startZoomFitPolling(){
+    if(zoomFitPollHandle) clearInterval(zoomFitPollHandle);
+    let ticks = 0;
+    applyZoomFit();
+    zoomFitPollHandle = setInterval(() => {
+      ticks++;
+      if(userZoomedManually || ticks > 20){
+        clearInterval(zoomFitPollHandle);
+        zoomFitPollHandle = null;
+        return;
+      }
+      applyZoomFit();
+    }, 200);
+  }
+
   let resizeRefitTimer = null;
   function scheduleZoomRefit(){
     if(userZoomedManually) return;
@@ -3437,8 +3453,8 @@
     e.stopPropagation();
     const $dropdown = el('tools-menu-dropdown');
     const willOpen = !$dropdown.classList.contains('open');
-    if(willOpen) positionToolsMenuDropdown();
     $dropdown.classList.toggle('open', willOpen);
+    if(willOpen) positionToolsMenuDropdown();
   });
   window.addEventListener('resize', () => {
     if(el('tools-menu-dropdown').classList.contains('open')) positionToolsMenuDropdown();
@@ -3816,10 +3832,7 @@
         $canvas.style.height = (imgEl.naturalHeight || 800) + 'px';
         if(needsZoomFit){
           needsZoomFit = false;
-          // Defer measurement two frames: right after an image loads (especially on mobile),
-          // the surrounding layout (address bar show/hide, icon rail) may not have settled yet.
-          requestAnimationFrame(() => requestAnimationFrame(applyZoomFit));
-          setTimeout(() => { if(!userZoomedManually) applyZoomFit(); }, 600);
+          startZoomFitPolling();
         }
       };
       if(imgEl.complete && imgEl.naturalWidth > 0){ pinCanvasSize(); }
@@ -5502,6 +5515,7 @@
       startDrawPaint(e);
       return;
     }
+    userZoomedManually = true;
     state.panning = { startX: e.clientX, startY: e.clientY, startPanX: state.pan.x, startPanY: state.pan.y };
     $mapViewport.setPointerCapture(e.pointerId);
     $mapViewport.classList.add('panning');
