@@ -194,7 +194,22 @@
     border-right:1px solid var(--line);
     padding:16px; overflow-y:auto;
     display:flex; flex-direction:column; gap:28px;
+    transition:width .22s ease, padding .22s ease;
   }
+  #sidebar.sidebar-collapsed{ width:0; padding:0; border-right:none; overflow:hidden; }
+  #sidebar-collapse-tab{
+    flex-shrink:0; align-self:center; width:20px; height:64px; padding:0;
+    border-radius:0 6px 6px 0; font-size:12px; border-left:none;
+  }
+
+  .collapsible-title{
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; user-select:none;
+  }
+  .collapse-arrow{ font-size:10px; transition:transform .15s; }
+  .collapsible-block.collapsed .collapse-arrow{ transform:rotate(-90deg); }
+  .collapsible-block.collapsed .collapsible-content{ display:none; }
+  .danger-zone-block .panel-title{ color:var(--wax); font-weight:bold; }
+  .danger-zone-block .hint{ font-weight:bold; color:#d99; }
   #sidebar.hidden{ display:none; }
   .panel-block{ border-bottom:2px solid var(--line); padding-bottom:22px; }
   .panel-block:last-child{ border-bottom:none; padding-bottom:0; }
@@ -274,6 +289,30 @@
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .condition-chip.toggle-active{ background:var(--amber); border-color:var(--amber); }
+
+  .phrase-input{
+    width:100%; margin-top:4px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
+    color:var(--parchment-dim); padding:6px 8px; font-family:'EB Garamond', serif; font-style:italic; font-size:13px;
+    outline:none;
+  }
+  .phrase-input:focus{ border-color:var(--amber); color:var(--parchment); }
+  .damage-track-row{ display:flex; gap:4px; margin-top:6px; }
+  .damage-track-chip{
+    flex:1; padding:6px 2px; font-size:9px; text-align:center; cursor:help;
+    border-radius:3px;
+  }
+  .damage-track-chip.toggle-active{ background:var(--wax); border-color:var(--wax); color:#f4dede; }
+  .numenera-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; }
+  .numenera-stat-grid label{
+    display:block; font-family:'JetBrains Mono', monospace; font-size:9px; letter-spacing:0.5px;
+    text-transform:uppercase; color:var(--parchment-dim); margin-bottom:3px;
+  }
+  .edge-row{ display:flex; align-items:center; gap:8px; margin-top:5px; }
+  .edge-row .row-label{ width:70px; flex-shrink:0; }
+  .edge-row input{ width:56px; text-align:center; }
+  .checkbox-row{ display:flex; align-items:center; gap:7px; margin-top:6px; cursor:pointer; }
+  .checkbox-row input[type=checkbox]{ width:16px; height:16px; accent-color:var(--amber); cursor:pointer; }
+  .checkbox-row span{ font-family:'EB Garamond', serif; font-size:13px; color:var(--parchment); }
 
   .notes-block{ margin-top:2px; }
   .notes-toggle{
@@ -590,6 +629,26 @@
   .journal-entry-meta .journal-remove{ padding:2px 7px; font-size:9px; }
   .journal-entry-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
 
+  /* Fichas panel (extracted from sidebar for better visibility, especially during combat) */
+  #tokens-backdrop{ display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55); }
+  #tokens-backdrop.open{ display:block; }
+  #tokens-panel{
+    position:fixed; top:0; right:0; bottom:0; width:460px; max-width:92vw; z-index:150;
+    background:var(--bg-panel); border-left:1px solid var(--amber);
+    box-shadow:-6px 0 24px rgba(0,0,0,0.5);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .22s ease;
+  }
+  #tokens-panel.open{ transform:translateX(0); }
+  #tokens-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
+  }
+  #tokens-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
+  #tokens-panel-close{ padding:4px 9px; font-size:12px; }
+  #tokens-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; }
+  #tokens-panel-body #token-list{ display:flex; flex-direction:column; gap:12px; }
+
   /* My Sheet (player-only: view/edit their own character, matched by name) */
   #my-sheet-backdrop{
     display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
@@ -626,12 +685,13 @@
   }
   .toast.show{ opacity:1; transform:translateY(0); }
   .toast.whisper{ border-color:var(--wax); background:#2a1414; color:#f4dede; }
+  .toast.diceroll{ font-size:18px; padding:12px 22px; max-width:360px; font-family:'Cinzel', serif; }
 
   /* Send panel (master only: whisper text and/or image handouts) */
   #send-backdrop{ display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55); }
   #send-backdrop.open{ display:block; }
   #send-panel{
-    position:fixed; top:0; right:0; bottom:0; width:340px; max-width:88vw; z-index:150;
+    position:fixed; top:0; right:0; bottom:0; width:360px; max-width:88vw; z-index:150;
     background:var(--bg-panel); border-left:1px solid var(--amber);
     box-shadow:-6px 0 24px rgba(0,0,0,0.5);
     display:flex; flex-direction:column;
@@ -639,19 +699,52 @@
   }
   #send-panel.open{ transform:translateX(0); }
   #send-panel-header{
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
     padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
   }
-  #send-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
+  #send-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; flex:1; }
   #send-panel-close{ padding:4px 9px; font-size:12px; }
-  #send-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; }
+  #thread-back-btn{ padding:4px 9px; font-size:10px; }
+
+  #thread-list-view{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+  .thread-item{
+    display:flex; flex-direction:column; gap:3px; text-align:left; padding:10px 12px;
+    background:#120e08; border:1px solid var(--line); border-radius:6px; width:100%;
+  }
+  .thread-item .thread-participants{ font-family:'Cinzel', serif; font-size:13px; color:var(--amber-bright); }
+  .thread-item .thread-preview{ font-family:'EB Garamond', serif; font-size:12px; color:var(--parchment-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  #thread-compose-view{ flex:1; display:flex; flex-direction:column; min-height:0; }
+  #thread-recipients-picker{ padding:12px 16px; border-bottom:1px solid var(--line); flex-shrink:0; }
+  #send-target-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .target-chip{
+    display:flex; align-items:center; gap:5px; background:#241a0a; border:1px solid var(--amber);
+    border-radius:12px; padding:3px 4px 3px 10px; font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--amber-bright);
+  }
+  .target-chip button{ padding:1px 6px; font-size:9px; border-radius:50%; }
+  #thread-recipients-picker .theme-row, #thread-recipients-picker > div[style]{ display:flex; gap:6px; }
+  #send-target-input{ flex:1; }
+  #send-target-add{ flex-shrink:0; padding:8px 10px; font-size:10px; }
+  #send-visibility-row button{ width:100%; }
+
+  #thread-messages{ flex:1; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:8px; }
+  .chat-bubble{ max-width:82%; padding:8px 11px; border-radius:8px; background:#120e08; border:1px solid var(--line); align-self:flex-start; }
+  .chat-bubble.mine{ align-self:flex-end; background:#241a0a; border-color:var(--amber); }
+  .chat-bubble-author{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:0.5px; margin-bottom:3px; }
+  .chat-bubble-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.4; white-space:pre-wrap; }
+  .chat-bubble-image{ max-width:100%; border-radius:5px; margin-top:4px; cursor:zoom-in; }
+
+  #thread-compose-bar{ border-top:1px solid var(--line); padding:10px 12px; flex-shrink:0; }
+  #thread-compose-row{ display:flex; align-items:flex-end; gap:8px; }
+  #thread-compose-row .file-btn{ padding:8px 10px; margin:0; flex-shrink:0; }
   #send-text-input{
-    width:100%; background:#120e08; border:1px solid var(--line); border-radius:3px;
+    flex:1; background:#120e08; border:1px solid var(--line); border-radius:3px;
     color:var(--parchment); padding:9px 10px; font-family:'EB Garamond', serif; font-size:15px;
-    outline:none; resize:vertical; min-height:64px;
+    outline:none; resize:none; max-height:100px;
   }
   #send-text-input:focus{ border-color:var(--amber); }
-  #send-image-preview{ display:flex; align-items:center; gap:10px; margin-top:8px; }
+  #thread-compose-row #btn-send-submit{ flex-shrink:0; }
+  #send-image-preview{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
   #send-image-preview img{ width:56px; height:56px; border-radius:4px; object-fit:cover; border:1px solid var(--amber); }
   #send-image-preview button{ padding:4px 8px; font-size:10px; }
 
@@ -785,6 +878,18 @@
       content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
       width:36px; height:4px; border-radius:2px; background:var(--line);
     }
+    #tokens-panel{
+      top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
+      max-height:88vh; border-left:none; border-top:1px solid var(--amber);
+      border-radius:16px 16px 0 0;
+      transform:translateY(100%);
+    }
+    #tokens-panel.open{ transform:translateY(0); }
+    #tokens-panel-header{ padding:10px 16px 12px; position:relative; }
+    #tokens-panel-header::before{
+      content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
+      width:36px; height:4px; border-radius:2px; background:var(--line);
+    }
     #send-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
       max-height:82vh; border-left:none; border-top:1px solid var(--amber);
@@ -857,6 +962,7 @@
     #sidebar.hidden{ display:none; }
     #campaign-title{ max-width:24vw; font-size:16px; }
     #sidebar-toggle{ display:inline-block; }
+    #sidebar-collapse-tab{ display:none; }
     #portal-columns{ flex-direction:column; align-items:center; }
     .portal-col{ width:100%; max-width:340px; }
 
@@ -935,12 +1041,13 @@
         <span id="master-badge" style="display:none;">Mestre</span>
         <button id="btn-preview-toggle" style="display:none;">👁 Ver como jogador</button>
         <button id="btn-freeze-toggle" style="display:none;">🔓 Jogadores atualizados</button>
+        <button id="tokens-panel-toggle" style="display:none;" title="Todas as fichas na mesa">🎭 Fichas</button>
+        <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
+        <button id="my-sheet-toggle" style="display:none;" title="Sua ficha de personagem">🎴 Minha Ficha</button>
         <div id="tools-menu-wrap">
           <button id="tools-menu-toggle">🧰 Ferramentas</button>
           <div id="tools-menu-dropdown">
-            <button id="dice-toggle" title="Rolagem de dados">🎲 Dados</button>
             <button id="journal-toggle" title="Diário da campanha">📖 Diário</button>
-            <button id="my-sheet-toggle" style="display:none;" title="Sua ficha de personagem">🎴 Minha Ficha</button>
             <button id="send-toggle" style="display:none;" title="Enviar mensagem ou imagem">📤 Enviar</button>
             <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
             <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
@@ -954,51 +1061,54 @@
 
     <div id="main">
       <div id="sidebar" class="hidden">
-        <div class="panel-block">
-          <div class="panel-title">Nome da campanha</div>
-          <input id="title-input" type="text" placeholder="Ex: A Torre Esquecida">
-          <select id="title-font-input" style="margin-top:8px;">
-            <option value="'Cinzel', serif">Cinzel (padrão)</option>
-            <option value="'EB Garamond', serif">EB Garamond</option>
-            <option value="'IM Fell English', serif">IM Fell English</option>
-            <option value="'Uncial Antiqua', serif">Uncial Antiqua</option>
-            <option value="'Special Elite', monospace">Special Elite</option>
-            <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
-          </select>
-          <button id="btn-save-title" class="primary" style="width:100%; margin-top:8px;">Salvar nome</button>
+        <div class="panel-block collapsible-block">
+          <div class="panel-title collapsible-title">Nome da campanha <span class="collapse-arrow">▾</span></div>
+          <div class="collapsible-content">
+            <input id="title-input" type="text" placeholder="Ex: A Torre Esquecida">
+            <select id="title-font-input" style="margin-top:8px;">
+              <option value="'Cinzel', serif">Cinzel (padrão)</option>
+              <option value="'EB Garamond', serif">EB Garamond</option>
+              <option value="'IM Fell English', serif">IM Fell English</option>
+              <option value="'Uncial Antiqua', serif">Uncial Antiqua</option>
+              <option value="'Special Elite', monospace">Special Elite</option>
+              <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+            </select>
+            <button id="btn-save-title" class="primary" style="width:100%; margin-top:8px;">Salvar nome</button>
+          </div>
         </div>
 
-        <div class="panel-block">
-          <div class="panel-title">Aparência da campanha</div>
-          <div class="theme-row">
-            <label for="theme-bg">Fundo</label>
-            <input type="color" id="theme-bg">
+        <div class="panel-block collapsible-block">
+          <div class="panel-title collapsible-title">Aparência da campanha <span class="collapse-arrow">▾</span></div>
+          <div class="collapsible-content">
+            <div class="theme-row">
+              <label for="theme-bg">Fundo</label>
+              <input type="color" id="theme-bg">
+            </div>
+            <div class="theme-row">
+              <label for="theme-panel">Painéis</label>
+              <input type="color" id="theme-panel">
+            </div>
+            <div class="theme-row">
+              <label for="theme-text">Texto</label>
+              <input type="color" id="theme-text">
+            </div>
+            <div class="theme-row">
+              <label for="theme-accent">Destaque</label>
+              <input type="color" id="theme-accent">
+            </div>
+            <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
+            <div class="hint">As cores valem para todo mundo que acessar esta campanha, mestre e jogadores.</div>
           </div>
-          <div class="theme-row">
-            <label for="theme-panel">Painéis</label>
-            <input type="color" id="theme-panel">
-          </div>
-          <div class="theme-row">
-            <label for="theme-text">Texto</label>
-            <input type="color" id="theme-text">
-          </div>
-          <div class="theme-row">
-            <label for="theme-accent">Destaque</label>
-            <input type="color" id="theme-accent">
-          </div>
-          <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
-          <div class="hint">As cores valem para todo mundo que acessar esta campanha, mestre e jogadores.</div>
         </div>
 
         <div class="panel-block">
           <div class="panel-title">Código de acesso dos jogadores</div>
-          <input type="text" id="access-code-input" maxlength="8" style="text-align:center; letter-spacing:4px; text-transform:uppercase; font-family:'JetBrains Mono', monospace;">
+          <input type="text" id="access-code-input" maxlength="8" readonly style="text-align:center; letter-spacing:4px; text-transform:uppercase; font-family:'JetBrains Mono', monospace; cursor:default;">
           <div id="access-code-actions">
-            <button id="btn-save-code">Salvar código</button>
             <button id="btn-copy-code">Copiar</button>
-            <button id="btn-new-code" class="danger">Gerar aleatório</button>
+            <button id="btn-new-code" class="danger">Gerar novo código</button>
           </div>
-          <div class="hint">Digite seu próprio código ou gere um aleatório, depois clique em "Salvar código". Compartilhe esse código com seus jogadores.</div>
+          <div class="hint">O código é sempre gerado automaticamente, sem risco de repetir o de outra campanha. Copie e compartilhe com seus jogadores; gere um novo a qualquer momento se precisar trocar.</div>
         </div>
 
         <div class="panel-block">
@@ -1009,12 +1119,14 @@
           <div class="hint">Cada imagem enviada vira uma nova página no histórico — as anteriores continuam salvas. As fichas de personagem aparecem em todas as páginas por padrão; "Remover desta página" só as esconde ali, sem apagá-las das demais.</div>
         </div>
 
-        <div class="panel-block">
-          <div class="panel-title">Nova ficha</div>
+        <div class="panel-block collapsible-block">
+          <div class="panel-title collapsible-title">Nova ficha <span class="collapse-arrow">▾</span></div>
+          <div class="collapsible-content">
           <form id="token-form">
             <input type="text" id="token-name" placeholder="Nome do personagem" required>
             <label class="file-btn" for="token-upload">Escolher imagem</label>
             <input type="file" id="token-upload" accept="image/*">
+            <input type="file" id="token-edit-upload" accept="image/*" style="display:none;">
             <div id="token-preview" style="display:none;">
               <img id="token-preview-img" alt="Pré-visualização">
               <span>Recortada</span>
@@ -1039,12 +1151,7 @@
             </div>
             <button type="submit" class="primary" style="margin-top:8px;">Adicionar ficha ao mapa</button>
           </form>
-        </div>
-
-        <div class="panel-block">
-          <div class="panel-title">Fichas na mesa</div>
-          <div id="token-list"></div>
-          <input type="file" id="token-edit-upload" accept="image/*" style="display:none;">
+          </div>
         </div>
 
         <div class="panel-block">
@@ -1117,12 +1224,15 @@
           <div class="hint">Arraste o texto no mapa para posicioná-lo. O texto é próprio de cada página do histórico.</div>
         </div>
 
-        <div class="panel-block">
-          <div class="panel-title">Zona de perigo</div>
-          <button id="btn-delete-campaign" class="danger" style="width:100%;">Excluir esta campanha</button>
-          <div class="hint">Apaga todo o histórico de mapas, fichas, névoa e configurações desta campanha. A vaga volta a ficar livre para uma campanha futura. Não pode ser desfeito.</div>
+        <div class="panel-block collapsible-block danger-zone-block">
+          <div class="panel-title collapsible-title">Zona de perigo <span class="collapse-arrow">▾</span></div>
+          <div class="collapsible-content">
+            <button id="btn-delete-campaign" class="danger" style="width:100%;">Excluir esta campanha</button>
+            <div class="hint">Apaga todo o histórico de mapas, fichas, névoa e configurações desta campanha. A vaga volta a ficar livre para uma campanha futura. Não pode ser desfeito.</div>
+          </div>
         </div>
       </div>
+      <button id="sidebar-collapse-tab" title="Recolher/expandir barra lateral">◀</button>
 
       <div id="map-area">
         <div id="map-viewport">
@@ -1146,6 +1256,17 @@
           <button id="zoom-reset" title="Redefinir zoom">⤾</button>
           <button id="zoom-out" title="Afastar">−</button>
         </div>
+      </div>
+    </div>
+
+    <div id="tokens-backdrop"></div>
+    <div id="tokens-panel">
+      <div id="tokens-panel-header">
+        <h2>Fichas na Mesa</h2>
+        <button id="tokens-panel-close">✕</button>
+      </div>
+      <div id="tokens-panel-body">
+        <div id="token-list"></div>
       </div>
     </div>
 
@@ -1214,26 +1335,41 @@
     <div id="send-backdrop"></div>
     <div id="send-panel">
       <div id="send-panel-header">
-        <h2 id="send-panel-title">Enviar</h2>
+        <button id="thread-back-btn" style="display:none;">← Conversas</button>
+        <h2 id="send-panel-title">Conversas</h2>
         <button id="send-panel-close">✕</button>
       </div>
-      <div id="send-panel-body">
-        <textarea id="send-text-input" placeholder="Mensagem..." rows="3"></textarea>
-        <div id="send-image-section">
-          <label class="file-btn" for="send-image-input" style="margin-top:8px;">Anexar imagem (opcional)</label>
-          <input type="file" id="send-image-input" accept="image/*">
+
+      <div id="thread-list-view">
+        <button id="btn-new-thread" class="primary" style="width:100%;">+ Nova conversa</button>
+        <div id="thread-list"></div>
+      </div>
+
+      <div id="thread-compose-view" style="display:none;">
+        <div id="thread-recipients-picker">
+          <div id="send-target-chips"></div>
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="send-target-input" placeholder="Nome do destinatário">
+            <button type="button" id="send-target-add">+ Adicionar</button>
+          </div>
+          <div id="send-visibility-row" class="dice-visibility-row" style="margin-top:8px;">
+            <button type="button" id="send-public">Pública (todos)</button>
+          </div>
+          <div id="send-hint" class="hint">Visível só para os destinatários escolhidos e o mestre.</div>
+        </div>
+        <div id="thread-messages"></div>
+        <div id="thread-compose-bar">
           <div id="send-image-preview" style="display:none;">
             <img id="send-image-preview-img" alt="Pré-visualização">
             <button type="button" id="send-image-remove">Remover imagem</button>
           </div>
+          <div id="thread-compose-row">
+            <label class="file-btn" for="send-image-input" title="Anexar imagem">📎</label>
+            <input type="file" id="send-image-input" accept="image/*">
+            <textarea id="send-text-input" placeholder="Mensagem..." rows="1"></textarea>
+            <button id="btn-send-submit" class="primary">Enviar</button>
+          </div>
         </div>
-        <div id="send-visibility-row" class="dice-visibility-row" style="margin-top:10px;">
-          <button type="button" id="send-public" class="toggle-active">Pública (todos)</button>
-          <button type="button" id="send-private">Privada (uma pessoa)</button>
-        </div>
-        <input type="text" id="send-target-input" placeholder="Nome do destinatário (Mestre ou um jogador)" style="margin-top:8px; display:none;">
-        <button id="btn-send-submit" class="primary" style="width:100%; margin-top:10px;">Enviar</button>
-        <div id="send-hint" class="hint" style="display:none;">Sua mensagem fica visível só para você, o destinatário e o mestre.</div>
       </div>
     </div>
 
@@ -1355,7 +1491,6 @@
     playerName:'',
     playerColor:'',
     sends:[],
-    sendVisibility:'public',
     sendImage:null,
     handoutGallery:[],
     handoutIndex:0,
@@ -1421,6 +1556,10 @@
   let lastJournalSnapshot = '';
   let openNotesTokens = new Set();
 
+  function formatRollNotation(breakdown){
+    return (breakdown || []).map(b => b.results.length + 'd' + b.sides + ': ' + b.results.join(', ')).join(' + ');
+  }
+
   function showToast(message, opts){
     opts = opts || {};
     const container = el('toast-container');
@@ -1436,17 +1575,46 @@
     }, opts.duration || 4000);
   }
 
-  // ---------- send system: whisper text and/or handout images, public or targeted ----------
+  // ---------- send system: threaded conversations, public or with any set of recipients ----------
   let lastSendsSnapshot = '';
   let lastSeenRollId = null;
+  let composeTargets = [];
+  let activeThreadKey = null;
 
   function isSendVisibleToMe(entry){
     if(effectiveMaster()) return true;
-    if(!entry.target) return true;
+    if(!entry.targets || entry.targets.length === 0) return true;
     const me = (state.playerName || '').trim().toLowerCase();
-    const target = (entry.target || '').trim().toLowerCase();
     const from = (entry.from || '').trim().toLowerCase();
-    return target === me || from === me;
+    if(from === me) return true;
+    return entry.targets.some(t => (t || '').trim().toLowerCase() === me);
+  }
+
+  function threadKey(entry){
+    if(!entry.targets || entry.targets.length === 0) return '__public__';
+    const people = [entry.from, ...entry.targets].map(s => (s||'').trim().toLowerCase()).filter(Boolean);
+    return [...new Set(people)].sort().join('|');
+  }
+
+  function myDisplayName(){
+    return state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
+  }
+
+  function getMyThreads(){
+    const groups = new Map();
+    state.sends.filter(isSendVisibleToMe).forEach(entry => {
+      const key = threadKey(entry);
+      if(!groups.has(key)){
+        const names = (!entry.targets || entry.targets.length === 0) ? ['Pública (todos)'] : [...new Set([entry.from, ...entry.targets])];
+        groups.set(key, { key, participants: names, messages: [], targets: entry.targets || [] });
+      }
+      groups.get(key).messages.push(entry);
+    });
+    groups.forEach(g => g.messages.sort((a,b) => a.ts - b.ts));
+    return [...groups.values()].sort((a,b) => {
+      const at = a.messages[a.messages.length-1].ts, bt = b.messages[b.messages.length-1].ts;
+      return bt - at;
+    });
   }
 
   function recomputeHandoutGallery(){
@@ -1475,7 +1643,7 @@
     el('handout-gallery-image').src = entry.image;
     el('handout-gallery-caption').textContent = entry.text || '';
     el('handout-gallery-caption').style.display = entry.text ? 'block' : 'none';
-    el('handout-gallery-counter').textContent = (state.handoutIndex+1) + ' / ' + state.handoutGallery.length + (entry.target ? ' 🔒' : '');
+    el('handout-gallery-counter').textContent = (state.handoutIndex+1) + ' / ' + state.handoutGallery.length + ((entry.targets && entry.targets.length) ? ' 🔒' : '');
   }
 
   el('handout-prev').addEventListener('click', () => {
@@ -1508,7 +1676,7 @@
     let list = [];
     if(raw){ try{ list = JSON.parse(raw).list || []; }catch(e){} }
     list.unshift(entry);
-    if(list.length > 40) list = list.slice(0, 40);
+    if(list.length > 120) list = list.slice(0, 120);
     state.sends = list;
     lastSendsSnapshot = JSON.stringify({ list });
     if(entry.kind === 'image'){ state.handoutIndex = 0; state.handoutMinimized = false; }
@@ -1516,54 +1684,173 @@
     await safeSet(slotKey('sends'), { list });
   }
 
-  function openSendPanel(){
-    el('send-panel').classList.add('open');
-    el('send-backdrop').classList.add('open');
+  function renderTargetChips(){
+    el('send-target-chips').innerHTML = composeTargets.map((name, i) =>
+      '<span class="target-chip">'+escapeHtml(name)+'<button type="button" data-chip-remove="'+i+'">✕</button></span>'
+    ).join('');
+    el('send-target-chips').querySelectorAll('[data-chip-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        composeTargets.splice(parseInt(btn.getAttribute('data-chip-remove'), 10), 1);
+        renderTargetChips();
+      });
+    });
+  }
+
+  function addComposeTarget(){
+    const name = el('send-target-input').value.trim();
+    if(!name) return;
+    if(!composeTargets.some(t => t.toLowerCase() === name.toLowerCase())) composeTargets.push(name);
+    el('send-target-input').value = '';
+    renderTargetChips();
+  }
+  el('send-target-add').addEventListener('click', addComposeTarget);
+  el('send-target-input').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); addComposeTarget(); }
+  });
+  el('send-public').addEventListener('click', () => {
+    composeTargets = [];
+    renderTargetChips();
+    beginThreadView({ key:'__public__', participants:['Pública (todos)'], messages: getMyThreads().find(t => t.key === '__public__')?.messages || [], targets:[] });
+  });
+
+  function renderThreadList(){
+    el('thread-list-view').style.display = 'flex';
+    el('thread-compose-view').style.display = 'none';
+    el('thread-back-btn').style.display = 'none';
+    el('send-panel-title').textContent = 'Conversas';
+    const threads = getMyThreads();
+    const $list = el('thread-list');
+    if(threads.length === 0){
+      $list.innerHTML = '<div class="hint">Nenhuma conversa ainda. Toque em "+ Nova conversa" pra começar.</div>';
+      return;
+    }
+    $list.innerHTML = threads.map(t => {
+      const last = t.messages[t.messages.length - 1];
+      const preview = last.kind === 'image' ? '📷 Imagem' + (last.text ? ': ' + last.text : '') : last.text;
+      return (
+        '<button type="button" class="thread-item" data-thread-key="'+encodeURIComponent(t.key)+'">' +
+          '<span class="thread-participants">'+escapeHtml(t.participants.join(', '))+'</span>' +
+          '<span class="thread-preview">'+escapeHtml(last.from)+': '+escapeHtml(preview)+'</span>' +
+        '</button>'
+      );
+    }).join('');
+    $list.querySelectorAll('[data-thread-key]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = decodeURIComponent(btn.getAttribute('data-thread-key'));
+        const thread = getMyThreads().find(t => t.key === key);
+        if(thread) beginThreadView(thread);
+      });
+    });
+  }
+
+  function renderThreadMessages(){
+    const thread = getMyThreads().find(t => t.key === activeThreadKey);
+    const messages = thread ? thread.messages : [];
+    const me = myDisplayName();
+    el('thread-messages').innerHTML = messages.map(m => {
+      const mine = m.from === me;
+      let body = '';
+      if(m.kind === 'image' && m.image){
+        body += '<img class="chat-bubble-image" src="'+m.image+'" alt="" data-chat-image="1">';
+        if(m.text) body += '<div class="chat-bubble-text">'+escapeHtml(m.text)+'</div>';
+      } else {
+        body = '<div class="chat-bubble-text">'+escapeHtml(m.text)+'</div>';
+      }
+      return (
+        '<div class="chat-bubble'+(mine?' mine':'')+'">' +
+          '<div class="chat-bubble-author">'+escapeHtml(m.from)+'</div>' +
+          body +
+        '</div>'
+      );
+    }).join('');
+    el('thread-messages').querySelectorAll('[data-chat-image]').forEach(img => {
+      img.addEventListener('click', () => {
+        el('handout-lightbox-image').src = img.src;
+        el('handout-lightbox-caption').textContent = '';
+        el('handout-lightbox').classList.add('show');
+      });
+    });
+    el('thread-messages').scrollTop = el('thread-messages').scrollHeight;
+  }
+
+  function beginThreadView(thread){
+    activeThreadKey = thread.key;
+    if(thread.key === '__public__'){
+      composeTargets = [];
+    } else {
+      const me = myDisplayName().toLowerCase();
+      composeTargets = thread.participants.filter(p => p.toLowerCase() !== me);
+    }
+    el('thread-list-view').style.display = 'none';
+    el('thread-compose-view').style.display = 'flex';
+    el('thread-back-btn').style.display = 'inline-block';
+    el('send-panel-title').textContent = thread.participants.join(', ');
+    el('thread-recipients-picker').style.display = 'none';
+    renderThreadMessages();
     el('send-text-input').value = '';
     state.sendImage = null;
     el('send-image-preview').style.display = 'none';
     el('send-image-input').value = '';
+  }
+
+  function startNewThread(){
+    activeThreadKey = null;
+    composeTargets = [];
+    el('thread-list-view').style.display = 'none';
+    el('thread-compose-view').style.display = 'flex';
+    el('thread-back-btn').style.display = 'inline-block';
+    el('send-panel-title').textContent = 'Nova conversa';
+    el('thread-recipients-picker').style.display = 'block';
+    el('send-public').style.display = effectiveMaster() ? 'block' : 'none';
+    el('send-hint').textContent = effectiveMaster()
+      ? 'Adicione destinatários, ou envie pública para todos.'
+      : 'Adicione o Mestre e/ou outro(s) jogador(es). Visível só para vocês e o mestre.';
+    renderTargetChips();
     el('send-target-input').value = '';
-    if(effectiveMaster()){
-      el('send-panel-title').textContent = 'Enviar';
-      el('send-image-section').style.display = 'block';
-      el('send-visibility-row').style.display = 'flex';
-      el('send-hint').style.display = 'none';
-      state.sendVisibility = 'public';
-      el('send-public').classList.add('toggle-active');
-      el('send-private').classList.remove('toggle-active');
-      el('send-target-input').style.display = 'none';
-      el('send-target-input').placeholder = 'Nome do destinatário (Mestre ou um jogador)';
-    } else {
-      el('send-panel-title').textContent = 'Sussurrar';
-      el('send-image-section').style.display = 'none';
-      el('send-visibility-row').style.display = 'none';
-      el('send-hint').style.display = 'block';
-      state.sendVisibility = 'private';
-      el('send-target-input').style.display = 'block';
-      el('send-target-input').placeholder = 'Para quem? (Mestre ou outro jogador)';
-    }
+    el('thread-messages').innerHTML = '';
+    el('send-text-input').value = '';
+    state.sendImage = null;
+    el('send-image-preview').style.display = 'none';
+    el('send-image-input').value = '';
+  }
+
+  function openSendPanel(){
+    el('send-panel').classList.add('open');
+    el('send-backdrop').classList.add('open');
+    renderThreadList();
   }
   function closeSendPanel(){
     el('send-panel').classList.remove('open');
     el('send-backdrop').classList.remove('open');
   }
   el('send-toggle').addEventListener('click', openSendPanel);
+  el('btn-new-thread').addEventListener('click', startNewThread);
+  el('thread-back-btn').addEventListener('click', renderThreadList);
+
+  function openTokensPanel(){
+    el('tokens-panel').classList.add('open');
+    el('tokens-backdrop').classList.add('open');
+    renderTokenList();
+  }
+  function closeTokensPanel(){
+    el('tokens-panel').classList.remove('open');
+    el('tokens-backdrop').classList.remove('open');
+  }
+  el('tokens-panel-toggle').addEventListener('click', openTokensPanel);
+
+  document.querySelectorAll('.collapsible-title').forEach(title => {
+    title.addEventListener('click', () => {
+      title.closest('.collapsible-block').classList.toggle('collapsed');
+    });
+  });
+  el('sidebar-collapse-tab').addEventListener('click', () => {
+    const collapsed = $sidebar.classList.toggle('sidebar-collapsed');
+    el('sidebar-collapse-tab').textContent = collapsed ? '▶' : '◀';
+  });
+  el('tokens-panel-close').addEventListener('click', closeTokensPanel);
+  el('tokens-backdrop').addEventListener('click', closeTokensPanel);
   el('send-panel-close').addEventListener('click', closeSendPanel);
   el('send-backdrop').addEventListener('click', closeSendPanel);
-
-  el('send-public').addEventListener('click', () => {
-    state.sendVisibility = 'public';
-    el('send-public').classList.add('toggle-active');
-    el('send-private').classList.remove('toggle-active');
-    el('send-target-input').style.display = 'none';
-  });
-  el('send-private').addEventListener('click', () => {
-    state.sendVisibility = 'private';
-    el('send-private').classList.add('toggle-active');
-    el('send-public').classList.remove('toggle-active');
-    el('send-target-input').style.display = 'block';
-  });
 
   el('send-image-input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -1580,26 +1867,26 @@
 
   el('btn-send-submit').addEventListener('click', async () => {
     const text = el('send-text-input').value.trim();
-    const image = effectiveMaster() ? state.sendImage : null;
+    const image = state.sendImage;
     if(!text && !image) return;
-    let target = null;
-    if(effectiveMaster()){
-      if(state.sendVisibility === 'private'){
-        target = el('send-target-input').value.trim();
-        if(!target){ el('send-target-input').focus(); return; }
-      }
+    let targets;
+    if(activeThreadKey === '__public__'){
+      targets = null;
+    } else if(composeTargets.length > 0){
+      targets = [...composeTargets];
     } else {
-      target = el('send-target-input').value.trim();
-      if(!target){ el('send-target-input').focus(); return; }
+      el('send-target-input').focus();
+      return;
     }
     const entry = {
-      id: newId('s'), ts: Date.now(), from: currentDisplayName(),
+      id: newId('s'), ts: Date.now(), from: myDisplayName(),
       kind: image ? 'image' : 'text',
       text: text || '', image: image || null,
-      target: target
+      targets: targets
     };
     await pushSend(entry);
-    closeSendPanel();
+    const thread = getMyThreads().find(t => t.key === threadKey(entry));
+    if(thread) beginThreadView(thread);
   });
 
   function renderDiceTypes(){
@@ -1921,10 +2208,12 @@
     }
     $body.innerHTML =
       '<div class="my-sheet-header-row">' +
-        '<img src="'+tok.image+'" alt="">' +
+        '<img src="'+tok.image+'" alt="" data-center-on-token="'+tok.id+'" title="Clique para centralizar o mapa na sua ficha" style="cursor:pointer;">' +
         '<span class="my-sheet-name">'+escapeHtml(tok.name)+'</span>' +
       '</div>' +
+      phraseAndDamageMarkup(tok) +
       lifeBlockMarkup(tok) +
+      numeneraExtrasMarkup(tok) +
       '<div class="token-row-hp">' +
         '<span class="row-label">XP</span>' +
         '<button type="button" data-xp-minus="'+tok.id+'">−</button>' +
@@ -1937,6 +2226,13 @@
       notesBlockMarkup(tok);
     wireVitalsControls($body);
     wireNotesControls($body);
+    const $avatar = $body.querySelector('[data-center-on-token]');
+    if($avatar){
+      $avatar.addEventListener('click', () => {
+        jumpToToken($avatar.getAttribute('data-center-on-token'));
+        closeMySheet();
+      });
+    }
   }
 
   function openMySheet(){
@@ -1955,20 +2251,27 @@
   // ---------- tutorial ----------
   const TUTORIAL_MASTER = [
     { title:'Bem-vindo, mestre!', body:'Esta é a sua mesa de jogo. Tudo que você fizer aqui aparece pros seus jogadores em tempo real — a não ser que você escolha esconder.' },
-    { title:'Histórico de mapas', body:'No painel à esquerda, envie imagens do mapa de combate. Cada envio vira uma <b>página nova</b> no histórico; suas fichas continuam as mesmas em todas as páginas, a não ser que você as remova de uma específica.' },
-    { title:'Fichas de personagem', body:'Crie fichas com nome, imagem e vida — em HP clássico ou nos três reservatórios de Numenera (Intelecto, Potência, Velocidade). Arraste no mapa pra posicionar; edite vida, tamanho, XP e condições a qualquer momento, sem precisar recriar.' },
+    { title:'Barra lateral retrátil', body:'Sua barra lateral pode ser recolhida a qualquer momento clicando na aba ◀ na borda dela — ótimo pra ganhar espaço de tela durante o combate. As seções "Nome da campanha", "Aparência", "Nova ficha" e "Zona de perigo" também abrem e fecham com um clique no título; o resto fica sempre visível.' },
+    { title:'Histórico de mapas', body:'Envie imagens do mapa de combate. Cada envio vira uma <b>página nova</b> no histórico; suas fichas continuam as mesmas em todas as páginas, a não ser que você as remova de uma específica.' },
+    { title:'Fichas de personagem', body:'Crie fichas com nome, imagem e vida — em HP clássico ou nos três reservatórios de Numenera (com cifras carregadas incluídas). Edite vida, tamanho, XP, condições (💫☠️😱...) e um bloco de <b>Anotações</b> pra itens. O 🔒 ao lado do nome trava a ficha pra só você mover — ótimo pra NPCs e inimigos.' },
+    { title:'Painel de Fichas', body:'O botão <b>🎭 Fichas</b> no topo abre todas as fichas da mesa organizadas numa gaveta própria — muito mais fácil de gerenciar vida e condições durante um combate do que rolar a barra lateral inteira.' },
     { title:'Névoa, texto e grade', body:'Pinte névoa de guerra pra esconder áreas ainda não exploradas, adicione textos decorativos com fonte própria, e ative uma grade quadriculada — tudo ajustável em cor e tamanho.' },
-    { title:'Ferramentas de mesa', body:'Use o dado 🎲, o rastreador de iniciativa ⚔️, aponte lugares no mapa 📍 e meça distâncias 📏 — essas quatro ferramentas os jogadores também podem usar.' },
+    { title:'Menu Ferramentas', body:'O botão <b>🧰 Ferramentas</b> reúne diário 📖, iniciativa ⚔️, apontar 📍, medir 📏 e o tutorial. Dados 🎲 e Fichas 🎭 ficam soltos, de acesso rápido. Só desfazer/refazer, "ver como jogador" e o congelamento também ficam sempre visíveis.' },
+    { title:'Conversas', body:'Em <b>💬 Conversas</b>, inicie uma conversa com um ou vários destinatários ao mesmo tempo — jogadores podem sussurrar entre si também, com ou sem imagem. Como mestre, você sempre vê todas as conversas, mesmo as que não te incluem.' },
+    { title:'Diário da campanha', body:'Em <b>📖 Diário</b> (dentro de Ferramentas), você e os jogadores escrevem entradas juntos — ótimo pra resumir sessões ou registrar pistas.' },
     { title:'Compartilhe o acesso', body:'No painel "Código de acesso dos jogadores", copie o código e mande pros seus amigos. Eles entram digitando esse código — sem precisar de senha nenhuma.' },
     { title:'Congelar e pré-visualizar', body:'Use "🔒 Jogadores congelados" pra editar o mapa em paz sem que eles vejam ainda, e "👁 Ver como jogador" pra conferir exatamente o que a tela deles mostra.' }
   ];
   const TUTORIAL_PLAYER = [
-    { title:'Bem-vindo(a) à mesa!', body:'Esta é a mesa de jogo da sua campanha. O mestre controla o mapa; você participa arrastando fichas e usando as ferramentas de mesa.' },
-    { title:'Mova sua ficha', body:'Toque e arraste qualquer ficha no mapa pra reposicioná-la. Um toque rápido (sem arrastar) mostra o nome dela, se o mestre tiver ativado isso.' },
+    { title:'Bem-vindo(a) à mesa!', body:'Esta é a mesa de jogo da sua campanha. O mestre controla o mapa; você participa arrastando fichas e usando as ferramentas de mesa no topo da tela.' },
+    { title:'Mova sua ficha', body:'Toque e arraste qualquer ficha no mapa pra reposicioná-la. Um toque rápido (sem arrastar) mostra o nome dela. Fichas com um 🔒 são controladas só pelo mestre — normalmente NPCs e inimigos.' },
     { title:'Zoom e navegação', body:'Arraste uma área vazia do mapa pra mover a visão. Use dois dedos (ou a roda do mouse no computador) pra dar zoom.' },
-    { title:'Role os dados', body:'Toque em <b>🎲 Dados</b> pra rolar d4 até d100, em qualquer quantidade. Escolha "Privada" se não quiser que os outros vejam o resultado — só o mestre e você enxergam.' },
-    { title:'Aponte e meça', body:'Use <b>📍 Apontar</b> pra mostrar um lugar do mapa pra todo mundo, e <b>📏 Medir</b> pra calcular distância entre dois pontos.' },
-    { title:'Iniciativa', body:'Toque em <b>⚔️ Iniciativa</b> pra ver a ordem de turno assim que o mestre começar um combate — e saber quando chegou a sua vez.' }
+    { title:'Minha Ficha', body:'Se o mestre criar uma ficha com o mesmo nome que você usou pra entrar, o botão <b>🎴 Minha Ficha</b> deixa você ver e editar sua própria vida, condições e anotações — tudo sincroniza direto com o mestre. Toque na sua foto lá dentro pra centralizar o mapa na sua posição.' },
+    { title:'Role os dados', body:'Em <b>🎲 Dados</b>, role d4 até d100, em qualquer quantidade. Escolha "Privada" se não quiser que os outros vejam o resultado. Toda rolagem visível pra você gera um aviso na tela.' },
+    { title:'Aponte e meça', body:'Dentro de <b>🧰 Ferramentas</b>: use "Apontar" pra mostrar um lugar do mapa pra todo mundo, e "Medir" pra calcular distância entre dois pontos.' },
+    { title:'Converse', body:'Em <b>💬 Conversas</b> (dentro de Ferramentas), fale com o mestre, com outro jogador, ou monte um grupo com várias pessoas ao mesmo tempo — pode mandar texto e imagem. Só quem está na conversa (e o mestre) consegue ver.' },
+    { title:'Iniciativa', body:'Dentro de Ferramentas, veja a ordem de turno assim que o mestre começar um combate — e saiba quando chegou a sua vez.' },
+    { title:'Diário da campanha', body:'Dentro de Ferramentas, todo mundo escreve junto no diário — um resumo de sessão, uma pista importante, o que quiser registrar pro grupo.' }
   ];
 
   function tutorialSteps(){ return state.tutorialRole === 'master' ? TUTORIAL_MASTER : TUTORIAL_PLAYER; }
@@ -2215,7 +2518,15 @@
         }
       } else {
         meta.masterPass = val;
-        if(!meta.playerCode) meta.playerCode = generateCode(6);
+        if(!meta.playerCode){
+          let candidate = generateCode(6);
+          let attempts = 0;
+          while(await isPlayerCodeTakenElsewhere(candidate) && attempts < 10){
+            candidate = generateCode(6);
+            attempts++;
+          }
+          meta.playerCode = candidate;
+        }
         if(!meta.title) meta.title = 'Campanha sem nome';
         const ok = await safeSet('c'+slotAtStart+'-meta', meta);
         if(!ok){
@@ -2260,13 +2571,14 @@
     state.initiative = { list:[], activeId:null, round:1 };
     state.journal = [];
     state.sends = [];
-    state.sendVisibility = 'public';
     state.sendImage = null;
     state.handoutGallery = [];
     state.handoutIndex = 0;
     state.handoutMinimized = false;
     lastSendsSnapshot = '';
     lastSeenRollId = null;
+    composeTargets = [];
+    activeThreadKey = null;
     openNotesTokens = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
@@ -2281,6 +2593,8 @@
     el('my-sheet-backdrop').classList.remove('open');
     el('send-panel').classList.remove('open');
     el('send-backdrop').classList.remove('open');
+    el('tokens-panel').classList.remove('open');
+    el('tokens-backdrop').classList.remove('open');
     el('handout-gallery').classList.remove('show');
     el('handout-gallery-reopen').classList.remove('show');
     state.tokens = [];
@@ -2660,11 +2974,15 @@
     el('btn-preview-toggle').style.display = state.isMaster ? 'inline-block' : 'none';
     el('my-sheet-toggle').style.display = !state.isMaster ? 'inline-block' : 'none';
     el('send-toggle').style.display = state.currentSlot ? 'inline-block' : 'none';
-    el('send-toggle').title = effectiveMaster() ? 'Enviar mensagem ou imagem' : 'Enviar mensagem privada';
-    el('send-toggle').textContent = effectiveMaster() ? '📤 Enviar' : '🤫 Sussurrar';
+    el('send-toggle').title = 'Conversas';
+    el('send-toggle').textContent = '💬 Conversas';
     renderHandoutGallery();
+    if(el('send-panel').classList.contains('open')){
+      if(activeThreadKey){ renderThreadMessages(); } else { renderThreadList(); }
+    }
     if(el('my-sheet-panel').classList.contains('open')) renderMySheet();
     el('btn-freeze-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
+    el('tokens-panel-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('btn-freeze-toggle').textContent = state.meta.playersFrozen ? '🔒 Jogadores congelados' : '🔓 Jogadores atualizados';
     el('btn-freeze-toggle').classList.toggle('frozen', !!state.meta.playersFrozen);
     el('ping-toggle').classList.toggle('toggle-active', state.pingArmed);
@@ -2876,6 +3194,25 @@
     { key:'might', label:'Potência' },
     { key:'speed', label:'Velocidade' }
   ];
+  const DAMAGE_TRACK = [
+    { key:'sadio', label:'1 — Sadio', tooltip:'Sadio: o personagem está em plena capacidade.' },
+    { key:'enfraquecido', label:'2 — Enfraquecido', tooltip:'Empregar Esforço custa 1 ponto extra para cada nível empregado. Personagem ignora resultados de testes que causariam efeitos menores e maiores, e também só causa 1 de dano extra em combate com testes especiais.' },
+    { key:'debilitado', label:'3 — Debilitado', tooltip:'Personagem não pode realizar ações além de se mover por no máximo distância imediata.' },
+    { key:'morto', label:'4 — Morto', tooltip:'Alternativamente, o Jogador pode rolar um d20 para receber um dano permanente para que seu Personagem continue vivo. Quanto menor o valor, pior o dano. Se rolar 1, morre.' }
+  ];
+  const RECOVERY_STEPS = [
+    { key:'action', label:'1 ação' },
+    { key:'tenMin', label:'10 minutos' },
+    { key:'oneHour', label:'1 hora' },
+    { key:'tenHours', label:'10 horas' }
+  ];
+  const ADVANCEMENT_STEPS = [
+    { key:'pool', label:'+4 pts Reserva' },
+    { key:'edge', label:'+1 de Margem' },
+    { key:'effort', label:'+1 de Esforço' },
+    { key:'skill', label:'Perícia' },
+    { key:'other', label:'Outro' }
+  ];
   function tokenLifeFraction(tok){
     if(tok.statSystem === 'numenera'){
       const pools = tok.pools || {};
@@ -3012,6 +3349,10 @@
               '<button type="button" class="btn-heal" data-pool-heal="'+key+'" title="Recuperar">+ Cura</button>' +
               '<button type="button" class="btn-damage" data-pool-damage="'+key+'" title="Gastar/Perder">− Dano</button>' +
             '</div>' +
+            '<div class="edge-row">' +
+              '<span class="row-label">Margem</span>' +
+              '<input type="number" min="0" max="10" value="'+((tok.edges && tok.edges[p.key]) || 0)+'" data-edge-input="'+key+'">' +
+            '</div>' +
           '</div>'
         );
       }).join('') +
@@ -3054,7 +3395,83 @@
     );
   }
 
+  function numeneraExtrasMarkup(tok){
+    if(tok.statSystem !== 'numenera') return '';
+    const tier = tok.tier || 1;
+    const effort = tok.effort || 1;
+    const armor = tok.armor || 0;
+    const speedCost = tok.speedEffortCost || 0;
+    const recoveries = tok.recoveries || {};
+    const advancement = tok.advancement || {};
+    return (
+      '<div class="pool-block">' +
+        '<div class="pool-block-label">Grau, Esforço e Armadura</div>' +
+        '<div class="numenera-stat-grid">' +
+          '<div><label>Grau</label><input type="number" min="1" max="6" value="'+tier+'" data-tier-input="'+tok.id+'"></div>' +
+          '<div><label>Esforço</label><input type="number" min="0" max="10" value="'+effort+'" data-effort-input="'+tok.id+'"></div>' +
+          '<div><label>Armadura</label><input type="number" min="0" max="10" value="'+armor+'" data-armor-input="'+tok.id+'"></div>' +
+          '<div><label>Custo Esf. Velocidade</label><input type="number" min="0" max="10" value="'+speedCost+'" data-speedcost-input="'+tok.id+'"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<div class="pool-block-label">Recuperações</div>' +
+        RECOVERY_STEPS.map(r =>
+          '<label class="checkbox-row"><input type="checkbox" data-recovery="'+tok.id+':'+r.key+'"'+(recoveries[r.key]?' checked':'')+'><span>'+r.label+'</span></label>'
+        ).join('') +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<div class="pool-block-label">Passos pro avanço</div>' +
+        ADVANCEMENT_STEPS.map(a =>
+          '<label class="checkbox-row"><input type="checkbox" data-advancement="'+tok.id+':'+a.key+'"'+(advancement[a.key]?' checked':'')+'><span>'+a.label+'</span></label>'
+        ).join('') +
+      '</div>'
+    );
+  }
+
+  function phraseAndDamageMarkup(tok){
+    if(tok.statSystem !== 'numenera') return '';
+    const damageIdx = tok.damageTrack || 0;
+    return (
+      '<input type="text" class="phrase-input" data-phrase-input="'+tok.id+'" value="'+escapeHtml(tok.phrase||'')+'" placeholder="Tipo + Descritor + Foco">' +
+      '<div class="damage-track-row">' +
+        DAMAGE_TRACK.map((d, i) =>
+          '<button type="button" class="damage-track-chip'+(i===damageIdx?' toggle-active':'')+'" data-damage-track="'+tok.id+':'+i+'" title="'+escapeHtml(d.tooltip)+'">'+d.label+'</button>'
+        ).join('') +
+      '</div>'
+    );
+  }
+
   function wireVitalsControls($root){
+    $root.querySelectorAll('[data-edge-input]').forEach(inp=>{
+      inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-edge-input').split(':'); setEdge(id, key, inp.value); });
+    });
+    $root.querySelectorAll('[data-tier-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setTier(inp.getAttribute('data-tier-input'), inp.value));
+    });
+    $root.querySelectorAll('[data-effort-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setEffort(inp.getAttribute('data-effort-input'), inp.value));
+    });
+    $root.querySelectorAll('[data-armor-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setArmor(inp.getAttribute('data-armor-input'), inp.value));
+    });
+    $root.querySelectorAll('[data-speedcost-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setSpeedEffortCost(inp.getAttribute('data-speedcost-input'), inp.value));
+    });
+    $root.querySelectorAll('[data-recovery]').forEach(inp=>{
+      inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-recovery').split(':'); toggleRecovery(id, key, inp.checked); });
+    });
+    $root.querySelectorAll('[data-advancement]').forEach(inp=>{
+      inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-advancement').split(':'); toggleAdvancement(id, key, inp.checked); });
+    });
+    $root.querySelectorAll('[data-phrase-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setTokenPhrase(inp.getAttribute('data-phrase-input'), inp.value));
+    });
+    $root.querySelectorAll('[data-damage-track]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const [id, idx] = btn.getAttribute('data-damage-track').split(':');
+        setDamageTrack(id, parseInt(idx, 10));
+      });
+    });
     $root.querySelectorAll('[data-hp-minus]').forEach(btn=>{
       btn.addEventListener('click', () => applyHpDelta(btn.getAttribute('data-hp-minus'), -1));
     });
@@ -3159,11 +3576,13 @@
             : '<button data-add-page="'+tok.id+'">+ Página</button>') +
         '</div>' +
         (onPage ? '' : '<div class="token-off-page-tag">Fora desta página</div>') +
+        phraseAndDamageMarkup(tok) +
         '<div class="system-select-row" style="margin-top:2px;">' +
           '<button type="button" class="'+(tok.statSystem!=='numenera'?'toggle-active':'')+'" data-system-hp="'+tok.id+'">HP</button>' +
           '<button type="button" class="'+(tok.statSystem==='numenera'?'toggle-active':'')+'" data-system-numenera="'+tok.id+'">Numenera</button>' +
         '</div>' +
         lifeBlockMarkup(tok) +
+        numeneraExtrasMarkup(tok) +
         '<div class="token-row-hp">' +
           '<span class="row-label">XP</span>' +
           '<button type="button" data-xp-minus="'+tok.id+'">−</button>' +
@@ -3412,7 +3831,9 @@
     if(!tok.pools) tok.pools = {};
     if(!tok.pools[poolKey]) tok.pools[poolKey] = { current:10, max:10 };
     const pool = tok.pools[poolKey];
+    const before = pool.current;
     pool.current = Math.max(0, Math.min(pool.max, pool.current + delta));
+    if(before > 0 && pool.current === 0) advanceDamageTrackIfNeeded(tok);
     render();
     await persistTokens();
   }
@@ -3440,6 +3861,108 @@
     tok.cyphers.current = Math.max(0, tok.cyphers.current + delta);
     render();
     await persistTokens();
+  }
+
+  async function setEdge(id, poolKey, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    if(v > 10) v = 10;
+    pushUndo();
+    if(!tok.edges) tok.edges = { intellect:0, might:0, speed:0 };
+    tok.edges[poolKey] = v;
+    render();
+    await persistTokens();
+  }
+
+  async function setTier(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 1) v = 1;
+    if(v > 6) v = 6;
+    pushUndo();
+    tok.tier = v;
+    render();
+    await persistTokens();
+  }
+
+  async function setEffort(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    pushUndo();
+    tok.effort = v;
+    render();
+    await persistTokens();
+  }
+
+  async function setArmor(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    pushUndo();
+    tok.armor = v;
+    render();
+    await persistTokens();
+  }
+
+  async function setSpeedEffortCost(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    pushUndo();
+    tok.speedEffortCost = v;
+    render();
+    await persistTokens();
+  }
+
+  async function toggleRecovery(id, key, checked){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.recoveries) tok.recoveries = {};
+    tok.recoveries[key] = checked;
+    render();
+    await persistTokens();
+  }
+
+  async function toggleAdvancement(id, key, checked){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.advancement) tok.advancement = {};
+    tok.advancement[key] = checked;
+    render();
+    await persistTokens();
+  }
+
+  async function setTokenPhrase(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    tok.phrase = value;
+    render();
+    await persistTokens();
+  }
+
+  async function setDamageTrack(id, idx){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    tok.damageTrack = Math.max(0, Math.min(DAMAGE_TRACK.length - 1, idx));
+    render();
+    await persistTokens();
+  }
+
+  function advanceDamageTrackIfNeeded(tok){
+    if(tok.statSystem !== 'numenera') return;
+    const current = tok.damageTrack || 0;
+    if(current < DAMAGE_TRACK.length - 1) tok.damageTrack = current + 1;
   }
 
   async function setCypherCurrent(id, value){
@@ -3746,13 +4269,12 @@
     await safeSet(slotKey('meta'), state.meta);
   });
 
-  el('btn-save-code').addEventListener('click', async () => {
-    const val = el('access-code-input').value.trim().toUpperCase();
-    if(!val){ el('access-code-input').focus(); return; }
-    state.meta.playerCode = val;
-    render();
-    await safeSet(slotKey('meta'), state.meta);
-  });
+  async function isPlayerCodeTakenElsewhere(code){
+    const normalized = code.trim().toUpperCase();
+    const ids = await fetchCampaignIds();
+    const metas = await Promise.all(ids.filter(id => id !== state.currentSlot).map(fetchSlotMeta));
+    return metas.some(m => (m.playerCode || '').trim().toUpperCase() === normalized);
+  }
 
   el('btn-copy-code').addEventListener('click', async () => {
     const code = el('access-code-input').value.trim();
@@ -3761,8 +4283,14 @@
   });
 
   el('btn-new-code').addEventListener('click', async () => {
-    if(state.meta.playerCode && !confirm('Gerar um código aleatório substitui o atual. Continuar?')) return;
-    state.meta.playerCode = generateCode(6);
+    if(state.meta.playerCode && !confirm('Gerar um novo código substitui o atual — jogadores com o código antigo não conseguirão mais entrar. Continuar?')) return;
+    let candidate = generateCode(6);
+    let attempts = 0;
+    while(await isPlayerCodeTakenElsewhere(candidate) && attempts < 10){
+      candidate = generateCode(6);
+      attempts++;
+    }
+    state.meta.playerCode = candidate;
     render();
     await safeSet(slotKey('meta'), state.meta);
   });
@@ -4274,7 +4802,7 @@
           const visible = !newest.private || effectiveMaster() || newest.roller === myName;
           const isMine = newest.roller === myName;
           if(visible && !isMine){
-            showToast('🎲 ' + newest.roller + ' rolou ' + newest.total + (newest.private ? ' (privado)' : ''));
+            showToast('🎲 ' + newest.roller + ' rolou ' + formatRollNotation(newest.breakdown) + (newest.private ? ' (privado)' : ''), { type:'diceroll' });
           }
         }
         if(newest) lastSeenRollId = newest.id;
@@ -4306,8 +4834,9 @@
         freshOnes.forEach(entry => {
           if(!isSendVisibleToMe(entry)) return;
           if(entry.kind === 'text' && entry.text){
-            const label = entry.target
-              ? (effectiveMaster() ? entry.from + ' → ' + entry.target + ': ' : entry.from + ' sussurrou: ')
+            const hasTargets = entry.targets && entry.targets.length > 0;
+            const label = hasTargets
+              ? (effectiveMaster() ? entry.from + ' → ' + entry.targets.join(', ') + ': ' : entry.from + ' sussurrou: ')
               : entry.from + ' (a todos): ';
             showToast('🤫 ' + label + entry.text, { type:'whisper', duration:7000 });
           }
