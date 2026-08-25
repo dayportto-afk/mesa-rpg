@@ -720,11 +720,13 @@
 
   #thread-list-view{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
   .thread-item{
-    display:flex; flex-direction:column; gap:3px; text-align:left; padding:10px 12px;
+    display:flex; align-items:center; gap:8px; padding:10px 12px;
     background:#120e08; border:1px solid var(--line); border-radius:6px; width:100%;
   }
+  .thread-item-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; text-align:left; cursor:pointer; }
   .thread-item .thread-participants{ font-family:'Cinzel', serif; font-size:13px; color:var(--amber-bright); }
   .thread-item .thread-preview{ font-family:'EB Garamond', serif; font-size:12px; color:var(--parchment-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .thread-delete{ flex-shrink:0; padding:5px 9px; font-size:10px; }
 
   #thread-compose-view{ flex:1; display:flex; flex-direction:column; min-height:0; }
   #thread-recipients-picker{ padding:12px 16px; border-bottom:1px solid var(--line); flex-shrink:0; }
@@ -762,9 +764,10 @@
 
   /* Handout gallery (bottom-left corner, pageable when there's more than one visible image) */
   #handout-gallery{
-    display:none; position:fixed; bottom:132px; right:16px; z-index:70; width:220px;
+    display:none; position:fixed; bottom:16px; left:16px; z-index:70; width:220px;
     background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
     box-shadow:0 4px 16px rgba(0,0,0,0.4); overflow:hidden;
+    transition:left .22s ease;
   }
   #handout-gallery.show{ display:block; }
   #handout-gallery-image{ cursor:zoom-in; }
@@ -780,8 +783,9 @@
   #handout-gallery-nav button{ flex:1; padding:6px; font-size:14px; border-radius:0; border-width:1px 0 0 0; }
   #handout-gallery-nav button:first-child{ border-right-width:1px; }
   #handout-gallery-reopen{
-    display:none; position:fixed; bottom:132px; right:16px; z-index:70;
+    display:none; position:fixed; bottom:16px; left:16px; z-index:70;
     width:40px; height:40px; padding:0; font-size:18px; border-radius:50%;
+    transition:left .22s ease;
   }
   #handout-gallery-reopen.show{ display:flex; align-items:center; justify-content:center; }
 
@@ -1350,6 +1354,7 @@
       <div id="send-panel-header">
         <button id="thread-back-btn" style="display:none;">← Conversas</button>
         <h2 id="send-panel-title">Conversas</h2>
+        <button id="btn-delete-thread" class="danger" style="display:none;" title="Excluir esta conversa">🗑</button>
         <button id="send-panel-close">✕</button>
       </div>
 
@@ -1635,7 +1640,15 @@
     if(state.handoutIndex >= state.handoutGallery.length) state.handoutIndex = Math.max(0, state.handoutGallery.length - 1);
   }
 
+  function updateHandoutGalleryPosition(){
+    const sidebarOpen = effectiveMaster() && !$sidebar.classList.contains('hidden') && !$sidebar.classList.contains('sidebar-collapsed');
+    const leftOffset = (sidebarOpen ? $sidebar.offsetWidth : 0) + 16;
+    el('handout-gallery').style.left = leftOffset + 'px';
+    el('handout-gallery-reopen').style.left = leftOffset + 'px';
+  }
+
   function renderHandoutGallery(){
+    updateHandoutGalleryPosition();
     recomputeHandoutGallery();
     const has = state.handoutGallery.length > 0;
     const $gallery = el('handout-gallery');
@@ -1730,6 +1743,7 @@
     el('thread-list-view').style.display = 'flex';
     el('thread-compose-view').style.display = 'none';
     el('thread-back-btn').style.display = 'none';
+    el('btn-delete-thread').style.display = 'none';
     el('send-panel-title').textContent = 'Conversas';
     const threads = getMyThreads();
     const $list = el('thread-list');
@@ -1741,19 +1755,38 @@
       const last = t.messages[t.messages.length - 1];
       const preview = last.kind === 'image' ? '📷 Imagem' + (last.text ? ': ' + last.text : '') : last.text;
       return (
-        '<button type="button" class="thread-item" data-thread-key="'+encodeURIComponent(t.key)+'">' +
-          '<span class="thread-participants">'+escapeHtml(t.participants.join(', '))+'</span>' +
-          '<span class="thread-preview">'+escapeHtml(last.from)+': '+escapeHtml(preview)+'</span>' +
-        '</button>'
+        '<div class="thread-item">' +
+          '<div class="thread-item-main" data-thread-open="'+encodeURIComponent(t.key)+'">' +
+            '<span class="thread-participants">'+escapeHtml(t.participants.join(', '))+'</span>' +
+            '<span class="thread-preview">'+escapeHtml(last.from)+': '+escapeHtml(preview)+'</span>' +
+          '</div>' +
+          '<button type="button" class="danger thread-delete" data-thread-delete="'+encodeURIComponent(t.key)+'" title="Excluir conversa">✕</button>' +
+        '</div>'
       );
     }).join('');
-    $list.querySelectorAll('[data-thread-key]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const key = decodeURIComponent(btn.getAttribute('data-thread-key'));
+    $list.querySelectorAll('[data-thread-open]').forEach(el2 => {
+      el2.addEventListener('click', () => {
+        const key = decodeURIComponent(el2.getAttribute('data-thread-open'));
         const thread = getMyThreads().find(t => t.key === key);
         if(thread) beginThreadView(thread);
       });
     });
+    $list.querySelectorAll('[data-thread-delete]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteThread(decodeURIComponent(btn.getAttribute('data-thread-delete')));
+      });
+    });
+  }
+
+  async function deleteThread(key){
+    if(!confirm('Excluir esta conversa? Isso apaga as mensagens para todos os envolvidos e não pode ser desfeito.')) return;
+    state.sends = state.sends.filter(e => threadKey(e) !== key);
+    lastSendsSnapshot = JSON.stringify({ list: state.sends });
+    if(activeThreadKey === key){ activeThreadKey = null; }
+    renderThreadList();
+    renderHandoutGallery();
+    await safeSet(slotKey('sends'), { list: state.sends });
   }
 
   function renderThreadMessages(){
@@ -1788,6 +1821,7 @@
 
   function beginThreadView(thread){
     activeThreadKey = thread.key;
+    el('btn-delete-thread').style.display = 'inline-block';
     if(thread.key === '__public__'){
       composeTargets = [];
     } else {
@@ -1808,6 +1842,7 @@
 
   function startNewThread(){
     activeThreadKey = null;
+    el('btn-delete-thread').style.display = 'none';
     composeTargets = [];
     el('thread-list-view').style.display = 'none';
     el('thread-compose-view').style.display = 'flex';
@@ -1839,6 +1874,9 @@
   el('send-toggle').addEventListener('click', openSendPanel);
   el('btn-new-thread').addEventListener('click', startNewThread);
   el('thread-back-btn').addEventListener('click', renderThreadList);
+  el('btn-delete-thread').addEventListener('click', () => {
+    if(activeThreadKey) deleteThread(activeThreadKey);
+  });
 
   function openTokensPanel(){
     el('tokens-panel').classList.add('open');
@@ -1859,6 +1897,7 @@
   el('sidebar-collapse-tab').addEventListener('click', () => {
     const collapsed = $sidebar.classList.toggle('sidebar-collapsed');
     el('sidebar-collapse-tab').textContent = collapsed ? '▶' : '◀';
+    updateHandoutGalleryPosition();
   });
   el('tokens-panel-close').addEventListener('click', closeTokensPanel);
   el('tokens-backdrop').addEventListener('click', closeTokensPanel);
