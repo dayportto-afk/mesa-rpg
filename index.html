@@ -142,7 +142,10 @@
     z-index:50;
     flex-shrink:0;
     position:relative;
+    flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none;
   }
+  #topbar::-webkit-scrollbar{ display:none; }
   #title-wrap{ display:flex; align-items:baseline; gap:10px; min-width:0; flex-shrink:0;}
   #campaign-title{
     font-family:'Cinzel', serif; font-weight:700; font-size:20px;
@@ -155,7 +158,8 @@
     font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:2px;
     text-transform:uppercase; color:var(--parchment-dim);
   }
-  #topbar-right{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; flex-shrink:0; }
+  #topbar-right{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; justify-content:flex-end; flex-shrink:0; }
+  #topbar-right button{ white-space:nowrap; flex-shrink:0; }
   #topbar-right button{ padding:6px 10px; font-size:10px; }
 
   #tools-menu-wrap{ position:relative; }
@@ -861,19 +865,20 @@
   #send-image-preview img{ width:56px; height:56px; border-radius:4px; object-fit:cover; border:1px solid var(--amber); }
   #send-image-preview button{ padding:4px 8px; font-size:10px; }
 
-  /* Handout gallery (bottom-left corner, pageable when there's more than one visible image) */
+  /* Handout gallery (bottom-center by default, draggable, above the icon rail) */
   #handout-gallery{
-    display:none; position:fixed; bottom:16px; left:16px; z-index:70; width:220px;
+    display:none; position:fixed; bottom:16px; left:50%; z-index:130; width:220px;
     background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
     box-shadow:0 4px 16px rgba(0,0,0,0.4); overflow:hidden;
-    transition:left .22s ease;
   }
   #handout-gallery.show{ display:block; }
   #handout-gallery-image{ cursor:zoom-in; }
   #handout-gallery-header{
     display:flex; align-items:center; justify-content:space-between;
     padding:5px 8px; background:#0e0a06; border-bottom:1px solid var(--line);
+    cursor:grab; touch-action:none;
   }
+  #handout-gallery-header:active{ cursor:grabbing; }
   #handout-gallery-counter{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:0.5px; }
   #handout-gallery-close{ padding:1px 7px; font-size:11px; line-height:1.4; }
   #handout-gallery-image{ display:block; width:100%; max-height:220px; object-fit:contain; background:#0a0704; }
@@ -882,10 +887,11 @@
   #handout-gallery-nav button{ flex:1; padding:6px; font-size:14px; border-radius:0; border-width:1px 0 0 0; }
   #handout-gallery-nav button:first-child{ border-right-width:1px; }
   #handout-gallery-reopen{
-    display:none; position:fixed; bottom:16px; left:16px; z-index:70;
+    display:none; position:fixed; bottom:16px; left:50%; z-index:130;
     width:40px; height:40px; padding:0; font-size:18px; border-radius:50%;
-    transition:left .22s ease;
+    cursor:grab; touch-action:none;
   }
+  #handout-gallery-reopen:active{ cursor:grabbing; }
   #handout-gallery-reopen.show{ display:flex; align-items:center; justify-content:center; }
 
   #handout-lightbox{
@@ -1117,16 +1123,10 @@
     .icon-rail-label{ font-size:8px; }
     button{ padding:9px 12px; }
 
-    /* Keep the topbar compact, and let it scroll sideways instead of wrapping —
-       wrapping could grow the topbar's height unpredictably and push/clip content. */
-    #topbar{
-      padding:8px 10px; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
-      -webkit-overflow-scrolling:touch; scrollbar-width:none;
-    }
-    #topbar::-webkit-scrollbar{ display:none; }
-    #title-wrap{ flex-shrink:0; }
-    #topbar-right{ flex-wrap:nowrap; flex-shrink:0; gap:6px; }
-    #topbar-right button{ padding:6px 9px; font-size:10px; white-space:nowrap; flex-shrink:0; }
+    /* Keep the topbar compact on small screens (horizontal scroll is already the base behavior). */
+    #topbar{ padding:8px 10px; }
+    #topbar-right{ gap:6px; }
+    #topbar-right button{ padding:6px 9px; font-size:10px; }
   }
 </style>
 </head>
@@ -2174,9 +2174,17 @@
     if(state.handoutIndex >= state.handoutGallery.length) state.handoutIndex = Math.max(0, state.handoutGallery.length - 1);
   }
 
+  let handoutUserPositioned = false;
   function updateHandoutGalleryPosition(){
-    el('handout-gallery').style.left = '16px';
-    el('handout-gallery-reopen').style.left = '16px';
+    if(handoutUserPositioned) return;
+    const $visible = state.handoutMinimized ? el('handout-gallery-reopen') : el('handout-gallery');
+    const w = $visible.offsetWidth || 220;
+    const left = Math.max(8, Math.round((window.innerWidth - w) / 2));
+    [el('handout-gallery'), el('handout-gallery-reopen')].forEach($el => {
+      $el.style.left = left + 'px';
+      $el.style.bottom = '16px';
+      $el.style.top = 'auto';
+    });
   }
 
   function renderHandoutGallery(){
@@ -2215,7 +2223,42 @@
     renderHandoutGallery();
   });
   el('handout-gallery-close').addEventListener('click', () => { state.handoutMinimized = true; renderHandoutGallery(); });
-  el('handout-gallery-reopen').addEventListener('click', () => { state.handoutMinimized = false; renderHandoutGallery(); });
+
+  (function setupHandoutDrag(){
+    function wireDrag(handle, target, onPlainClick){
+      let dragging = false, moved = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+      handle.addEventListener('pointerdown', (e) => {
+        if(e.target.closest('#handout-gallery-close')) return;
+        dragging = true; moved = false;
+        startX = e.clientX; startY = e.clientY;
+        const rect = target.getBoundingClientRect();
+        startLeft = rect.left; startTop = rect.top;
+        handle.setPointerCapture(e.pointerId);
+      });
+      handle.addEventListener('pointermove', (e) => {
+        if(!dragging) return;
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        if(!moved && Math.hypot(dx, dy) < 4) return;
+        moved = true;
+        handoutUserPositioned = true;
+        const w = target.offsetWidth, h = target.offsetHeight;
+        const left = Math.max(4, Math.min(window.innerWidth - w - 4, startLeft + dx));
+        const top = Math.max(4, Math.min(window.innerHeight - h - 4, startTop + dy));
+        [el('handout-gallery'), el('handout-gallery-reopen')].forEach($el => {
+          $el.style.left = left + 'px';
+          $el.style.top = top + 'px';
+          $el.style.bottom = 'auto';
+        });
+      });
+      handle.addEventListener('pointerup', () => {
+        dragging = false;
+        if(!moved && onPlainClick) onPlainClick();
+      });
+      handle.addEventListener('pointercancel', () => { dragging = false; });
+    }
+    wireDrag(el('handout-gallery-header'), el('handout-gallery'));
+    wireDrag(el('handout-gallery-reopen'), el('handout-gallery-reopen'), () => { state.handoutMinimized = false; renderHandoutGallery(); });
+  })();
 
   el('handout-gallery-image').addEventListener('click', () => {
     const src = el('handout-gallery-image').src;
@@ -2748,6 +2791,7 @@
   }
   el('initiative-toggle').addEventListener('click', openInitiativePanel);
   let hudUserPositioned = false;
+  let needsZoomFit = false;
   function centerInitiativeHud(){
     if(hudUserPositioned) return;
     const $hud = el('initiative-hud');
@@ -3245,7 +3289,7 @@
     state.isMaster = role === 'master';
     state.playerName = role === 'player' ? (playerName && playerName.trim() ? playerName.trim().slice(0,24) : 'Jogador') : '';
     state.playerColor = role === 'player' ? (playerColor || '#e2a53f') : '';
-    state.zoom = 1; state.pan = {x:0,y:0};
+    state.zoom = 1; state.pan = {x:0,y:0}; needsZoomFit = true;
     state.undoStack = []; state.redoStack = [];
     state.fogMode = false;
     state.selectedTokenId = null;
@@ -3264,6 +3308,7 @@
     state.handoutIndex = 0;
     state.handoutMinimized = true;
     hudUserPositioned = false;
+    handoutUserPositioned = false;
     state.musicTracks = [];
     state.musicPlayingIds = [];
     lastMusicTracksSnapshot = '';
@@ -3711,6 +3756,17 @@
       const pinCanvasSize = () => {
         $canvas.style.width = (imgEl.naturalWidth || 1200) + 'px';
         $canvas.style.height = (imgEl.naturalHeight || 800) + 'px';
+        if(needsZoomFit){
+          needsZoomFit = false;
+          const $area = el('map-area');
+          const areaW = $area.clientWidth || window.innerWidth;
+          const areaH = $area.clientHeight || window.innerHeight;
+          const naturalW = imgEl.naturalWidth || areaW;
+          const naturalH = imgEl.naturalHeight || areaH;
+          const fitScale = Math.min(areaW / naturalW, areaH / naturalH);
+          state.zoom = Math.max(0.05, Math.min(1, fitScale * 0.96));
+          applyTransform();
+        }
       };
       if(imgEl.complete && imgEl.naturalWidth > 0){ pinCanvasSize(); }
       else { imgEl.addEventListener('load', pinCanvasSize, { once:true }); }
@@ -3840,7 +3896,7 @@
     if(id === state.currentPageId) return;
     state.currentPageId = id;
     state.selectedTokenId = null;
-    state.zoom = 1; state.pan = {x:0,y:0};
+    state.zoom = 1; state.pan = {x:0,y:0}; needsZoomFit = true;
     render();
     await persistPagesIndex();
   }
@@ -4068,7 +4124,6 @@
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
-      t.addEventListener('dblclick', () => openTokenSheet(tok));
       $canvas.appendChild(t);
     });
   }
@@ -4459,11 +4514,21 @@
   }
 
   // ---------- token drag / select ----------
+  let lastTokenTapId = null;
+  let lastTokenTapTime = 0;
   function onTokenPointerDown(e){
     e.preventDefault();
     e.stopPropagation();
     const target = e.currentTarget;
     const tok = state.tokens.find(t => t.id === target.dataset.id);
+    const now = Date.now();
+    if(lastTokenTapId === target.dataset.id && (now - lastTokenTapTime) < 400){
+      lastTokenTapId = null; lastTokenTapTime = 0;
+      if(tok) openTokenSheet(tok);
+      return;
+    }
+    lastTokenTapId = target.dataset.id;
+    lastTokenTapTime = now;
     if(tok && tok.masterLocked && !effectiveMaster()) return; // NPC/inimigo travado: só o mestre move
     if(state.isMaster) pushUndo();
     target.setPointerCapture(e.pointerId);
@@ -5104,6 +5169,7 @@
     const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), map:{ image:dataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
     state.pages.push(page);
     state.currentPageId = page.id;
+    state.zoom = 1; state.pan = {x:0,y:0}; needsZoomFit = true;
     render();
     await Promise.all([ persistPageMap(page), persistPagesIndex() ]);
     e.target.value = '';
