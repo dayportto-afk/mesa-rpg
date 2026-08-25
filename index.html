@@ -458,7 +458,7 @@
     display:inline-block;
   }
   #map-canvas img{ display:block; max-width:none; user-select:none; -webkit-user-drag:none; pointer-events:none; }
-  #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
   #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 
@@ -641,6 +641,27 @@
 
   /* Fichas panel (extracted from sidebar for better visibility, especially during combat) */
   /* Ambient music (master-only panel; everyone gets a small mute-only indicator) */
+  /* Shared drawing tool (master AND players; players can only erase their own strokes) */
+  #draw-backdrop{
+    display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
+  }
+  #draw-backdrop.open{ display:block; }
+  #draw-panel{
+    position:fixed; top:0; right:0; bottom:0; width:320px; max-width:88vw; z-index:150;
+    background:var(--bg-panel); border-left:1px solid var(--amber);
+    box-shadow:-6px 0 24px rgba(0,0,0,0.5);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .22s ease;
+  }
+  #draw-panel.open{ transform:translateX(0); }
+  #draw-panel-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex-shrink:0;
+  }
+  #draw-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
+  #draw-panel-close{ padding:4px 9px; font-size:12px; }
+  #draw-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+
   #music-backdrop{
     display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
   }
@@ -661,19 +682,20 @@
   #music-panel-close{ padding:4px 9px; font-size:12px; }
   #music-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
   #music-track-list{ display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; }
-  .music-track-row{
-    display:flex; align-items:center; gap:8px; padding:8px 10px;
-    background:#120e08; border:1px solid var(--line); border-radius:5px; cursor:pointer;
+  .music-track-item{
+    display:flex; flex-direction:column; gap:6px; padding:8px 10px;
+    background:#120e08; border:1px solid var(--line); border-radius:5px;
   }
-  .music-track-row:hover{ border-color:var(--amber); }
-  .music-track-row.active{ border-color:var(--amber-bright); background:#241a0a; }
+  .music-track-item:hover{ border-color:var(--amber); }
+  .music-track-item.active{ border-color:var(--amber-bright); background:#241a0a; }
+  .music-track-row{ display:flex; align-items:center; gap:8px; cursor:pointer; }
   .music-track-row .music-track-playicon{ flex-shrink:0; padding:4px 8px; font-size:12px; }
   .music-track-row .music-track-name{ flex:1; font-size:13px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .music-track-row .music-track-delete{ flex-shrink:0; padding:3px 8px; font-size:9px; }
+  .music-track-volume-row{ display:flex; align-items:center; gap:6px; padding-left:38px; }
+  .music-track-volume-row .music-track-volume-icon{ font-size:11px; flex-shrink:0; opacity:0.7; }
+  .music-track-volume-row input[type=range]{ flex:1; accent-color:var(--amber); cursor:pointer; }
   #music-transport{ display:flex; }
-  #music-volume-row{ display:flex; flex-direction:column; gap:5px; }
-  #music-volume-row label{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:0.5px; text-transform:uppercase; }
-  #music-volume-slider{ width:100%; accent-color:var(--amber); cursor:pointer; }
 
   #music-indicator{
     display:none; align-items:center; gap:6px; padding:6px 8px; background:var(--bg-panel);
@@ -959,6 +981,18 @@
       content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
       width:36px; height:4px; border-radius:2px; background:var(--line);
     }
+    #draw-panel{
+      top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
+      max-height:82vh; border-left:none; border-top:1px solid var(--amber);
+      border-radius:16px 16px 0 0;
+      transform:translateY(100%);
+    }
+    #draw-panel.open{ transform:translateY(0); }
+    #draw-panel-header{ padding:10px 16px 12px; position:relative; }
+    #draw-panel-header::before{
+      content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
+      width:36px; height:4px; border-radius:2px; background:var(--line);
+    }
     #tokens-panel{
       top:0; left:0; right:0; bottom:0; width:auto; min-width:0; max-width:none;
       max-height:none; border-left:none; border-top:1px solid var(--amber);
@@ -1143,6 +1177,7 @@
             <button id="initiative-toggle" title="Rastreador de iniciativa">⚔️ Iniciativa</button>
             <button id="ping-toggle" title="Aponte um lugar no mapa para todos verem">📍 Apontar</button>
             <button id="measure-toggle" title="Meça uma distância no mapa">📏 Medir</button>
+            <button id="draw-panel-toggle" title="Desenhar no mapa">✏️ Desenhar</button>
             <button id="btn-tutorial-open" title="Rever o tutorial">❓ Tutorial</button>
             <button id="btn-leave-campaign">Trocar de campanha</button>
           </div>
@@ -1274,34 +1309,6 @@
         </div>
 
         <div class="panel-block">
-          <div class="panel-title">Desenho no mapa</div>
-          <button id="btn-draw-toggle" style="width:100%;">Ativar modo desenho</button>
-          <div class="fog-mode-row">
-            <button id="btn-draw-pen" class="toggle-active">Desenhar</button>
-            <button id="btn-draw-erase">Apagar</button>
-          </div>
-          <div id="fog-brush-row">
-            <label for="draw-brush">Pincel</label>
-            <input type="range" id="draw-brush" min="2" max="80" value="10">
-          </div>
-          <div id="fog-brush-row">
-            <label for="draw-opacity">Opacidade</label>
-            <input type="range" id="draw-opacity" min="10" max="100" value="100">
-          </div>
-          <div class="fog-color-row">
-            <span class="fog-color-label">Cor do traço</span>
-            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#e2a53f" style="background:#e2a53f;" title="Âmbar"></button>
-            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#ff4444" style="background:#ff4444;" title="Vermelha"></button>
-            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#4488ff" style="background:#4488ff;" title="Azul"></button>
-            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#44cc66" style="background:#44cc66;" title="Verde"></button>
-            <button type="button" class="fog-swatch draw-swatch" data-draw-color="#ffffff" style="background:#ffffff;" title="Branca"></button>
-            <input type="color" id="draw-color-picker" value="#e2a53f" title="Cor personalizada">
-          </div>
-          <div class="hint">Pinte livremente sobre o mapa — atrás das fichas, útil pra marcar caminhos, áreas ou anotações visuais sem esconder os tokens. Também é por página.</div>
-          <button id="btn-draw-clear" class="danger" style="width:100%; margin-top:8px;">Apagar todo o desenho desta página</button>
-        </div>
-
-        <div class="panel-block">
           <div class="panel-title">Grade</div>
           <button id="btn-grid-toggle" style="width:100%;">Ativar grade</button>
           <div class="theme-row" style="margin-top:8px;">
@@ -1378,6 +1385,41 @@
       </div>
     </div>
 
+    <div id="draw-backdrop"></div>
+    <div id="draw-panel">
+      <div id="draw-panel-header">
+        <h2>Desenhar no Mapa</h2>
+        <button id="draw-panel-close">✕</button>
+      </div>
+      <div id="draw-panel-body">
+        <button id="btn-draw-toggle" class="primary" style="width:100%;">Ativar modo desenho</button>
+        <div class="fog-mode-row">
+          <button id="btn-draw-pen" class="toggle-active">Desenhar</button>
+          <button id="btn-draw-erase">Apagar</button>
+        </div>
+        <div id="fog-brush-row">
+          <label for="draw-brush">Pincel</label>
+          <input type="range" id="draw-brush" min="2" max="80" value="10">
+        </div>
+        <div id="fog-brush-row">
+          <label for="draw-opacity">Opacidade</label>
+          <input type="range" id="draw-opacity" min="10" max="100" value="100">
+        </div>
+        <div class="fog-color-row">
+          <span class="fog-color-label">Cor do traço</span>
+          <button type="button" class="fog-swatch draw-swatch" data-draw-color="#e2a53f" style="background:#e2a53f;" title="Âmbar"></button>
+          <button type="button" class="fog-swatch draw-swatch" data-draw-color="#ff4444" style="background:#ff4444;" title="Vermelha"></button>
+          <button type="button" class="fog-swatch draw-swatch" data-draw-color="#4488ff" style="background:#4488ff;" title="Azul"></button>
+          <button type="button" class="fog-swatch draw-swatch" data-draw-color="#44cc66" style="background:#44cc66;" title="Verde"></button>
+          <button type="button" class="fog-swatch draw-swatch" data-draw-color="#ffffff" style="background:#ffffff;" title="Branca"></button>
+          <input type="color" id="draw-color-picker" value="#e2a53f" title="Cor personalizada">
+        </div>
+        <div class="hint" id="draw-erase-hint">No modo "Apagar", você só remove os próprios traços — os de outras pessoas ficam intactos.</div>
+        <button id="btn-draw-clear-mine" class="danger" style="width:100%; margin-top:4px;">Apagar todos os meus traços nesta página</button>
+        <button id="btn-draw-clear-all" class="danger" style="width:100%; margin-top:4px; display:none;">Apagar TODO o desenho desta página (qualquer autor)</button>
+      </div>
+    </div>
+
     <div id="music-backdrop"></div>
     <div id="music-panel">
       <div id="music-panel-header">
@@ -1391,11 +1433,7 @@
         <div id="music-transport">
           <button type="button" id="music-stop" class="danger" style="width:100%;" title="Parar todas as faixas">⏹ Parar tudo</button>
         </div>
-        <div id="music-volume-row">
-          <label for="music-volume-slider">Volume (todos ouvem neste nível)</label>
-          <input type="range" id="music-volume-slider" min="0" max="100" value="50">
-        </div>
-        <div class="hint">Clique em uma faixa pra tocar ou pausar — dá pra ter várias tocando ao mesmo tempo, em camadas (chuva + taverna + tensão, por exemplo). Cada uma toca em loop contínuo até você pausar ou excluir. Jogadores podem silenciar a música pra si mesmos, mas não ajustam o volume.</div>
+        <div class="hint">Clique em uma faixa pra tocar ou pausar — dá pra ter várias tocando ao mesmo tempo, em camadas (chuva + taverna + tensão, por exemplo). Cada faixa tem seu próprio volume, então dá pra equilibrar o mix. Jogadores podem silenciar a música pra si mesmos, mas não ajustam volume.</div>
       </div>
     </div>
 
@@ -1641,11 +1679,10 @@
     sends:[],
     musicTracks:[],
     musicPlayingIds:[],
-    musicVolume:0.5,
     sendImage:null,
     handoutGallery:[],
     handoutIndex:0,
-    handoutMinimized:false,
+    handoutMinimized:true,
     tutorialRole:null,
     tutorialStep:0,
     isMaster:false,
@@ -1778,7 +1815,7 @@
         audio.setAttribute('data-src', track.dataUrl);
         audio.src = track.dataUrl;
       }
-      audio.volume = musicMuted ? 0 : state.musicVolume;
+      audio.volume = musicMuted ? 0 : (typeof track.volume === 'number' ? track.volume : 0.5);
       if(audio.paused) audio.play().catch(() => {});
     });
     // Pause anything that's no longer supposed to be playing
@@ -1808,7 +1845,7 @@
     await safeSet(slotKey('music-tracks'), { list: state.musicTracks });
   }
   async function persistMusicState(){
-    const payload = { playingIds: state.musicPlayingIds, volume: state.musicVolume };
+    const payload = { playingIds: state.musicPlayingIds };
     lastMusicStateSnapshot = JSON.stringify(payload);
     await safeSet(slotKey('music-state'), payload);
   }
@@ -1821,11 +1858,18 @@
     } else {
       $list.innerHTML = state.musicTracks.map(t => {
         const isPlaying = playingIds.includes(t.id);
+        const vol = typeof t.volume === 'number' ? t.volume : 0.5;
         return (
-          '<div class="music-track-row'+(isPlaying?' active':'')+'" data-music-toggle="'+t.id+'">' +
-            '<button type="button" class="music-track-playicon" data-music-toggle-btn="'+t.id+'" title="'+(isPlaying?'Pausar':'Tocar')+'">'+(isPlaying?'⏸️':'▶️')+'</button>' +
-            '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
-            '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'">Excluir</button>' +
+          '<div class="music-track-item'+(isPlaying?' active':'')+'">' +
+            '<div class="music-track-row" data-music-toggle="'+t.id+'">' +
+              '<button type="button" class="music-track-playicon" data-music-toggle-btn="'+t.id+'" title="'+(isPlaying?'Pausar':'Tocar')+'">'+(isPlaying?'⏸️':'▶️')+'</button>' +
+              '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
+              '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'">Excluir</button>' +
+            '</div>' +
+            '<div class="music-track-volume-row">' +
+              '<span class="music-track-volume-icon">🔉</span>' +
+              '<input type="range" min="0" max="100" value="'+Math.round(vol*100)+'" data-music-volume="'+t.id+'">' +
+            '</div>' +
           '</div>'
         );
       }).join('');
@@ -1838,8 +1882,18 @@
       $list.querySelectorAll('[data-music-delete]').forEach(btn => {
         btn.addEventListener('click', (e) => { e.stopPropagation(); deleteMusicTrack(btn.getAttribute('data-music-delete')); });
       });
+      $list.querySelectorAll('[data-music-volume]').forEach(slider => {
+        slider.addEventListener('input', () => setTrackVolume(slider.getAttribute('data-music-volume'), slider.value));
+      });
     }
-    el('music-volume-slider').value = Math.round(state.musicVolume * 100);
+  }
+
+  async function setTrackVolume(id, value){
+    const track = state.musicTracks.find(t => t.id === id);
+    if(!track) return;
+    track.volume = parseInt(value, 10) / 100;
+    updateAmbientAudio();
+    await persistMusicTracks();
   }
 
   async function toggleMusicTrack(id){
@@ -1880,7 +1934,7 @@
       reader.readAsDataURL(file);
     });
     const name = file.name.replace(/\.[^.]+$/, '');
-    state.musicTracks.push({ id: newId('m'), name, dataUrl });
+    state.musicTracks.push({ id: newId('m'), name, dataUrl, volume: 0.5 });
     renderMusicTrackList();
     await persistMusicTracks();
   });
@@ -1892,11 +1946,18 @@
     updateMusicIndicator();
     await persistMusicState();
   });
-  el('music-volume-slider').addEventListener('input', async () => {
-    state.musicVolume = parseInt(el('music-volume-slider').value, 10) / 100;
-    updateAmbientAudio();
-    await persistMusicState();
-  });
+
+  function openDrawPanel(){
+    el('draw-panel').classList.add('open');
+    el('draw-backdrop').classList.add('open');
+  }
+  function closeDrawPanel(){
+    el('draw-panel').classList.remove('open');
+    el('draw-backdrop').classList.remove('open');
+  }
+  el('draw-panel-toggle').addEventListener('click', openDrawPanel);
+  el('draw-panel-close').addEventListener('click', closeDrawPanel);
+  el('draw-backdrop').addEventListener('click', closeDrawPanel);
 
   function openMusicPanel(){
     el('music-panel').classList.add('open');
@@ -2964,10 +3025,9 @@
     state.sendImage = null;
     state.handoutGallery = [];
     state.handoutIndex = 0;
-    state.handoutMinimized = false;
+    state.handoutMinimized = true;
     state.musicTracks = [];
     state.musicPlayingIds = [];
-    state.musicVolume = 0.5;
     lastMusicTracksSnapshot = '';
     lastMusicStateSnapshot = '';
     musicAudioElements.forEach(audio => { audio.pause(); audio.removeAttribute('data-src'); audio.src = ''; });
@@ -3237,7 +3297,6 @@
       try{
         const ms = JSON.parse(musicStateRaw);
         state.musicPlayingIds = Array.isArray(ms.playingIds) ? ms.playingIds : [];
-        state.musicVolume = typeof ms.volume === 'number' ? ms.volume : 0.5;
         lastMusicStateSnapshot = musicStateRaw;
       }catch(e){}
     }
@@ -3255,7 +3314,7 @@
         safeGet(slotKey('page-'+stub.id+'-texts')),
         safeGet(slotKey('page-'+stub.id+'-grid'))
       ]);
-      let map = { image:'' }, fog = { image:'' }, draw = { image:'' }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
+      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
       if(mapRaw){ try{ map = JSON.parse(mapRaw); }catch(e){} }
       if(fogRaw){ try{ fog = JSON.parse(fogRaw); }catch(e){} }
       if(drawRaw){ try{ draw = JSON.parse(drawRaw); }catch(e){} }
@@ -3313,7 +3372,7 @@
       pageId: state.currentPageId,
       map: page ? page.map.image : '',
       fog: page ? page.fog.image : '',
-      draw: page ? page.draw.image : '',
+      draw: page ? JSON.parse(JSON.stringify(page.draw.strokes || [])) : [],
       texts: page ? JSON.parse(JSON.stringify(page.texts)) : [],
       tokens: JSON.parse(JSON.stringify(state.tokens))
     };
@@ -3338,7 +3397,8 @@
     if(page){
       page.map.image = snap.map;
       page.fog.image = snap.fog;
-      page.draw.image = snap.draw;
+      if(!page.draw) page.draw = { strokes:[] };
+      page.draw.strokes = snap.draw;
       page.texts = snap.texts;
     }
     render();
@@ -3365,6 +3425,20 @@
   }
   $btnUndo.addEventListener('click', undoLast);
   $btnRedo.addEventListener('click', redoLast);
+
+  document.addEventListener('keydown', (e) => {
+    if(!(e.ctrlKey || e.metaKey)) return;
+    const key = e.key.toLowerCase();
+    if(key !== 'z' && key !== 'y') return;
+    const active = document.activeElement;
+    const tag = active ? active.tagName.toLowerCase() : '';
+    const isTyping = tag === 'input' || tag === 'textarea' || (active && active.isContentEditable);
+    if(isTyping) return;
+    if(!effectiveMaster()) return;
+    e.preventDefault();
+    if(key === 'y' || (key === 'z' && e.shiftKey)) redoLast();
+    else undoLast();
+  });
 
   // ---------- render ----------
   function render(){
@@ -3445,7 +3519,7 @@
 
     if(!effectiveMaster()){ state.fogMode = false; }
     $mapViewport.classList.toggle('fog-mode', effectiveMaster() && state.fogMode);
-    $mapViewport.classList.toggle('draw-mode', effectiveMaster() && state.drawMode);
+    $mapViewport.classList.toggle('draw-mode', state.drawMode);
     el('btn-fog-toggle').textContent = state.fogMode ? 'Desativar modo névoa' : 'Ativar modo névoa';
     el('btn-fog-toggle').classList.toggle('toggle-active', state.fogMode);
     el('btn-fog-cover').classList.toggle('toggle-active', state.fogPaintMode === 'cover');
@@ -3467,6 +3541,8 @@
       sw.classList.toggle('active', sw.getAttribute('data-draw-color').toLowerCase() === state.drawColor.toLowerCase());
     });
     el('draw-color-picker').value = state.drawColor;
+    el('draw-erase-hint').style.display = state.drawPaintMode === 'erase' ? 'block' : 'none';
+    el('btn-draw-clear-all').style.display = effectiveMaster() ? 'block' : 'none';
 
     const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f' };
     el('btn-grid-toggle').textContent = gridSettings.enabled ? 'Desativar grade' : 'Ativar grade';
@@ -3568,7 +3644,6 @@
     div.style.top = y + '%';
     $canvas.appendChild(div);
     setTimeout(() => { div.remove(); }, 5000);
-    playSound('ping');
   }
   async function placePing(e){
     const page = currentPage();
@@ -4783,7 +4858,7 @@
     if(!file) return;
     pushUndo();
     const dataUrl = await resizeImage(file, 1800, 0.82);
-    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), map:{ image:dataUrl }, fog:{ image:'' }, draw:{ image:'' }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
+    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), map:{ image:dataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
     state.pages.push(page);
     state.currentPageId = page.id;
     render();
@@ -5061,7 +5136,7 @@
       startFogPaint(e);
       return;
     }
-    if(effectiveMaster() && state.drawMode){
+    if(state.drawMode){
       startDrawPaint(e);
       return;
     }
@@ -5120,20 +5195,28 @@
     sw.addEventListener('click', () => { state.drawColor = sw.getAttribute('data-draw-color'); render(); });
   });
   el('draw-color-picker').addEventListener('input', (e) => { state.drawColor = e.target.value; render(); });
-  el('btn-draw-clear').addEventListener('click', async () => {
+  el('btn-draw-clear-mine').addEventListener('click', async () => {
     const page = currentPage();
-    const canvas = document.getElementById('draw-canvas');
-    if(!canvas || !page) return;
-    const ctx = canvas.getContext('2d');
-    let hasContent = false;
-    try{
-      const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
-      for(let i = 3; i < data.length; i += 4){ if(data[i] !== 0){ hasContent = true; break; } }
-    }catch(e){ hasContent = true; }
-    if(hasContent && !confirm('Apagar todo o desenho desta página?')) return;
+    if(!page) return;
+    const me = myDrawAuthorName();
+    const mine = (page.draw.strokes || []).filter(s => s.author === me);
+    if(mine.length === 0) return;
+    if(!confirm('Apagar todos os seus '+mine.length+' traço(s) nesta página?')) return;
     pushUndo();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    page.draw.image = '';
+    page.draw.strokes = (page.draw.strokes || []).filter(s => s.author !== me);
+    const canvas = document.getElementById('draw-canvas');
+    if(canvas) redrawDrawCanvas(canvas, page);
+    await persistPageDraw(page);
+  });
+  el('btn-draw-clear-all').addEventListener('click', async () => {
+    if(!effectiveMaster()) return;
+    const page = currentPage();
+    if(!page || (page.draw.strokes || []).length === 0) return;
+    if(!confirm('Apagar TODO o desenho desta página, incluindo traços de outras pessoas?')) return;
+    pushUndo();
+    page.draw.strokes = [];
+    const canvas = document.getElementById('draw-canvas');
+    if(canvas) redrawDrawCanvas(canvas, page);
     await persistPageDraw(page);
   });
 
@@ -5225,27 +5308,20 @@
     const img = document.getElementById('map-img');
     const page = currentPage();
     if(!img || !page) return;
-    if(!page.draw) page.draw = { image:'' };
+    if(!page.draw || !Array.isArray(page.draw.strokes)) page.draw = { strokes: [] };
 
     const build = () => {
       const canvas = document.createElement('canvas');
       canvas.id = 'draw-canvas';
       canvas.width = img.naturalWidth || 1200;
       canvas.height = img.naturalHeight || 800;
-      canvas.style.pointerEvents = (effectiveMaster() && state.drawMode) ? 'auto' : 'none';
+      canvas.style.pointerEvents = state.drawMode ? 'auto' : 'none';
       // Insert before the first token (if any) so the draw layer always renders below tokens,
       // regardless of DOM append order elsewhere.
       const firstToken = $canvas.querySelector('.token');
       if(firstToken) $canvas.insertBefore(canvas, firstToken);
       else $canvas.appendChild(canvas);
-      if(page.draw.image){
-        const drawImg = new Image();
-        drawImg.onload = () => {
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(drawImg, 0, 0, canvas.width, canvas.height);
-        };
-        drawImg.src = page.draw.image;
-      }
+      redrawDrawCanvas(canvas, page);
     };
     if(img.complete && img.naturalWidth > 0){ build(); }
     else { img.addEventListener('load', build, { once:true }); }
@@ -5287,47 +5363,103 @@
     }
   }
 
-  function paintDrawDot(ctx, pt, radius, mode){
-    ctx.globalCompositeOperation = mode === 'erase' ? 'destination-out' : 'source-over';
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = mode === 'erase' ? 'rgba(0,0,0,1)' : hexToRgba(state.drawColor, state.drawOpacity / 100);
-    ctx.fill();
+  function myDrawAuthorName(){
+    return state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
   }
 
-  function paintDrawSegment(ctx, from, to, radius, mode){
-    const dist = Math.hypot(to.x - from.x, to.y - from.y);
-    const steps = Math.max(1, Math.ceil(dist / Math.max(4, radius * 0.35)));
-    for(let i = 1; i <= steps; i++){
-      const t = i / steps;
-      paintDrawDot(ctx, { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }, radius, mode);
+  function drawStrokeOnCtx(ctx, stroke){
+    const pts = stroke.points;
+    if(!pts || pts.length === 0) return;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = hexToRgba(stroke.color, stroke.opacity / 100);
+    if(pts.length === 1){
+      ctx.beginPath();
+      ctx.arc(pts[0].x, pts[0].y, stroke.brush, 0, Math.PI * 2);
+      ctx.fill();
+      return;
     }
+    for(let i = 1; i < pts.length; i++){
+      const from = pts[i-1], to = pts[i];
+      const dist = Math.hypot(to.x - from.x, to.y - from.y);
+      const steps = Math.max(1, Math.ceil(dist / Math.max(4, stroke.brush * 0.35)));
+      for(let s = 1; s <= steps; s++){
+        const t = s / steps;
+        ctx.beginPath();
+        ctx.arc(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, stroke.brush, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  function redrawDrawCanvas(canvas, page, inProgressStroke){
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    (page.draw.strokes || []).forEach(stroke => drawStrokeOnCtx(ctx, stroke));
+    if(inProgressStroke) drawStrokeOnCtx(ctx, inProgressStroke);
+  }
+
+  function eraseNear(page, pt){
+    if(!page.draw.strokes) page.draw.strokes = [];
+    const me = myDrawAuthorName();
+    const canErase = (stroke) => effectiveMaster() || stroke.author === me;
+    const reach = state.drawBrush;
+    let closestIdx = -1;
+    let closestDist = Infinity;
+    page.draw.strokes.forEach((stroke, idx) => {
+      if(!canErase(stroke)) return;
+      const strokeReach = reach + (stroke.brush || 10);
+      let minDist = Infinity;
+      (stroke.points || []).forEach(p => {
+        const d = Math.hypot(p.x - pt.x, p.y - pt.y);
+        if(d < minDist) minDist = d;
+      });
+      if(minDist <= strokeReach && minDist < closestDist){
+        closestDist = minDist;
+        closestIdx = idx;
+      }
+    });
+    if(closestIdx !== -1) page.draw.strokes.splice(closestIdx, 1);
   }
 
   function startDrawPaint(e){
     const canvas = document.getElementById('draw-canvas');
-    if(!canvas) return;
+    const page = currentPage();
+    if(!canvas || !page) return;
     pushUndo();
-    const ctx = canvas.getContext('2d');
     const pt = canvasPointFromEvent(e, canvas);
-    paintDrawDot(ctx, pt, state.drawBrush, state.drawPaintMode);
-    state.drawStroke = { canvas, ctx, last: pt };
+    if(state.drawPaintMode === 'erase'){
+      eraseNear(page, pt);
+      state.drawStroke = { canvas, page, mode:'erase' };
+      redrawDrawCanvas(canvas, page);
+    } else {
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, points:[pt] };
+      state.drawStroke = { canvas, page, mode:'pen', stroke };
+      redrawDrawCanvas(canvas, page, stroke);
+    }
     $mapViewport.setPointerCapture(e.pointerId);
   }
   function moveDrawPaint(e){
     const s = state.drawStroke;
     if(!s) return;
     const pt = canvasPointFromEvent(e, s.canvas);
-    paintDrawSegment(s.ctx, s.last, pt, state.drawBrush, state.drawPaintMode);
-    s.last = pt;
+    if(s.mode === 'erase'){
+      eraseNear(s.page, pt);
+      redrawDrawCanvas(s.canvas, s.page);
+    } else {
+      s.stroke.points.push(pt);
+      redrawDrawCanvas(s.canvas, s.page, s.stroke);
+    }
   }
   async function endDrawPaint(){
     const s = state.drawStroke;
-    const page = currentPage();
-    if(!s || !page) return;
-    page.draw.image = s.canvas.toDataURL('image/png');
+    if(!s) return;
     state.drawStroke = null;
-    await persistPageDraw(page);
+    if(s.mode === 'pen'){
+      if(!s.page.draw.strokes) s.page.draw.strokes = [];
+      s.page.draw.strokes.push(s.stroke);
+      redrawDrawCanvas(s.canvas, s.page);
+    }
+    await persistPageDraw(s.page);
   }
 
   function startFogPaint(e){
@@ -5452,7 +5584,6 @@
       try{
         const ms = JSON.parse(musicStateRaw);
         state.musicPlayingIds = Array.isArray(ms.playingIds) ? ms.playingIds : [];
-        state.musicVolume = typeof ms.volume === 'number' ? ms.volume : 0.5;
         changed = true;
       }catch(e){}
     }
