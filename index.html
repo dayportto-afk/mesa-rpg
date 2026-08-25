@@ -255,6 +255,11 @@
     transition:border-color .15s;
   }
   .token-row-wrap:hover{ border-color:var(--amber); }
+  .token-row-wrap.token-card-flash{ animation:token-card-flash-anim 1.2s ease; }
+  @keyframes token-card-flash-anim{
+    0%, 100%{ border-color:var(--line); box-shadow:none; }
+    25%{ border-color:var(--amber-bright); box-shadow:0 0 0 2px var(--amber-bright); }
+  }
   .token-row-wrap .token-row{ padding:0; background:none; border:none; gap:10px; }
   .token-row-avatar{ width:38px; height:38px; border-radius:50%; object-fit:cover; border:1px solid var(--amber); flex-shrink:0; cursor:pointer; transition:transform .1s; }
   .token-row-avatar:hover{ transform:scale(1.08); border-color:var(--amber-bright); }
@@ -1112,10 +1117,16 @@
     .icon-rail-label{ font-size:8px; }
     button{ padding:9px 12px; }
 
-    /* Keep the topbar compact so the map keeps most of the screen. */
-    #topbar{ padding:8px 10px; flex-wrap:wrap; row-gap:6px; }
-    #topbar-right{ gap:6px; }
-    #topbar-right button{ padding:6px 9px; font-size:10px; }
+    /* Keep the topbar compact, and let it scroll sideways instead of wrapping —
+       wrapping could grow the topbar's height unpredictably and push/clip content. */
+    #topbar{
+      padding:8px 10px; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
+      -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    }
+    #topbar::-webkit-scrollbar{ display:none; }
+    #title-wrap{ flex-shrink:0; }
+    #topbar-right{ flex-wrap:nowrap; flex-shrink:0; gap:6px; }
+    #topbar-right button{ padding:6px 9px; font-size:10px; white-space:nowrap; flex-shrink:0; }
   }
 </style>
 </head>
@@ -2408,6 +2419,20 @@
     el('tokens-panel').classList.remove('open');
     el('tokens-backdrop').classList.remove('open');
   }
+  function openTokenSheet(tok){
+    if(effectiveMaster()){
+      openTokensPanel();
+      requestAnimationFrame(() => {
+        const card = document.getElementById('token-card-' + tok.id);
+        if(!card) return;
+        card.scrollIntoView({ behavior:'smooth', block:'center' });
+        card.classList.add('token-card-flash');
+        setTimeout(() => card.classList.remove('token-card-flash'), 1200);
+      });
+    } else if((tok.name||'').trim().toLowerCase() === (state.playerName||'').trim().toLowerCase()){
+      openMySheet();
+    }
+  }
   el('tokens-panel-toggle').addEventListener('click', openTokensPanel);
 
   // ---------- floating panels (icon rail): open/close, bring-to-front, drag to reposition ----------
@@ -2628,6 +2653,7 @@
       return;
     }
     $hud.classList.add('show');
+    centerInitiativeHud();
     el('initiative-hud-round').textContent = 'Rodada ' + state.initiative.round;
     const sorted = sortedInitiative();
     el('initiative-hud-list').innerHTML = sorted.map(entry =>
@@ -2721,6 +2747,16 @@
     el('initiative-backdrop').classList.remove('open');
   }
   el('initiative-toggle').addEventListener('click', openInitiativePanel);
+  let hudUserPositioned = false;
+  function centerInitiativeHud(){
+    if(hudUserPositioned) return;
+    const $hud = el('initiative-hud');
+    const $area = el('map-area');
+    const w = $hud.offsetWidth || 200;
+    $hud.style.left = Math.max(0, Math.round(($area.clientWidth - w) / 2)) + 'px';
+    $hud.style.top = '16px';
+  }
+
   (function setupInitiativeHudDrag(){
     const $hud = el('initiative-hud');
     const $area = el('map-area');
@@ -2736,6 +2772,7 @@
       const dx = e.clientX - startX, dy = e.clientY - startY;
       if(!moved && Math.hypot(dx, dy) < 4) return;
       moved = true;
+      hudUserPositioned = true;
       $hud.classList.add('dragging');
       const w = $hud.offsetWidth, h = $hud.offsetHeight;
       const maxLeft = Math.max(0, $area.clientWidth - w);
@@ -3226,6 +3263,7 @@
     state.handoutGallery = [];
     state.handoutIndex = 0;
     state.handoutMinimized = true;
+    hudUserPositioned = false;
     state.musicTracks = [];
     state.musicPlayingIds = [];
     lastMusicTracksSnapshot = '';
@@ -4030,6 +4068,7 @@
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
+      t.addEventListener('dblclick', () => openTokenSheet(tok));
       $canvas.appendChild(t);
     });
   }
@@ -4300,7 +4339,7 @@
     const size = tokenSize(tok);
     const onPage = isTokenOnPage(tok, state.currentPageId);
     return (
-      '<div class="token-row-wrap">' +
+      '<div class="token-row-wrap" id="token-card-'+tok.id+'">' +
         '<div class="token-row">' +
           '<img class="token-row-avatar'+(onPage?'':' off-page')+'" src="'+tok.image+'" alt="" title="'+(onPage?'Ir até esta ficha no mapa':'Fora desta página')+'" data-jump-token="'+tok.id+'">' +
           '<input type="text" class="token-name-input" value="'+escapeHtml(tok.name)+'" data-name="'+tok.id+'">' +
