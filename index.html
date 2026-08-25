@@ -479,11 +479,13 @@
     box-shadow:0 0 60px var(--shadow);
     border:2px solid #000;
     overflow:hidden;
-    display:inline-block;
+    display:block;
+    width:auto;
+    height:auto;
     max-width:100%;
     max-height:100%;
   }
-  #map-canvas img{ display:block; max-width:100%; max-height:100%; width:auto; height:auto; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  #map-canvas img{ display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
   #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
@@ -3782,15 +3784,13 @@
     if(page && page.map.image){
       $canvas.innerHTML = '<img id="map-img" src="'+page.map.image+'" alt="Mapa de combate">';
       const imgEl = document.getElementById('map-img');
-      const pinCanvasSize = () => {
-        $canvas.style.width = (imgEl.naturalWidth || 1200) + 'px';
-        $canvas.style.height = (imgEl.naturalHeight || 800) + 'px';
+      const setAspect = () => {
+        $canvas.style.aspectRatio = (imgEl.naturalWidth || 3) + ' / ' + (imgEl.naturalHeight || 2);
       };
-      if(imgEl.complete && imgEl.naturalWidth > 0){ pinCanvasSize(); }
-      else { imgEl.addEventListener('load', pinCanvasSize, { once:true }); }
+      if(imgEl.complete && imgEl.naturalWidth > 0){ setAspect(); }
+      else { imgEl.addEventListener('load', setAspect, { once:true }); }
     } else {
-      $canvas.style.width = '';
-      $canvas.style.height = '';
+      $canvas.style.aspectRatio = '';
       $canvas.innerHTML = '<div id="empty-map">✦ Nenhum mapa carregado ainda ✦<small>Entre como mestre para enviar a imagem do mapa de combate</small></div>';
     }
     setupGridOverlay();
