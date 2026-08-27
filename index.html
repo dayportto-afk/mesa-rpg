@@ -352,7 +352,7 @@
   .notes-textarea{
     width:100%; margin-top:6px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
     color:var(--parchment); padding:8px 9px; font-family:'EB Garamond', serif; font-size:14px;
-    outline:none; resize:vertical; min-height:56px;
+    outline:none; resize:vertical; min-height:160px;
   }
   .notes-textarea:focus{ border-color:var(--amber); }
   .token-photos-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
@@ -1882,6 +1882,7 @@
   let openNotesTokens = new Set();
   let openRecoveriesTokens = new Set();
   let openAdvancementTokens = new Set();
+  let collapsedStatsTokens = new Set();
 
   // ---------- sound effects ----------
   let soundMuted = false;
@@ -3353,6 +3354,7 @@
     openNotesTokens = new Set();
     openRecoveriesTokens = new Set();
     openAdvancementTokens = new Set();
+    collapsedStatsTokens = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
     lastJournalSnapshot = '';
@@ -4203,6 +4205,13 @@
         render();
       });
     });
+    $root.querySelectorAll('[data-stats-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-stats-toggle');
+        if(collapsedStatsTokens.has(id)) collapsedStatsTokens.delete(id); else collapsedStatsTokens.add(id);
+        render();
+      });
+    });
   }
 
   async function setTokenNotes(id, value){
@@ -4217,7 +4226,8 @@
   function lifeBlockMarkup(tok){
     if(tok.statSystem === 'numenera'){
       const pools = tok.pools || {};
-      return NUMENERA_POOLS.map(p => {
+      const statsOpen = !collapsedStatsTokens.has(tok.id);
+      const poolsHtml = NUMENERA_POOLS.map(p => {
         const pool = pools[p.key] || { current:10, max:10 };
         const key = tok.id + ':' + p.key;
         return (
@@ -4242,7 +4252,11 @@
             '</div>' +
           '</div>'
         );
-      }).join('') +
+      }).join('');
+      return (
+        '<button type="button" class="notes-toggle" data-stats-toggle="'+tok.id+'">Atributos <span>'+(statsOpen ? '▲' : '▼')+'</span></button>' +
+        (statsOpen ? poolsHtml : '')
+      ) +
       (function(){
         const cyphers = tok.cyphers || { current:0, max:2 };
         const photos = tok.photos || [];
