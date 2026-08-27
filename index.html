@@ -3831,7 +3831,7 @@
     if(page && page.map.image){
       const existingImg = document.getElementById('map-img');
       if(!existingImg || existingImg.src !== page.map.image){
-        $canvas.innerHTML = '<img id="map-img" src="'+page.map.image+'" alt="Mapa de combate">';
+        $canvas.innerHTML = '<img id="map-img" src="'+page.map.image+'" alt="Mapa de combate" draggable="false">';
         const imgEl = document.getElementById('map-img');
         const setAspect = () => {
           $canvas.style.aspectRatio = (imgEl.naturalWidth || 3) + ' / ' + (imgEl.naturalHeight || 2);
@@ -5647,6 +5647,8 @@
   }
   $mapViewport.addEventListener('pointerup', endPan);
   $mapViewport.addEventListener('pointercancel', endPan);
+  $mapViewport.addEventListener('dragstart', (e) => { e.preventDefault(); });
+
   $mapViewport.addEventListener('wheel', (e) => {
     if(!state.currentSlot) return;
     e.preventDefault();
