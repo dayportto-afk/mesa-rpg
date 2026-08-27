@@ -19,6 +19,8 @@
     --amber-bright:#e2a53f;
     --wax:#7a2b2b;
     --shadow:rgba(0,0,0,0.6);
+    --topbar-bg-1:#221a10;
+    --topbar-bg-2:#17120b;
   }
   *{box-sizing:border-box;}
   html,body{
@@ -137,7 +139,7 @@
   #topbar{
     display:flex; align-items:center; gap:14px;
     padding:10px 18px;
-    background:linear-gradient(180deg, #221a10 0%, #17120b 100%);
+    background:linear-gradient(180deg, var(--topbar-bg-1) 0%, var(--topbar-bg-2) 100%);
     border-bottom:1px solid var(--line);
     z-index:50;
     flex-shrink:0;
@@ -276,6 +278,10 @@
   .token-row-avatar:hover{ transform:scale(1.08); border-color:var(--amber-bright); }
   .token-row-avatar.off-page{ cursor:default; opacity:0.6; }
   .token-row-avatar.off-page:hover{ transform:none; border-color:var(--amber); }
+  .card-collapse-toggle{
+    flex-shrink:0; width:26px; height:26px; padding:0; font-size:11px;
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+  }
   .token-name-input{
     flex:1; min-width:0; font-size:15px; padding:6px 8px;
     background:#0c0906; border:1px solid var(--line); border-radius:3px; color:var(--parchment);
@@ -290,7 +296,7 @@
     display:flex; align-items:center; justify-content:center; font-size:10px; z-index:5;
   }
 
-  .token-row-hp, .token-row-size{ display:flex; align-items:center; gap:8px; padding-left:2px; }
+  .token-row-hp, .token-row-size{ display:flex; align-items:center; gap:8px; padding-left:2px; margin-top:4px; }
   .token-row-hp .row-label, .token-row-size .row-label{
     font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim);
     letter-spacing:0.5px; text-transform:uppercase; width:52px; flex-shrink:0;
@@ -337,10 +343,10 @@
     display:block; font-family:'JetBrains Mono', monospace; font-size:9px; letter-spacing:0.5px;
     text-transform:uppercase; color:var(--parchment-dim); margin-bottom:3px;
   }
-  .edge-row{ display:flex; align-items:center; gap:8px; margin-top:5px; }
+  .edge-row{ display:flex; align-items:center; gap:8px; margin-top:9px; }
   .edge-row .row-label{ width:70px; flex-shrink:0; }
   .edge-row input{ width:56px; text-align:center; }
-  .checkbox-row{ display:flex; align-items:center; gap:7px; margin-top:6px; cursor:pointer; }
+  .checkbox-row{ display:flex; align-items:center; gap:7px; margin-top:10px; cursor:pointer; }
   .checkbox-row input[type=checkbox]{ width:16px; height:16px; accent-color:var(--amber); cursor:pointer; }
   .checkbox-row span{ font-family:'EB Garamond', serif; font-size:13px; color:var(--parchment); }
 
@@ -1325,6 +1331,10 @@
             <label for="theme-accent">Destaque</label>
             <input type="color" id="theme-accent">
           </div>
+          <div class="theme-row">
+            <label for="theme-topbar">Barra superior</label>
+            <input type="color" id="theme-topbar">
+          </div>
           <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
           <div class="hint">As cores valem para todo mundo que acessar esta campanha, mestre e jogadores.</div>
         </div>
@@ -1880,6 +1890,7 @@
   let lastInitiativeSnapshot = '';
   let lastJournalSnapshot = '';
   let openNotesTokens = new Set();
+  let openTokenCards = new Set();
   let openRecoveriesTokens = new Set();
   let openAdvancementTokens = new Set();
   let collapsedStatsTokens = new Set();
@@ -2495,6 +2506,7 @@
   }
   function openTokenSheet(tok){
     if(effectiveMaster()){
+      openTokenCards.add(tok.id);
       openTokensPanel();
       requestAnimationFrame(() => {
         const card = document.getElementById('token-card-' + tok.id);
@@ -3130,7 +3142,15 @@
   }
   function newId(prefix){ return prefix + Date.now() + Math.random().toString(36).slice(2,7); }
 
-  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f' };
+  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10' };
+  function darkenHex(hex, amount){
+    let h = hex.replace('#','');
+    if(h.length === 3) h = h.split('').map(c => c+c).join('');
+    const r = Math.max(0, Math.round(parseInt(h.substring(0,2),16) * (1 - amount)));
+    const g = Math.max(0, Math.round(parseInt(h.substring(2,4),16) * (1 - amount)));
+    const b = Math.max(0, Math.round(parseInt(h.substring(4,6),16) * (1 - amount)));
+    return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+  }
   function applyTheme(theme){
     const t = Object.assign({}, DEFAULT_THEME, theme || {});
     const root = document.documentElement.style;
@@ -3139,6 +3159,8 @@
     root.setProperty('--parchment', t.text);
     root.setProperty('--amber-bright', t.accent);
     root.setProperty('--amber', t.accent);
+    root.setProperty('--topbar-bg-1', t.topbar);
+    root.setProperty('--topbar-bg-2', darkenHex(t.topbar, 0.35));
   }
 
   // ===================== PORTAL =====================
@@ -3352,6 +3374,7 @@
     composeTargets = [];
     activeThreadKey = null;
     openNotesTokens = new Set();
+    openTokenCards = new Set();
     openRecoveriesTokens = new Set();
     openAdvancementTokens = new Set();
     collapsedStatsTokens = new Set();
@@ -3791,6 +3814,7 @@
     el('theme-panel').value = (state.meta.theme && state.meta.theme.panel) || DEFAULT_THEME.panel;
     el('theme-text').value = (state.meta.theme && state.meta.theme.text) || DEFAULT_THEME.text;
     el('theme-accent').value = (state.meta.theme && state.meta.theme.accent) || DEFAULT_THEME.accent;
+    el('theme-topbar').value = (state.meta.theme && state.meta.theme.topbar) || DEFAULT_THEME.topbar;
 
     const titleFont = state.meta.titleFont || "'Cinzel', serif";
     $title.style.fontFamily = titleFont;
@@ -4491,46 +4515,52 @@
   function tokenCardMarkup(tok){
     const size = tokenSize(tok);
     const onPage = isTokenOnPage(tok, state.currentPageId);
+    const isOpen = openTokenCards.has(tok.id);
     return (
       '<div class="token-row-wrap" id="token-card-'+tok.id+'">' +
         '<div class="token-row">' +
           '<img class="token-row-avatar'+(onPage?'':' off-page')+'" src="'+tok.image+'" alt="" title="'+(onPage?'Ir até esta ficha no mapa':'Fora desta página')+'" data-jump-token="'+tok.id+'">' +
           '<input type="text" class="token-name-input" value="'+escapeHtml(tok.name)+'" data-name="'+tok.id+'">' +
-          '<button type="button" class="lock-toggle'+(tok.masterLocked?' toggle-active':'')+'" data-lock-toggle="'+tok.id+'" title="Só o mestre pode mover esta ficha (NPCs/inimigos)">🔒</button>' +
-          (onPage
-            ? '<button class="danger" data-remove-page="'+tok.id+'">Remover</button>'
-            : '<button data-add-page="'+tok.id+'">+ Página</button>') +
+          '<button type="button" class="card-collapse-toggle" data-card-toggle="'+tok.id+'" title="'+(isOpen?'Recolher ficha':'Expandir ficha')+'">'+(isOpen?'▲':'▼')+'</button>' +
         '</div>' +
-        (onPage ? '' : '<div class="token-off-page-tag">Fora desta página</div>') +
-        phraseAndDamageMarkup(tok) +
-        '<div class="system-select-row" style="margin-top:2px;">' +
-          '<button type="button" class="'+(tok.statSystem!=='numenera'?'toggle-active':'')+'" data-system-hp="'+tok.id+'">HP</button>' +
-          '<button type="button" class="'+(tok.statSystem==='numenera'?'toggle-active':'')+'" data-system-numenera="'+tok.id+'">Numenera</button>' +
-        '</div>' +
-        lifeBlockMarkup(tok) +
-        numeneraExtrasMarkup(tok) +
-        '<div class="token-row-hp">' +
-          '<span class="row-label">XP</span>' +
-          '<button type="button" data-xp-minus="'+tok.id+'">−</button>' +
-          '<input type="number" class="hp-max-input" min="0" max="999" value="'+(tok.xp||0)+'" data-xp-input="'+tok.id+'">' +
-          '<button type="button" data-xp-plus="'+tok.id+'">+</button>' +
-        '</div>' +
-        '<div class="condition-chip-row">' +
-          CONDITIONS.map(c => '<button type="button" class="condition-chip'+((tok.conditions||[]).includes(c.key)?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+'">'+c.icon+'</button>').join('') +
-        '</div>' +
-        notesBlockMarkup(tok) +
-        '<div class="token-row-size">' +
-          '<span class="row-label">Tam.</span>' +
-          '<button type="button" data-size-minus="'+tok.id+'">−</button>' +
-          '<input type="number" class="size-input" min="10" max="500" value="'+size+'" data-size-input="'+tok.id+'">' +
-          '<span class="size-unit">px</span>' +
-          '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
-        '</div>' +
-        '<div class="token-row-actions">' +
-          '<button type="button" data-duplicate="'+tok.id+'" title="Cria uma cópia idêntica, só renomear">Duplicar</button>' +
-          '<button type="button" data-edit-image="'+tok.id+'">Trocar imagem</button>' +
-          '<button type="button" class="danger" data-delete-perm="'+tok.id+'">Excluir ficha</button>' +
-        '</div>' +
+        (isOpen ? (
+          '<div class="token-row" style="margin-top:4px;">' +
+            '<button type="button" class="lock-toggle'+(tok.masterLocked?' toggle-active':'')+'" data-lock-toggle="'+tok.id+'" title="Só o mestre pode mover esta ficha (NPCs/inimigos)">🔒</button>' +
+            (onPage
+              ? '<button class="danger" data-remove-page="'+tok.id+'">Remover</button>'
+              : '<button data-add-page="'+tok.id+'">+ Página</button>') +
+          '</div>' +
+          (onPage ? '' : '<div class="token-off-page-tag">Fora desta página</div>') +
+          phraseAndDamageMarkup(tok) +
+          '<div class="system-select-row" style="margin-top:2px;">' +
+            '<button type="button" class="'+(tok.statSystem!=='numenera'?'toggle-active':'')+'" data-system-hp="'+tok.id+'">HP</button>' +
+            '<button type="button" class="'+(tok.statSystem==='numenera'?'toggle-active':'')+'" data-system-numenera="'+tok.id+'">Numenera</button>' +
+          '</div>' +
+          lifeBlockMarkup(tok) +
+          numeneraExtrasMarkup(tok) +
+          '<div class="token-row-hp">' +
+            '<span class="row-label">XP</span>' +
+            '<button type="button" data-xp-minus="'+tok.id+'">−</button>' +
+            '<input type="number" class="hp-max-input" min="0" max="999" value="'+(tok.xp||0)+'" data-xp-input="'+tok.id+'">' +
+            '<button type="button" data-xp-plus="'+tok.id+'">+</button>' +
+          '</div>' +
+          '<div class="condition-chip-row">' +
+            CONDITIONS.map(c => '<button type="button" class="condition-chip'+((tok.conditions||[]).includes(c.key)?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+'">'+c.icon+'</button>').join('') +
+          '</div>' +
+          notesBlockMarkup(tok) +
+          '<div class="token-row-size">' +
+            '<span class="row-label">Tam.</span>' +
+            '<button type="button" data-size-minus="'+tok.id+'">−</button>' +
+            '<input type="number" class="size-input" min="10" max="500" value="'+size+'" data-size-input="'+tok.id+'">' +
+            '<span class="size-unit">px</span>' +
+            '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
+          '</div>' +
+          '<div class="token-row-actions">' +
+            '<button type="button" data-duplicate="'+tok.id+'" title="Cria uma cópia idêntica, só renomear">Duplicar</button>' +
+            '<button type="button" data-edit-image="'+tok.id+'">Trocar imagem</button>' +
+            '<button type="button" class="danger" data-delete-perm="'+tok.id+'">Excluir ficha</button>' +
+          '</div>'
+        ) : '') +
       '</div>'
     );
   }
@@ -4557,6 +4587,13 @@
     wireNotesControls($tokenList);
     $tokenList.querySelectorAll('[data-lock-toggle]').forEach(btn=>{
       btn.addEventListener('click', () => toggleMasterLock(btn.getAttribute('data-lock-toggle')));
+    });
+    $tokenList.querySelectorAll('[data-card-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-card-toggle');
+        if(openTokenCards.has(id)) openTokenCards.delete(id); else openTokenCards.add(id);
+        renderTokenList();
+      });
     });
     $tokenList.querySelectorAll('[data-system-hp]').forEach(btn=>{
       btn.addEventListener('click', () => setTokenSystem(btn.getAttribute('data-system-hp'), 'hp'));
@@ -5257,6 +5294,7 @@
   el('theme-panel').addEventListener('input', themeInputHandler('panel'));
   el('theme-text').addEventListener('input', themeInputHandler('text'));
   el('theme-accent').addEventListener('input', themeInputHandler('accent'));
+  el('theme-topbar').addEventListener('input', themeInputHandler('topbar'));
   el('btn-theme-reset').addEventListener('click', async () => {
     state.meta.theme = Object.assign({}, DEFAULT_THEME);
     render();
