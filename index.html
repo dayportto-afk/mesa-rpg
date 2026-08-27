@@ -332,7 +332,7 @@
     outline:none;
   }
   .phrase-input:focus{ border-color:var(--amber); color:var(--parchment); }
-  .damage-track-row{ display:flex; gap:4px; margin-top:6px; }
+  .damage-track-row{ display:flex; gap:4px; margin-top:10px; }
   .damage-track-chip{
     flex:1; padding:6px 2px; font-size:9px; text-align:center; cursor:help;
     border-radius:3px;
@@ -4107,11 +4107,11 @@
     { key:'tenHours', label:'10 horas' }
   ];
   const ADVANCEMENT_STEPS = [
-    { key:'pool', label:'+4 pts Reserva' },
-    { key:'edge', label:'+1 de Margem' },
-    { key:'effort', label:'+1 de Esforço' },
-    { key:'skill', label:'Perícia' },
-    { key:'other', label:'Outro' }
+    { key:'pool', label:'+4 pts Reserva', hint:'O jogador ganha 4 pontos novos para acrescentar às suas Reservas de estatística. Você pode distribuir os pontos entre suas Reservas como preferir.' },
+    { key:'edge', label:'+1 de Margem', hint:'Jogador soma 1 à Margem de UMA de suas Estatísticas.' },
+    { key:'effort', label:'+1 de Esforço', hint:'A Pontuação de Esforço aumenta em 1.' },
+    { key:'skill', label:'Perícia', hint:'Jogador escolhe uma perícia que não seja de ataque nem defesa, como escalar, saltar, persuadir, furtividade, história ou entender numenera. Ele se torna treinado naquela perícia. O Jogador pode escolher uma perícia baseada nas habilidades especiais do seu personagem. Se escolher uma perícia na qual já seja treinado o Jogador se torna especializado naquela perícia. Se optar por uma perícia na qual tiver uma inaptidão, o treinamento e a inaptidão se cancelam (Personagem deixa de ser inapto).' },
+    { key:'other', label:'Outro', hint:'Escolha uma das opções abaixo:\n1. Reduzir o custo para vestir armaduras (-1 ponto de custo de Esforço de Velocidade)\n2. Somar 2 aos seus Testes de Recuperação\n3. Escolher outra habilidade de foco disponível no grau 3 (precisa ter grau 3 ou maior)\n4. Glaive: escolhe uma nova manobra de combate (do seu grau ou menor)\n5. Nano: escolhe um novo esoterismo (do seu grau ou menor)\n6. Jack: escolhe um novo truque do ofício (do seu grau ou menor)' }
   ];
   function tokenLifeFraction(tok){
     if(tok.statSystem === 'numenera'){
@@ -4278,7 +4278,7 @@
         );
       }).join('');
       return (
-        '<button type="button" class="notes-toggle" data-stats-toggle="'+tok.id+'">Atributos <span>'+(statsOpen ? '▲' : '▼')+'</span></button>' +
+        '<button type="button" class="notes-toggle" style="margin-top:10px;" data-stats-toggle="'+tok.id+'">Atributos <span>'+(statsOpen ? '▲' : '▼')+'</span></button>' +
         (statsOpen ? poolsHtml : '')
       ) +
       (function(){
@@ -4357,7 +4357,7 @@
       '<div class="pool-block">' +
         '<button type="button" class="notes-toggle" data-advancement-toggle="'+tok.id+'">Passos pro avanço <span>'+(openAdvancementTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
         (openAdvancementTokens.has(tok.id) ? ADVANCEMENT_STEPS.map(a =>
-          '<label class="checkbox-row"><input type="checkbox" data-advancement="'+tok.id+':'+a.key+'"'+(advancement[a.key]?' checked':'')+'><span>'+a.label+'</span></label>'
+          '<label class="checkbox-row" title="'+escapeHtml(a.hint||'')+'"><input type="checkbox" data-advancement="'+tok.id+':'+a.key+'"'+(advancement[a.key]?' checked':'')+'><span>'+a.label+'</span></label>'
         ).join('') : '') +
       '</div>'
     );
@@ -4532,7 +4532,7 @@
           '</div>' +
           (onPage ? '' : '<div class="token-off-page-tag">Fora desta página</div>') +
           phraseAndDamageMarkup(tok) +
-          '<div class="system-select-row" style="margin-top:2px;">' +
+          '<div class="system-select-row" style="margin-top:10px;">' +
             '<button type="button" class="'+(tok.statSystem!=='numenera'?'toggle-active':'')+'" data-system-hp="'+tok.id+'">HP</button>' +
             '<button type="button" class="'+(tok.statSystem==='numenera'?'toggle-active':'')+'" data-system-numenera="'+tok.id+'">Numenera</button>' +
           '</div>' +
