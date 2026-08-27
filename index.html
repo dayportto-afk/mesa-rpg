@@ -355,6 +355,23 @@
     outline:none; resize:vertical; min-height:56px;
   }
   .notes-textarea:focus{ border-color:var(--amber); }
+  .token-photos-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .token-photo-item{ position:relative; width:56px; height:56px; flex-shrink:0; }
+  .token-photo-item img{
+    width:100%; height:100%; object-fit:cover; border-radius:5px;
+    border:1px solid var(--line); display:block; cursor:zoom-in;
+  }
+  .token-photo-delete{
+    position:absolute; top:-6px; right:-6px; width:19px; height:19px; padding:0;
+    border-radius:50%; font-size:11px; line-height:1; background:var(--wax);
+    border-color:#7a2020; color:#fff; display:flex; align-items:center; justify-content:center;
+  }
+  .token-photo-add{
+    width:56px; height:56px; flex-shrink:0; border-radius:5px; border:1px dashed var(--line);
+    background:transparent; font-size:20px; color:var(--parchment-dim);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .token-photo-add:hover{ border-color:var(--amber); color:var(--amber); }
   .token-row-hp .hp-temp-tag{ color:#7ec8e3; }
   .token-row-hp .hp-amount-input{
     width:56px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
@@ -1863,6 +1880,8 @@
   let lastInitiativeSnapshot = '';
   let lastJournalSnapshot = '';
   let openNotesTokens = new Set();
+  let openRecoveriesTokens = new Set();
+  let openAdvancementTokens = new Set();
 
   // ---------- sound effects ----------
   let soundMuted = false;
@@ -3332,6 +3351,8 @@
     composeTargets = [];
     activeThreadKey = null;
     openNotesTokens = new Set();
+    openRecoveriesTokens = new Set();
+    openAdvancementTokens = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
     lastJournalSnapshot = '';
@@ -4168,6 +4189,20 @@
     $root.querySelectorAll('[data-notes-input]').forEach(ta=>{
       ta.addEventListener('change', () => setTokenNotes(ta.getAttribute('data-notes-input'), ta.value));
     });
+    $root.querySelectorAll('[data-recoveries-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-recoveries-toggle');
+        if(openRecoveriesTokens.has(id)) openRecoveriesTokens.delete(id); else openRecoveriesTokens.add(id);
+        render();
+      });
+    });
+    $root.querySelectorAll('[data-advancement-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-advancement-toggle');
+        if(openAdvancementTokens.has(id)) openAdvancementTokens.delete(id); else openAdvancementTokens.add(id);
+        render();
+      });
+    });
   }
 
   async function setTokenNotes(id, value){
@@ -4210,6 +4245,7 @@
       }).join('') +
       (function(){
         const cyphers = tok.cyphers || { current:0, max:2 };
+        const photos = tok.photos || [];
         return (
           '<div class="pool-block">' +
             '<div class="pool-block-label">Cifras carregadas</div>' +
@@ -4219,6 +4255,15 @@
               '<button type="button" data-cypher-plus="'+tok.id+'">+</button>' +
               '<span class="hp-max-label">Máx.</span>' +
               '<input type="number" class="hp-max-input" min="0" max="20" value="'+cyphers.max+'" data-cypher-max="'+tok.id+'">' +
+            '</div>' +
+            '<div class="token-photos-row">' +
+              photos.map(p =>
+                '<div class="token-photo-item">' +
+                  '<img src="'+p.dataUrl+'" alt="Foto" data-photo-view="'+p.dataUrl+'">' +
+                  '<button type="button" class="token-photo-delete" data-photo-delete="'+tok.id+':'+p.id+'" title="Excluir foto">✕</button>' +
+                '</div>'
+              ).join('') +
+              '<label class="token-photo-add" title="Adicionar foto">+<input type="file" accept="image/*" data-photo-upload="'+tok.id+'" style="display:none;"></label>' +
             '</div>' +
           '</div>'
         );
@@ -4266,16 +4311,16 @@
         '</div>' +
       '</div>' +
       '<div class="pool-block">' +
-        '<div class="pool-block-label">Recuperações</div>' +
-        RECOVERY_STEPS.map(r =>
+        '<button type="button" class="notes-toggle" data-recoveries-toggle="'+tok.id+'">Recuperações <span>'+(openRecoveriesTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
+        (openRecoveriesTokens.has(tok.id) ? RECOVERY_STEPS.map(r =>
           '<label class="checkbox-row"><input type="checkbox" data-recovery="'+tok.id+':'+r.key+'"'+(recoveries[r.key]?' checked':'')+'><span>'+r.label+'</span></label>'
-        ).join('') +
+        ).join('') : '') +
       '</div>' +
       '<div class="pool-block">' +
-        '<div class="pool-block-label">Passos pro avanço</div>' +
-        ADVANCEMENT_STEPS.map(a =>
+        '<button type="button" class="notes-toggle" data-advancement-toggle="'+tok.id+'">Passos pro avanço <span>'+(openAdvancementTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
+        (openAdvancementTokens.has(tok.id) ? ADVANCEMENT_STEPS.map(a =>
           '<label class="checkbox-row"><input type="checkbox" data-advancement="'+tok.id+':'+a.key+'"'+(advancement[a.key]?' checked':'')+'><span>'+a.label+'</span></label>'
-        ).join('') +
+        ).join('') : '') +
       '</div>'
     );
   }
@@ -4390,6 +4435,27 @@
     });
     $root.querySelectorAll('[data-cypher-max]').forEach(inp=>{
       inp.addEventListener('change', () => setCypherMax(inp.getAttribute('data-cypher-max'), inp.value));
+    });
+    $root.querySelectorAll('[data-photo-upload]').forEach(inp=>{
+      inp.addEventListener('change', async () => {
+        const file = inp.files[0];
+        inp.value = '';
+        if(!file) return;
+        await addTokenPhoto(inp.getAttribute('data-photo-upload'), file);
+      });
+    });
+    $root.querySelectorAll('[data-photo-delete]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const [id, photoId] = btn.getAttribute('data-photo-delete').split(':');
+        deleteTokenPhoto(id, photoId);
+      });
+    });
+    $root.querySelectorAll('[data-photo-view]').forEach(img=>{
+      img.addEventListener('click', () => {
+        el('handout-lightbox-image').src = img.src;
+        el('handout-lightbox-caption').textContent = '';
+        el('handout-lightbox').classList.add('show');
+      });
     });
     $root.querySelectorAll('[data-xp-minus]').forEach(btn=>{
       btn.addEventListener('click', () => adjustXp(btn.getAttribute('data-xp-minus'), -1));
@@ -4870,6 +4936,36 @@
     if(max > 20) max = 20;
     pushUndo();
     tok.cyphers.max = max;
+    render();
+    await persistTokens();
+  }
+
+  async function addTokenPhoto(id, file){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    if(!tok.photos) tok.photos = [];
+    if(tok.photos.length >= 12){
+      alert('Máximo de 12 fotos por ficha. Exclua alguma antes de adicionar outra.');
+      return;
+    }
+    let dataUrl;
+    try{
+      dataUrl = await resizeImage(file, 500, 0.8);
+    }catch(e){
+      alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+      return;
+    }
+    pushUndo();
+    tok.photos.push({ id: newId('ph'), dataUrl });
+    render();
+    await persistTokens();
+  }
+
+  async function deleteTokenPhoto(id, photoId){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok || !tok.photos) return;
+    pushUndo();
+    tok.photos = tok.photos.filter(p => p.id !== photoId);
     render();
     await persistTokens();
   }
