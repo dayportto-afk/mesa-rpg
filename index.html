@@ -508,6 +508,7 @@
     max-width:100%;
     max-height:100%;
   }
+  body.role-master #map-canvas{ overflow:visible; }
   #map-canvas img{ display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
@@ -528,6 +529,9 @@
     transition:box-shadow .15s;
   }
   .token img{ width:100%; height:100%; object-fit:cover; border-radius:50%; pointer-events:none; -webkit-user-drag:none;}
+  .token.token-reference{ border-radius:8px; border-color:var(--parchment-dim); }
+  .token.token-reference img{ border-radius:6px; object-fit:contain; background:#0a0704; }
+  .token.token-reference.selected{ border-color:var(--amber-bright); }
   .token.defeated{ border-color:#0a0a0a !important; }
   .token.defeated img{ filter:grayscale(100%); }
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
@@ -1375,7 +1379,11 @@
         </div>
         <div class="float-panel-body">
           <form id="token-form">
-            <input type="text" id="token-name" placeholder="Nome do personagem" required>
+            <input type="text" id="token-name" placeholder="Nome do personagem">
+            <label class="checkbox-row" style="margin-top:6px;">
+              <input type="checkbox" id="token-is-reference">
+              <span>🖼️ Só imagem de referência (sem estatísticas)</span>
+            </label>
             <label class="file-btn" for="token-upload">Escolher imagem</label>
             <input type="file" id="token-upload" accept="image/*">
             <input type="file" id="token-edit-upload" accept="image/*" style="display:none;">
@@ -1384,23 +1392,26 @@
               <span>Recortada</span>
               <button type="button" id="token-preview-edit">Recortar de novo</button>
             </div>
-            <label style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Sistema de vida</label>
-            <div class="system-select-row">
-              <button type="button" id="new-system-hp" class="toggle-active">HP</button>
-              <button type="button" id="new-system-numenera">Numenera</button>
+            <div id="new-stats-section">
+              <label style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Sistema de vida</label>
+              <div class="system-select-row">
+                <button type="button" id="new-system-hp" class="toggle-active">HP</button>
+                <button type="button" id="new-system-numenera">Numenera</button>
+              </div>
+              <div id="new-hp-fields">
+                <label for="token-maxhp" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Vida máxima (HP)</label>
+                <input type="number" id="token-maxhp" min="1" max="999" value="10" placeholder="Vida máxima">
+              </div>
+              <div id="new-numenera-fields" style="display:none;">
+                <label for="token-max-intellect" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Intelecto máx.</label>
+                <input type="number" id="token-max-intellect" min="1" max="99" value="10">
+                <label for="token-max-might" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Potência máx.</label>
+                <input type="number" id="token-max-might" min="1" max="99" value="10">
+                <label for="token-max-speed" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Velocidade máx.</label>
+                <input type="number" id="token-max-speed" min="1" max="99" value="10">
+              </div>
             </div>
-            <div id="new-hp-fields">
-              <label for="token-maxhp" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Vida máxima (HP)</label>
-              <input type="number" id="token-maxhp" min="1" max="999" value="10" placeholder="Vida máxima">
-            </div>
-            <div id="new-numenera-fields" style="display:none;">
-              <label for="token-max-intellect" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Intelecto máx.</label>
-              <input type="number" id="token-max-intellect" min="1" max="99" value="10">
-              <label for="token-max-might" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Potência máx.</label>
-              <input type="number" id="token-max-might" min="1" max="99" value="10">
-              <label for="token-max-speed" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Velocidade máx.</label>
-              <input type="number" id="token-max-speed" min="1" max="99" value="10">
-            </div>
+            <div id="new-reference-hint" class="hint" style="display:none;">Vira só uma imagem arrastável — sem HP, sem estatísticas. Some inicialmente na área ao redor do mapa, visível só pra você.</div>
             <button type="submit" class="primary" style="margin-top:8px;">Adicionar ficha ao mapa</button>
           </form>
         </div>
@@ -3884,6 +3895,7 @@
     el('btn-preview-toggle').classList.toggle('toggle-active', state.previewAsPlayer);
     $appScreen.classList.toggle('is-master', effectiveMaster());
     $iconRail.classList.toggle('hidden', !effectiveMaster());
+    document.body.classList.toggle('role-master', effectiveMaster());
     $title.disabled = true;
 
     if(!effectiveMaster()){ state.fogMode = false; }
@@ -4016,8 +4028,6 @@
   }
   async function placePing(e){
     const page = currentPage();
-    state.pingArmed = false;
-    render();
     if(!page) return;
     const pt = canvasPointPct(e);
     const entry = { x: pt.x, y: pt.y, ts: Date.now() };
@@ -4166,7 +4176,7 @@
       if(!isTokenOnPage(tok, state.currentPageId)) return;
       const pos = tokenPos(tok);
       const t = document.createElement('div');
-      t.className = 'token';
+      t.className = 'token' + (tok.isReference ? ' token-reference' : '');
       t.dataset.id = tok.id;
       const size = tokenSize(tok);
       t.style.left = pos.x + '%';
@@ -4175,6 +4185,14 @@
       t.style.height = size + 'px';
       t.style.marginLeft = (-size/2) + 'px';
       t.style.marginTop = (-size/2) + 'px';
+      if(tok.isReference){
+        const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.12)));
+        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
+                      '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>';
+        t.addEventListener('pointerdown', onTokenPointerDown);
+        $canvas.appendChild(t);
+        return;
+      }
       const frac = tokenLifeFraction(tok);
       const isDefeated = tokenIsDefeated(tok);
       const hpCol = isDefeated ? '#0a0a0a' : hpColor(frac);
@@ -4570,24 +4588,37 @@
     );
   }
 
+  function referenceCardMarkup(tok){
+    return (
+      '<div class="token-row-wrap" id="token-card-'+tok.id+'">' +
+        '<div class="token-row">' +
+          '<img class="token-row-avatar" style="border-radius:6px;" src="'+tok.image+'" alt="" title="Ir até esta imagem no mapa" data-jump-token="'+tok.id+'">' +
+          '<input type="text" class="token-name-input" value="'+escapeHtml(tok.name)+'" data-name="'+tok.id+'">' +
+          '<button type="button" class="danger" data-delete-perm="'+tok.id+'" title="Excluir imagem">✕</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   function renderTokenList(){
     if(!effectiveMaster()){ $tokenList.innerHTML=''; return; }
     if(state.tokens.length === 0){
       $tokenList.innerHTML = '<div class="hint">Nenhuma ficha criada ainda.</div>';
       return;
     }
-    const characters = state.tokens.filter(t => !t.masterLocked);
-    const npcs = state.tokens.filter(t => t.masterLocked);
-    function section(title, list){
+    const references = state.tokens.filter(t => t.isReference);
+    const characters = state.tokens.filter(t => !t.isReference && !t.masterLocked);
+    const npcs = state.tokens.filter(t => !t.isReference && t.masterLocked);
+    function section(title, list, markupFn){
       if(list.length === 0) return '';
       return (
         '<div class="token-group">' +
           '<div class="token-group-title">'+title+' ('+list.length+')</div>' +
-          '<div class="token-group-cards">' + list.map(tokenCardMarkup).join('') + '</div>' +
+          '<div class="token-group-cards">' + list.map(markupFn).join('') + '</div>' +
         '</div>'
       );
     }
-    $tokenList.innerHTML = section('🎭 Fichas de Personagem', characters) + section('👹 NPCs', npcs);
+    $tokenList.innerHTML = section('🎭 Fichas de Personagem', characters, tokenCardMarkup) + section('👹 NPCs', npcs, tokenCardMarkup) + section('🖼️ Imagens de Referência', references, referenceCardMarkup);
     wireVitalsControls($tokenList);
     wireNotesControls($tokenList);
     $tokenList.querySelectorAll('[data-lock-toggle]').forEach(btn=>{
@@ -4688,8 +4719,10 @@
     const rect = state.dragging.canvasRect;
     let xPct = ((e.clientX - rect.left) / rect.width) * 100;
     let yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    xPct = Math.max(0, Math.min(100, xPct));
-    yPct = Math.max(0, Math.min(100, yPct));
+    const min = effectiveMaster() ? -40 : 0;
+    const max = effectiveMaster() ? 140 : 100;
+    xPct = Math.max(min, Math.min(max, xPct));
+    yPct = Math.max(min, Math.min(max, yPct));
     state.dragging.el.style.left = xPct + '%';
     state.dragging.el.style.top = yPct + '%';
     state.dragging.x = xPct;
@@ -5405,32 +5438,49 @@
     el('new-hp-fields').style.display = 'none';
     el('new-numenera-fields').style.display = 'block';
   });
+  el('token-is-reference').addEventListener('change', () => {
+    const isRef = el('token-is-reference').checked;
+    el('new-stats-section').style.display = isRef ? 'none' : 'block';
+    el('new-reference-hint').style.display = isRef ? 'block' : 'none';
+    el('token-name').placeholder = isRef ? 'Nome (opcional)' : 'Nome do personagem';
+  });
 
   el('token-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = el('token-name').value.trim();
-    if(!name){ return; }
+    const isReference = el('token-is-reference').checked;
+    let name = el('token-name').value.trim();
+    if(!name) name = isReference ? ('Imagem ' + (state.tokens.filter(t => t.isReference).length + 1)) : '';
+    if(!name){ el('token-name').focus(); return; }
     if(!croppedTokenImage){
       el('token-upload').focus();
       return;
     }
     pushUndo();
-    const tok = { id:newId('t'), name, image:croppedTokenImage, size:64, sizes:{}, statSystem:newTokenSystem, xp:0, notes:'', positions:{} };
-    if(newTokenSystem === 'numenera'){
-      const readMax = (fieldId) => { const v = parseInt(el(fieldId).value, 10); return (isNaN(v) || v < 1) ? 10 : v; };
-      const iMax = readMax('token-max-intellect'), mMax = readMax('token-max-might'), sMax = readMax('token-max-speed');
-      tok.pools = {
-        intellect:{ current:iMax, max:iMax },
-        might:{ current:mMax, max:mMax },
-        speed:{ current:sMax, max:sMax }
+    let tok;
+    if(isReference){
+      const refCount = state.tokens.filter(t => t.isReference).length;
+      tok = {
+        id:newId('t'), name, image:croppedTokenImage, size:120, sizes:{}, isReference:true, masterLocked:true,
+        positions: state.currentPageId ? { [state.currentPageId]: { x:-18, y:8 + (refCount % 6) * 16 } } : {}
       };
-      tok.cyphers = { current:0, max:2 };
     } else {
-      let maxHp = parseInt(el('token-maxhp').value, 10);
-      if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
-      tok.hp = { current: maxHp, max: maxHp, temp: 0 };
+      tok = { id:newId('t'), name, image:croppedTokenImage, size:64, sizes:{}, statSystem:newTokenSystem, xp:0, notes:'', positions:{} };
+      if(newTokenSystem === 'numenera'){
+        const readMax = (fieldId) => { const v = parseInt(el(fieldId).value, 10); return (isNaN(v) || v < 1) ? 10 : v; };
+        const iMax = readMax('token-max-intellect'), mMax = readMax('token-max-might'), sMax = readMax('token-max-speed');
+        tok.pools = {
+          intellect:{ current:iMax, max:iMax },
+          might:{ current:mMax, max:mMax },
+          speed:{ current:sMax, max:sMax }
+        };
+        tok.cyphers = { current:0, max:2 };
+      } else {
+        let maxHp = parseInt(el('token-maxhp').value, 10);
+        if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
+        tok.hp = { current: maxHp, max: maxHp, temp: 0 };
+      }
+      if(state.currentPageId) tok.positions[state.currentPageId] = { x:50, y:50 };
     }
-    if(state.currentPageId) tok.positions[state.currentPageId] = { x:50, y:50 };
     state.tokens.push(tok);
     render();
     await persistTokens();
@@ -5442,6 +5492,9 @@
     el('new-system-numenera').classList.remove('toggle-active');
     el('new-hp-fields').style.display = 'block';
     el('new-numenera-fields').style.display = 'none';
+    el('new-stats-section').style.display = 'block';
+    el('new-reference-hint').style.display = 'none';
+    el('token-name').placeholder = 'Nome do personagem';
   });
 
   // ---------- image crop modal ----------
@@ -5900,22 +5953,29 @@
     const me = myDrawAuthorName();
     const canErase = (stroke) => effectiveMaster() || stroke.author === me;
     const reach = state.drawBrush;
-    let closestIdx = -1;
-    let closestDist = Infinity;
-    page.draw.strokes.forEach((stroke, idx) => {
-      if(!canErase(stroke)) return;
+    const result = [];
+    page.draw.strokes.forEach(stroke => {
+      if(!canErase(stroke)){ result.push(stroke); return; }
       const strokeReach = reach + (stroke.brush || 10);
-      let minDist = Infinity;
-      (stroke.points || []).forEach(p => {
-        const d = Math.hypot(p.x - pt.x, p.y - pt.y);
-        if(d < minDist) minDist = d;
+      const pts = stroke.points || [];
+      const isHit = (p) => Math.hypot(p.x - pt.x, p.y - pt.y) <= strokeReach;
+      if(!pts.some(isHit)){ result.push(stroke); return; }
+      // Split the stroke at every erased point, keeping the surviving runs as
+      // separate strokes — this only removes the touched portion, not the whole line.
+      let run = [];
+      pts.forEach(p => {
+        if(isHit(p)){
+          if(run.length > 0){
+            result.push(Object.assign({}, stroke, { id:newId('dr'), points:run }));
+            run = [];
+          }
+        } else {
+          run.push(p);
+        }
       });
-      if(minDist <= strokeReach && minDist < closestDist){
-        closestDist = minDist;
-        closestIdx = idx;
-      }
+      if(run.length > 0) result.push(Object.assign({}, stroke, { id:newId('dr'), points:run }));
     });
-    if(closestIdx !== -1) page.draw.strokes.splice(closestIdx, 1);
+    page.draw.strokes = result;
   }
 
   function startDrawPaint(e){
@@ -6163,20 +6223,23 @@
     if(e.key === 'Escape' && document.activeElement && typeof document.activeElement.blur === 'function'){
       document.activeElement.blur();
     }
-    if(e.key === 'Escape' && (state.drawMode || state.fogMode)){
+    if(e.key === 'Escape' && (state.drawMode || state.fogMode || state.pingArmed)){
       state.drawMode = false;
       state.fogMode = false;
+      state.pingArmed = false;
       render();
     }
   });
   document.addEventListener('click', (e) => {
-    if(!state.drawMode && !state.fogMode) return;
+    if(!state.drawMode && !state.fogMode && !state.pingArmed) return;
     if($mapViewport.contains(e.target)) return;
     if(e.target.closest('#icon-rail')) return;
     if(state.fogMode && e.target.closest('#float-fog')) return;
     if(state.drawMode && e.target.closest('#draw-panel')) return;
+    if(state.pingArmed && e.target.closest('#ping-toggle')) return;
     state.drawMode = false;
     state.fogMode = false;
+    state.pingArmed = false;
     render();
   });
   (function resumeSessionOrShowPortal(){
