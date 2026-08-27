@@ -3829,16 +3829,21 @@
 
     const page = currentPage();
     if(page && page.map.image){
-      $canvas.innerHTML = '<img id="map-img" src="'+page.map.image+'" alt="Mapa de combate">';
-      const imgEl = document.getElementById('map-img');
-      const setAspect = () => {
-        $canvas.style.aspectRatio = (imgEl.naturalWidth || 3) + ' / ' + (imgEl.naturalHeight || 2);
-      };
-      if(imgEl.complete && imgEl.naturalWidth > 0){ setAspect(); }
-      else { imgEl.addEventListener('load', setAspect, { once:true }); }
+      const existingImg = document.getElementById('map-img');
+      if(!existingImg || existingImg.src !== page.map.image){
+        $canvas.innerHTML = '<img id="map-img" src="'+page.map.image+'" alt="Mapa de combate">';
+        const imgEl = document.getElementById('map-img');
+        const setAspect = () => {
+          $canvas.style.aspectRatio = (imgEl.naturalWidth || 3) + ' / ' + (imgEl.naturalHeight || 2);
+        };
+        if(imgEl.complete && imgEl.naturalWidth > 0){ setAspect(); }
+        else { imgEl.addEventListener('load', setAspect, { once:true }); }
+      }
     } else {
-      $canvas.style.aspectRatio = '';
-      $canvas.innerHTML = '<div id="empty-map">✦ Nenhum mapa carregado ainda ✦<small>Entre como mestre para enviar a imagem do mapa de combate</small></div>';
+      if(!document.getElementById('empty-map')){
+        $canvas.style.aspectRatio = '';
+        $canvas.innerHTML = '<div id="empty-map">✦ Nenhum mapa carregado ainda ✦<small>Entre como mestre para enviar a imagem do mapa de combate</small></div>';
+      }
     }
     setupGridOverlay();
     setupDrawCanvas();
