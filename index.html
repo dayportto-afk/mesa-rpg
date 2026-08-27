@@ -5751,27 +5751,40 @@
     $canvas.appendChild(div);
   }
 
+  let fogBuildId = 0;
   function setupFogCanvas(){
-    const existing = document.getElementById('fog-canvas');
-    if(existing) existing.remove();
     const img = document.getElementById('map-img');
     const page = currentPage();
     if(!img || !page) return;
+    const myBuildId = ++fogBuildId;
 
     const build = () => {
+      if(myBuildId !== fogBuildId) return;
       const canvas = document.createElement('canvas');
       canvas.id = 'fog-canvas';
       canvas.width = img.naturalWidth || 1200;
       canvas.height = img.naturalHeight || 800;
       canvas.style.pointerEvents = (effectiveMaster() && state.fogMode) ? 'auto' : 'none';
-      $canvas.appendChild(canvas);
+
+      const swapIn = () => {
+        if(myBuildId !== fogBuildId) return;
+        const existing = document.getElementById('fog-canvas');
+        if(existing) existing.remove();
+        $canvas.appendChild(canvas);
+      };
+
       if(page.fog.image){
         const fogImg = new Image();
         fogImg.onload = () => {
+          if(myBuildId !== fogBuildId) return;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(fogImg, 0, 0, canvas.width, canvas.height);
+          swapIn();
         };
+        fogImg.onerror = swapIn;
         fogImg.src = page.fog.image;
+      } else {
+        swapIn();
       }
     };
     if(img.complete && img.naturalWidth > 0){ build(); }
@@ -5809,7 +5822,8 @@
     const yRatio = (e.clientY - rect.top) / rect.height;
     return {
       x: Math.max(0, Math.min(canvas.width, xRatio * canvas.width)),
-      y: Math.max(0, Math.min(canvas.height, yRatio * canvas.height))
+      y: Math.max(0, Math.min(canvas.height, yRatio * canvas.height)),
+      inBounds: xRatio >= 0 && xRatio <= 1 && yRatio >= 0 && yRatio <= 1
     };
   }
 
@@ -5901,14 +5915,15 @@
     const canvas = document.getElementById('draw-canvas');
     const page = currentPage();
     if(!canvas || !page) return;
-    pushUndo();
     const pt = canvasPointFromEvent(e, canvas);
+    if(!pt.inBounds) return;
+    pushUndo();
     if(state.drawPaintMode === 'erase'){
       eraseNear(page, pt);
       state.drawStroke = { canvas, page, mode:'erase' };
       redrawDrawCanvas(canvas, page);
     } else {
-      const stroke = { id:newId('dr'), author: myDrawAuthorName(), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, points:[pt] };
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, points:[{x:pt.x, y:pt.y}] };
       state.drawStroke = { canvas, page, mode:'pen', stroke };
       redrawDrawCanvas(canvas, page, stroke);
     }
@@ -5918,11 +5933,12 @@
     const s = state.drawStroke;
     if(!s) return;
     const pt = canvasPointFromEvent(e, s.canvas);
+    if(!pt.inBounds) return;
     if(s.mode === 'erase'){
       eraseNear(s.page, pt);
       redrawDrawCanvas(s.canvas, s.page);
     } else {
-      s.stroke.points.push(pt);
+      s.stroke.points.push({x:pt.x, y:pt.y});
       redrawDrawCanvas(s.canvas, s.page, s.stroke);
     }
   }
@@ -5941,9 +5957,10 @@
   function startFogPaint(e){
     const canvas = document.getElementById('fog-canvas');
     if(!canvas) return;
+    const pt = canvasPointFromEvent(e, canvas);
+    if(!pt.inBounds) return;
     pushUndo();
     const ctx = canvas.getContext('2d');
-    const pt = canvasPointFromEvent(e, canvas);
     paintDot(ctx, pt, state.fogBrush, state.fogPaintMode);
     state.fogStroke = { canvas, ctx, last: pt };
     $mapViewport.setPointerCapture(e.pointerId);
@@ -5952,6 +5969,7 @@
     const s = state.fogStroke;
     if(!s) return;
     const pt = canvasPointFromEvent(e, s.canvas);
+    if(!pt.inBounds) return;
     paintSegment(s.ctx, s.last, pt, state.fogBrush, state.fogPaintMode);
     s.last = pt;
   }
