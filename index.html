@@ -5328,7 +5328,12 @@
       sel.addEventListener('change', () => updateText(sel.getAttribute('data-text-font'), { font: sel.value }));
     });
     $list.querySelectorAll('[data-text-color]').forEach(inp=>{
-      inp.addEventListener('input', () => updateText(inp.getAttribute('data-text-color'), { color: inp.value }, true));
+      inp.addEventListener('input', () => {
+        const page = currentPage();
+        const txt = page ? page.texts.find(t => t.id === inp.getAttribute('data-text-color')) : null;
+        if(txt){ txt.color = inp.value; renderTexts(); }
+      });
+      inp.addEventListener('change', () => updateText(inp.getAttribute('data-text-color'), { color: inp.value }, true));
     });
     $list.querySelectorAll('[data-text-bold]').forEach(btn=>{
       btn.addEventListener('click', () => {
