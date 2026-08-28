@@ -3441,7 +3441,7 @@
 
     if(pollHandle) clearInterval(pollHandle);
     lastPageContentSnapshot = '';
-    pollHandle = setInterval(pollForUpdates, 2500);
+    pollHandle = setInterval(pollForUpdates, 1500);
 
     try{
       localStorage.setItem('active-session', JSON.stringify({ slot: slotN, role, playerName: state.playerName, playerColor: state.playerColor }));
@@ -4189,6 +4189,7 @@
     if(!document.getElementById('map-img')) return;
     state.tokens.forEach(tok => {
       if(!isTokenOnPage(tok, state.currentPageId)) return;
+      if(tok.isReference && !effectiveMaster()) return;
       const pos = tokenPos(tok);
       const t = document.createElement('div');
       t.className = 'token' + (tok.isReference ? ' token-reference' : '');
