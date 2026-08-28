@@ -529,8 +529,8 @@
     transition:box-shadow .15s;
   }
   .token img{ width:100%; height:100%; object-fit:cover; border-radius:50%; pointer-events:none; -webkit-user-drag:none;}
-  .token.token-reference{ border-radius:8px; border-color:var(--parchment-dim); }
-  .token.token-reference img{ border-radius:6px; object-fit:contain; background:#0a0704; }
+  .token.token-reference{ border-radius:8px; border-color:var(--parchment-dim); overflow:visible; background:#0a0704; }
+  .token.token-reference img{ width:100%; height:100%; border-radius:6px; object-fit:contain; background:#0a0704; }
   .token.token-reference.selected{ border-color:var(--amber-bright); }
   .token.defeated{ border-color:#0a0a0a !important; }
   .token.defeated img{ filter:grayscale(100%); }
@@ -4131,11 +4131,26 @@
     state.measureDrag = null;
   }
 
-  function tokenPos(tok){
-    return (tok.positions && tok.positions[state.currentPageId]) || (effectiveMaster() ? { x:-18, y:8 } : { x:50, y:50 });
-  }
   function tokenSize(tok){
     return (tok.sizes && tok.sizes[state.currentPageId]) || tok.size || 64;
+  }
+
+  // Posição inicial de itens criados pelo Mestre: sempre fora do mapa.
+  // O ponto é calculado a partir do tamanho real do item para garantir que
+  // nem mesmo uma imagem grande fique parcialmente sobre o mapa.
+  function masterStagingPosition(tok, slotIndex){
+    const w = $canvas.offsetWidth || 1000;
+    const h = $canvas.offsetHeight || 600;
+    const size = tokenSize(tok);
+    const x = -Math.max(4, (size / w) * 50 + 4);
+    const slots = Math.max(1, Math.floor((h * 0.9) / Math.max(90, size + 18)));
+    const slot = (slotIndex || 0) % slots;
+    const y = 8 + slot * (Math.max(90, size + 18) / h * 100);
+    return { x, y };
+  }
+
+  function tokenPos(tok){
+    return (tok.positions && tok.positions[state.currentPageId]) || (effectiveMaster() ? masterStagingPosition(tok, 0) : { x:50, y:50 });
   }
   const CONDITIONS = [
     { key:'debilitado', icon:'💔', label:'Debilitado' },
@@ -4216,6 +4231,9 @@
     document.querySelectorAll('.token').forEach(t => t.remove());
     if(!document.getElementById('map-img')) return;
     state.tokens.forEach(tok => {
+      // Reference-only images are strictly Master-side: never render them for players
+      // (including the Master's 'preview as player' mode).
+      if(tok.isReference && !effectiveMaster()) return;
       if(!isTokenOnPage(tok, state.currentPageId)) return;
       const pos = tokenPos(tok);
       const t = document.createElement('div');
@@ -4632,12 +4650,20 @@
   }
 
   function referenceCardMarkup(tok){
+    const size = tokenSize(tok);
     return (
       '<div class="token-row-wrap" id="token-card-'+tok.id+'">' +
         '<div class="token-row">' +
           '<img class="token-row-avatar" style="border-radius:6px;" src="'+tok.image+'" alt="" title="Ir até esta imagem no mapa" data-jump-token="'+tok.id+'">' +
           '<input type="text" class="token-name-input" value="'+escapeHtml(tok.name)+'" data-name="'+tok.id+'">' +
           '<button type="button" class="danger" data-delete-perm="'+tok.id+'" title="Excluir imagem">✕</button>' +
+        '</div>' +
+        '<div class="token-row-size">' +
+          '<span class="row-label">Tam.</span>' +
+          '<button type="button" data-size-minus="'+tok.id+'">−</button>' +
+          '<input type="number" class="size-input" min="40" max="1200" value="'+size+'" data-size-input="'+tok.id+'">' +
+          '<span class="size-unit">px</span>' +
+          '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
         '</div>' +
       '</div>'
     );
@@ -4784,6 +4810,7 @@
       if(tok){
         if(!tok.positions) tok.positions = {};
         tok.positions[state.currentPageId] = { x:d.x, y:d.y };
+        tok.stagedOnMaster = false;
         persistTokens();
       }
     } else {
@@ -4815,7 +4842,11 @@
     pushUndo();
     tok.removedFromPages = (tok.removedFromPages || []).filter(pid => pid !== state.currentPageId);
     if(!tok.positions) tok.positions = {};
-    if(!tok.positions[state.currentPageId]) tok.positions[state.currentPageId] = { x:50, y:50 };
+    if(!tok.positions[state.currentPageId]){
+      const pageItemCount = state.tokens.filter(t => t !== tok && isTokenOnPage(t, state.currentPageId)).length;
+      tok.positions[state.currentPageId] = masterStagingPosition(tok, pageItemCount);
+      tok.stagedOnMaster = true;
+    }
     render();
     await persistTokens();
   }
@@ -5163,8 +5194,16 @@
     if(!tok) return;
     pushUndo();
     const current = tokenSize(tok);
+    const max = tok.isReference ? 1200 : 500;
+    const min = tok.isReference ? 40 : 10;
     if(!tok.sizes) tok.sizes = {};
-    tok.sizes[state.currentPageId] = Math.max(10, Math.min(500, current + delta));
+    tok.sizes[state.currentPageId] = Math.max(min, Math.min(max, current + delta));
+    // Enquanto a imagem ainda estiver na área inicial do Mestre, mantenha-a
+    // totalmente fora do mapa mesmo ao aumentar seu tamanho.
+    if(tok.isReference && tok.stagedOnMaster){
+      if(!tok.positions) tok.positions = {};
+      tok.positions[state.currentPageId] = masterStagingPosition(tok, 0);
+    }
     render();
     await persistTokens();
   }
@@ -5448,7 +5487,9 @@
     if(!tok) return;
     let size = parseInt(value, 10);
     if(isNaN(size)) size = tokenSize(tok);
-    size = Math.max(10, Math.min(500, size));
+    const minSize = tok.isReference ? 40 : 10;
+    const maxSize = tok.isReference ? 1200 : 500;
+    size = Math.max(minSize, Math.min(maxSize, size));
     pushUndo();
     if(!tok.sizes) tok.sizes = {};
     tok.sizes[state.currentPageId] = size;
@@ -5456,9 +5497,21 @@
     await persistTokens();
   }
 
-  el('token-upload').addEventListener('change', (e) => {
+  el('token-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
+    if(el('token-is-reference').checked){
+      try{
+        // Reference-only images keep their complete composition: no square crop.
+        // resizeImage only reduces very large files while preserving aspect ratio.
+        croppedTokenImage = await resizeImage(file, 2200, 0.90);
+        el('token-preview-img').src = croppedTokenImage;
+        el('token-preview').style.display = 'flex';
+      }catch(err){
+        console.error('Reference image load failed', err);
+      }
+      return;
+    }
     openCropModal(file);
   });
   el('token-preview-edit').addEventListener('click', () => {
@@ -5486,6 +5539,10 @@
     el('new-stats-section').style.display = isRef ? 'none' : 'block';
     el('new-reference-hint').style.display = isRef ? 'block' : 'none';
     el('token-name').placeholder = isRef ? 'Nome (opcional)' : 'Nome do personagem';
+    // Do not reuse a cropped character preview when switching to reference mode.
+    croppedTokenImage = null;
+    el('token-preview').style.display = 'none';
+    el('token-upload').value = '';
   });
 
   el('token-form').addEventListener('submit', async (e) => {
@@ -5504,10 +5561,13 @@
       const refCount = state.tokens.filter(t => t.isReference).length;
       tok = {
         id:newId('t'), name, image:croppedTokenImage, size:120, sizes:{}, isReference:true, masterLocked:true,
-        positions: state.currentPageId ? { [state.currentPageId]: { x:-18, y:8 + (refCount % 6) * 16 } } : {}
+        positions: {}, stagedOnMaster:true
       };
+      if(state.currentPageId){
+        tok.positions[state.currentPageId] = masterStagingPosition(tok, refCount);
+      }
     } else {
-      tok = { id:newId('t'), name, image:croppedTokenImage, size:64, sizes:{}, statSystem:newTokenSystem, xp:0, notes:'', positions:{} };
+      tok = { id:newId('t'), name, image:croppedTokenImage, size:64, sizes:{}, statSystem:newTokenSystem, xp:0, notes:'', positions:{}, stagedOnMaster:true };
       if(newTokenSystem === 'numenera'){
         const readMax = (fieldId) => { const v = parseInt(el(fieldId).value, 10); return (isNaN(v) || v < 1) ? 10 : v; };
         const iMax = readMax('token-max-intellect'), mMax = readMax('token-max-might'), sMax = readMax('token-max-speed');
@@ -5522,7 +5582,11 @@
         if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
         tok.hp = { current: maxHp, max: maxHp, temp: 0 };
       }
-      if(state.currentPageId) tok.positions[state.currentPageId] = { x:-18, y:8 + (state.tokens.filter(t => !t.isReference).length % 6) * 16 };
+        if(state.currentPageId){
+        const itemCount = state.tokens.filter(t => t !== tok && isTokenOnPage(t, state.currentPageId)).length;
+        tok.positions[state.currentPageId] = masterStagingPosition(tok, itemCount);
+        tok.stagedOnMaster = true;
+      }
     }
     state.tokens.push(tok);
     render();
