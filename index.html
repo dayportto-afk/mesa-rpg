@@ -462,10 +462,7 @@
   /* Map area */
   #map-area{
     flex:1; position:relative; overflow:hidden;
-    background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 1px, transparent 1px, transparent 40px),
-      repeating-linear-gradient(90deg, rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 1px, transparent 1px, transparent 40px),
-      var(--bg);
+    background:var(--bg);
   }
   #map-viewport{
     position:absolute; inset:0;
@@ -4813,8 +4810,8 @@
     const rect = state.dragging.canvasRect;
     let xPct = ((e.clientX - rect.left) / rect.width) * 100;
     let yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    const min = effectiveMaster() ? -40 : 0;
-    const max = effectiveMaster() ? 140 : 100;
+    const min = effectiveMaster() ? -80 : 0;
+    const max = effectiveMaster() ? 180 : 100;
     xPct = Math.max(min, Math.min(max, xPct));
     yPct = Math.max(min, Math.min(max, yPct));
     state.dragging.el.style.left = xPct + '%';
@@ -5376,8 +5373,8 @@
     const rect = state.textDragging.canvasRect;
     let xPct = ((e.clientX - rect.left) / rect.width) * 100;
     let yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    xPct = Math.max(-40, Math.min(140, xPct));
-    yPct = Math.max(-40, Math.min(140, yPct));
+    xPct = Math.max(-80, Math.min(180, xPct));
+    yPct = Math.max(-80, Math.min(180, yPct));
     state.textDragging.el.style.left = xPct + '%';
     state.textDragging.el.style.top = yPct + '%';
     state.textDragging.x = xPct;
