@@ -1389,7 +1389,7 @@
             <input type="file" id="token-edit-upload" accept="image/*" style="display:none;">
             <div id="token-preview" style="display:none;">
               <img id="token-preview-img" alt="Pré-visualização">
-              <span>Recortada</span>
+              <span id="token-preview-label">Recortada</span>
               <button type="button" id="token-preview-edit">Recortar de novo</button>
             </div>
             <div id="new-stats-section">
@@ -5443,9 +5443,24 @@
     await persistTokens();
   }
 
-  el('token-upload').addEventListener('change', (e) => {
+  el('token-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
+    if(el('token-is-reference').checked){
+      let dataUrl;
+      try{
+        dataUrl = await resizeImage(file, 900, 0.85);
+      }catch(err){
+        alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+        return;
+      }
+      croppedTokenImage = dataUrl;
+      el('token-preview-img').src = croppedTokenImage;
+      el('token-preview-label').textContent = 'Imagem carregada';
+      el('token-preview-edit').style.display = 'none';
+      el('token-preview').style.display = 'flex';
+      return;
+    }
     openCropModal(file);
   });
   el('token-preview-edit').addEventListener('click', () => {
@@ -5520,6 +5535,8 @@
     el('token-form').reset();
     croppedTokenImage = null;
     el('token-preview').style.display = 'none';
+    el('token-preview-label').textContent = 'Recortada';
+    el('token-preview-edit').style.display = 'inline-block';
     newTokenSystem = 'hp';
     el('new-system-hp').classList.add('toggle-active');
     el('new-system-numenera').classList.remove('toggle-active');
