@@ -691,6 +691,11 @@
   }
   .journal-entry-meta .journal-author{ color:var(--amber-bright); }
   .journal-entry-meta .journal-remove{ padding:2px 7px; font-size:9px; }
+  .journal-entry-meta .journal-edit{ padding:2px 7px; font-size:9px; margin-left:auto; margin-right:4px; }
+  .journal-entry-edit{ width:100%; margin-top:6px; background:#0c0906; border:1px solid var(--line); border-radius:3px; color:var(--parchment); padding:8px 9px; font-family:'EB Garamond',serif; font-size:14px; resize:vertical; min-height:80px; outline:none; }
+  .journal-entry-edit:focus{ border-color:var(--amber); }
+  .journal-entry-edit-actions{ display:flex; gap:6px; margin-top:6px; }
+  .journal-entry-edit-actions button{ flex:1; padding:5px 8px; font-size:9px; }
   .journal-entry-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
 
   /* Fichas panel (extracted from sidebar for better visibility, especially during combat) */
@@ -1900,6 +1905,7 @@
   let lastDiceLogSnapshot = '';
   let lastInitiativeSnapshot = '';
   let lastJournalSnapshot = '';
+  let editingJournalEntryId = null;
   let openNotesTokens = new Set();
   let openTokenCards = new Set();
   let openRecoveriesTokens = new Set();
@@ -2925,21 +2931,57 @@
     }
     const me = currentDisplayName();
     $list.innerHTML = state.journal.map(entry => {
-      const canRemove = effectiveMaster() || entry.author === me;
+      const canEdit = effectiveMaster() || entry.author === me;
+      const canRemove = canEdit;
+      const isEditing = editingJournalEntryId === entry.id;
       return (
         '<div class="journal-entry">' +
           '<div class="journal-entry-meta">' +
             '<span class="journal-author" style="color:'+(entry.color||'var(--amber-bright)')+';">'+escapeHtml(entry.author)+'</span>' +
             '<span>'+formatJournalTime(entry.ts)+'</span>' +
+            (canEdit ? '<button type="button" class="journal-edit" data-journal-edit="'+entry.id+'">'+(isEditing?'Cancelar':'Editar')+'</button>' : '') +
             (canRemove ? '<button type="button" class="danger journal-remove" data-journal-remove="'+entry.id+'">✕</button>' : '') +
           '</div>' +
-          '<div class="journal-entry-text">'+escapeHtml(entry.text)+'</div>' +
+          (isEditing
+            ? '<textarea class="journal-entry-edit" data-journal-input="'+entry.id+'">'+escapeHtml(entry.text)+'</textarea>' +
+              '<div class="journal-entry-edit-actions"><button type="button" class="primary" data-journal-save="'+entry.id+'">Salvar edição</button><button type="button" data-journal-cancel="'+entry.id+'">Cancelar</button></div>'
+            : '<div class="journal-entry-text">'+escapeHtml(entry.text)+'</div>') +
         '</div>'
       );
     }).join('');
     $list.querySelectorAll('[data-journal-remove]').forEach(btn => {
       btn.addEventListener('click', () => removeJournalEntry(btn.getAttribute('data-journal-remove')));
     });
+    $list.querySelectorAll('[data-journal-edit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-journal-edit');
+        editingJournalEntryId = editingJournalEntryId === id ? null : id;
+        renderJournalList();
+        const ta = $list.querySelector('[data-journal-input="'+id+'"]');
+        if(ta){ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+      });
+    });
+    $list.querySelectorAll('[data-journal-save]').forEach(btn => {
+      btn.addEventListener('click', () => updateJournalEntry(btn.getAttribute('data-journal-save')));
+    });
+    $list.querySelectorAll('[data-journal-cancel]').forEach(btn => {
+      btn.addEventListener('click', () => { editingJournalEntryId = null; renderJournalList(); });
+    });
+  }
+
+  async function updateJournalEntry(id){
+    const entry = state.journal.find(e => e.id === id);
+    if(!entry) return;
+    if(!effectiveMaster() && entry.author !== currentDisplayName()) return;
+    const input = document.querySelector('[data-journal-input="'+id+'"]');
+    const text = input ? input.value.trim() : '';
+    if(!text) return;
+    entry.text = text;
+    entry.editedTs = Date.now();
+    editingJournalEntryId = null;
+    lastJournalSnapshot = JSON.stringify({ list: state.journal });
+    renderJournalList();
+    await persistJournal();
   }
 
   async function addJournalEntry(){
@@ -3392,6 +3434,7 @@
     lastPingTs = null;
     lastInitiativeSnapshot = '';
     lastJournalSnapshot = '';
+    editingJournalEntryId = null;
     el('dice-panel').classList.remove('open');
     el('dice-backdrop').classList.remove('open');
     el('initiative-panel').classList.remove('open');
@@ -4089,7 +4132,7 @@
   }
 
   function tokenPos(tok){
-    return (tok.positions && tok.positions[state.currentPageId]) || { x:50, y:50 };
+    return (tok.positions && tok.positions[state.currentPageId]) || (effectiveMaster() ? { x:-18, y:8 } : { x:50, y:50 });
   }
   function tokenSize(tok){
     return (tok.sizes && tok.sizes[state.currentPageId]) || tok.size || 64;
@@ -5479,7 +5522,7 @@
         if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
         tok.hp = { current: maxHp, max: maxHp, temp: 0 };
       }
-      if(state.currentPageId) tok.positions[state.currentPageId] = { x:50, y:50 };
+      if(state.currentPageId) tok.positions[state.currentPageId] = { x:-18, y:8 + (state.tokens.filter(t => !t.isReference).length % 6) * 16 };
     }
     state.tokens.push(tok);
     render();
