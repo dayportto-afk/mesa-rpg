@@ -531,6 +531,12 @@
   .token img{ width:100%; height:100%; object-fit:cover; border-radius:50%; pointer-events:none; -webkit-user-drag:none;}
   .token.token-reference{ border-radius:8px; border-color:var(--parchment-dim); }
   .token.token-reference img{ border-radius:6px; object-fit:contain; background:#0a0704; }
+  .token-resize-handle{
+    position:absolute; right:-5px; bottom:-5px; width:15px; height:15px;
+    background:var(--amber-bright); border:2px solid #0a0704; border-radius:3px;
+    cursor:nwse-resize; z-index:6; touch-action:none;
+  }
+  .token-resize-handle:hover{ background:#fff; }
   .token.token-reference.selected{ border-color:var(--amber-bright); }
   .token.defeated{ border-color:#0a0a0a !important; }
   .token.defeated img{ filter:grayscale(100%); }
@@ -1894,6 +1900,11 @@
   // Use this (not state.isMaster) for anything the player screen should hide.
   function effectiveMaster(){ return state.isMaster && !state.previewAsPlayer; }
   function canInteractWithToken(tok){ return effectiveMaster() || !(tok && tok.masterLocked); }
+  function isOwnToken(tok){
+    if(!tok) return false;
+    return (tok.name||'').trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
+  }
+  function canResizeToken(tok){ return effectiveMaster() || (!tok.isReference && !tok.masterLocked && isOwnToken(tok)); }
 
   // ---------- dice roller (available to master and players alike) ----------
   const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
@@ -4194,10 +4205,14 @@
       t.style.marginTop = (-size/2) + 'px';
       if(tok.isReference){
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.12)));
+        const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
         t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                      '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>';
+                      '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
+                      handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
         $canvas.appendChild(t);
+        const handle = t.querySelector('[data-resize-handle]');
+        if(handle) handle.addEventListener('pointerdown', onRefResizeStart);
         return;
       }
       const frac = tokenLifeFraction(tok);
@@ -4217,9 +4232,12 @@
                     '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(frac*100)+'%; background:'+hpCol+';"></div></div>' +
                     '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
-                    (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '');
+                    (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
+                    (canResizeToken(tok) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
       $canvas.appendChild(t);
+      const resizeHandle = t.querySelector('[data-resize-handle]');
+      if(resizeHandle) resizeHandle.addEventListener('pointerdown', onRefResizeStart);
     });
   }
 
@@ -4596,12 +4614,23 @@
   }
 
   function referenceCardMarkup(tok){
+    const size = tokenSize(tok);
     return (
       '<div class="token-row-wrap" id="token-card-'+tok.id+'">' +
         '<div class="token-row">' +
           '<img class="token-row-avatar" style="border-radius:6px;" src="'+tok.image+'" alt="" title="Ir até esta imagem no mapa" data-jump-token="'+tok.id+'">' +
           '<input type="text" class="token-name-input" value="'+escapeHtml(tok.name)+'" data-name="'+tok.id+'">' +
           '<button type="button" class="danger" data-delete-perm="'+tok.id+'" title="Excluir imagem">✕</button>' +
+        '</div>' +
+        '<div class="token-row-size" style="margin-top:6px;">' +
+          '<span class="row-label">Tam.</span>' +
+          '<button type="button" data-size-minus="'+tok.id+'">−</button>' +
+          '<input type="number" class="size-input" min="10" max="500" value="'+size+'" data-size-input="'+tok.id+'">' +
+          '<span class="size-unit">px</span>' +
+          '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
+        '</div>' +
+        '<div class="token-row-actions" style="margin-top:6px;">' +
+          '<button type="button" data-edit-image="'+tok.id+'">Trocar imagem</button>' +
         '</div>' +
       '</div>'
     );
@@ -4720,6 +4749,64 @@
     target.addEventListener('pointermove', onTokenPointerMove);
     target.addEventListener('pointerup', onTokenPointerUp);
     target.addEventListener('pointercancel', onTokenPointerUp);
+  }
+  function onRefResizeStart(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    const tokenEl = handle.closest('.token');
+    const id = handle.getAttribute('data-resize-handle');
+    if(!tokenEl) return;
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok || !canResizeToken(tok)) return;
+    pushUndo();
+    const rect = tokenEl.getBoundingClientRect();
+    state.refResizing = {
+      id, tokenEl,
+      centerX: rect.left + rect.width / 2,
+      centerY: rect.top + rect.height / 2,
+      liveSize: null
+    };
+    handle.setPointerCapture(e.pointerId);
+    handle.addEventListener('pointermove', onRefResizeMove);
+    handle.addEventListener('pointerup', onRefResizeEnd);
+    handle.addEventListener('pointercancel', onRefResizeEnd);
+  }
+  function onRefResizeMove(e){
+    const s = state.refResizing;
+    if(!s) return;
+    const dx = e.clientX - s.centerX;
+    const dy = e.clientY - s.centerY;
+    let newSize = Math.round(Math.max(Math.abs(dx), Math.abs(dy)) * 2);
+    newSize = Math.max(10, Math.min(500, newSize));
+    s.tokenEl.style.width = newSize + 'px';
+    s.tokenEl.style.height = newSize + 'px';
+    s.tokenEl.style.marginLeft = (-newSize / 2) + 'px';
+    s.tokenEl.style.marginTop = (-newSize / 2) + 'px';
+    const label = s.tokenEl.querySelector('.token-label');
+    if(label){
+      label.style.width = newSize + 'px';
+      label.style.fontSize = Math.max(11, Math.min(16, Math.round(newSize * 0.12))) + 'px';
+    }
+    s.liveSize = newSize;
+  }
+  async function onRefResizeEnd(e){
+    const s = state.refResizing;
+    if(!s) return;
+    state.refResizing = null;
+    const handle = e.currentTarget;
+    handle.removeEventListener('pointermove', onRefResizeMove);
+    handle.removeEventListener('pointerup', onRefResizeEnd);
+    handle.removeEventListener('pointercancel', onRefResizeEnd);
+    if(s.liveSize){
+      const tok = state.tokens.find(t => t.id === s.id);
+      if(tok){
+        if(!tok.sizes) tok.sizes = {};
+        tok.sizes[state.currentPageId] = s.liveSize;
+        await persistTokens();
+      }
+    }
+    render();
   }
   function onTokenPointerMove(e){
     if(!state.dragging) return;
@@ -5412,11 +5499,28 @@
   let croppedTokenImage = null;
   let editingTokenId = null;
 
-  el('token-edit-upload').addEventListener('change', (e) => {
+  el('token-edit-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file){ editingTokenId = null; return; }
-    openCropModal(file);
+    const tok = state.tokens.find(t => t.id === editingTokenId);
     e.target.value = '';
+    if(tok && tok.isReference){
+      let dataUrl;
+      try{
+        dataUrl = await resizeImage(file, 900, 0.85);
+      }catch(err){
+        alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+        editingTokenId = null;
+        return;
+      }
+      pushUndo();
+      tok.image = dataUrl;
+      editingTokenId = null;
+      render();
+      await persistTokens();
+      return;
+    }
+    openCropModal(file);
   });
 
   async function renameToken(id, name){
