@@ -842,6 +842,7 @@
   .toast.show{ opacity:1; transform:translateY(0); }
   .toast.whisper{ border-color:var(--wax); background:#2a1414; color:#f4dede; }
   .toast.diceroll{ font-size:18px; padding:12px 22px; max-width:360px; font-family:'Cinzel', serif; }
+  .toast.usage-warning{ border-color:var(--amber); background:#241a0c; color:var(--parchment); max-width:340px; }
 
   /* Send panel (master only: whisper text and/or image handouts) */
   #send-backdrop{ display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55); }
@@ -2105,6 +2106,7 @@
     state.musicTracks.push({ id: newId('m'), name, dataUrl, volume: 0.5 });
     renderMusicTrackList();
     await persistMusicTracks();
+    noteDailyUpload('music', '⚠️ Você já enviou 10 músicas hoje nessa campanha. Pode continuar, mas evite adicionar muitas músicas novas nas próximas sessões ou ficar trocando as que já estão aqui — reaproveitar as faixas já enviadas gasta bem menos da cota gratuita do Firebase do que subir novas toda hora.');
   });
 
   el('music-stop').addEventListener('click', async () => {
@@ -2190,6 +2192,32 @@
       div.classList.remove('show');
       setTimeout(() => div.remove(), 300);
     }, opts.duration || 4000);
+  }
+
+  const DAILY_UPLOAD_WARNING_THRESHOLD = 10;
+  function noteDailyUpload(kind, warningMessage){
+    if(!state.currentSlot) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const storageKey = 'mapa-rpg-daily-' + kind + '-' + state.currentSlot + '-' + today;
+    let count = 0;
+    try{ count = parseInt(localStorage.getItem(storageKey) || '0', 10) || 0; }catch(e){}
+    count++;
+    try{ localStorage.setItem(storageKey, String(count)); }catch(e){}
+    if(count === DAILY_UPLOAD_WARNING_THRESHOLD + 1){
+      showToast(warningMessage, { type:'usage-warning', duration:9000 });
+    }
+  }
+
+  let recentFogStrokeTimes = [];
+  let fogStrokeWarningCooldownUntil = 0;
+  function noteFogStrokeForWarning(){
+    const now = Date.now();
+    recentFogStrokeTimes.push(now);
+    recentFogStrokeTimes = recentFogStrokeTimes.filter(t => now - t < 120000);
+    if(recentFogStrokeTimes.length > 15 && now > fogStrokeWarningCooldownUntil){
+      fogStrokeWarningCooldownUntil = now + 180000;
+      showToast('💡 Várias pinceladas curtas seguidas na névoa. Prefira traços mais longos e contínuos — cada pincelada reenvia a névoa inteira, então poucos traços grandes gastam bem menos dado que muitos pequenos.', { type:'usage-warning', duration:9000 });
+    }
   }
 
   // ---------- send system: threaded conversations, public or with any set of recipients ----------
@@ -5125,7 +5153,10 @@
     const tok = state.tokens.find(t => t.id === id);
     if(!tok) return;
     pushUndo();
-    tok.damageTrack = Math.max(0, Math.min(DAMAGE_TRACK.length - 1, idx));
+    const previous = tok.damageTrack || 0;
+    const next = Math.max(0, Math.min(DAMAGE_TRACK.length - 1, idx));
+    tok.damageTrack = next;
+    if(next > previous) maybePlayDamageMarkerSound(tok);
     render();
     await persistTokens();
   }
@@ -5546,6 +5577,7 @@
     render();
     await Promise.all([ persistPageMap(page), persistPagesIndex() ]);
     e.target.value = '';
+    noteDailyUpload('map', '⚠️ Você já trocou de mapa 10 vezes hoje nessa campanha. Pode continuar — mas trocar de imagem com muita frequência consome dados rápido, principalmente se for só pra testar.');
   });
 
   let croppedTokenImage = null;
@@ -6255,6 +6287,7 @@
     state.fogStroke = null;
     await persistPageFog(page);
     flushPendingPageUpdates('fog');
+    noteFogStrokeForWarning();
   }
 
   // ---------- realtime sync (Firebase listeners, no polling) ----------
