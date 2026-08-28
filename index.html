@@ -1877,7 +1877,11 @@
     panning:null
   };
 
-  let pollHandle = null;
+  let activeListeners = [];
+  let pageListeners = [];
+  let listenersForPageId = undefined;
+  let pendingTokensRaw = null;
+  let pendingPageUpdates = {};
   let pendingSlot = null;
 
   const el = id => document.getElementById(id);
@@ -3205,6 +3209,8 @@
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
+  const MAX_CAMPAIGNS = 10;
+
   async function renderPortal(){
     el('admin-banner').classList.toggle('on', state.isAdmin);
     el('admin-link-row').style.display = state.isAdmin ? 'none' : 'block';
@@ -3212,9 +3218,11 @@
     const metas = await Promise.all(ids.map(fetchSlotMeta));
     const $cards = el('slot-cards');
     $cards.innerHTML = '';
+    let activeCount = 0;
     ids.forEach((id, idx) => {
       const m = metas[idx];
       if(!m.masterPass) return; // stale/incomplete entry, skip
+      activeCount++;
       const card = document.createElement('div');
       card.className = 'slot-card';
       if(state.isAdmin) card.title = 'Clique para entrar como mestre, sem precisar da senha';
@@ -3237,6 +3245,19 @@
         btn.addEventListener('click', (e) => { e.stopPropagation(); adminDeleteCampaign(btn.getAttribute('data-admin-delete')); });
       });
     }
+    if(activeCount >= MAX_CAMPAIGNS && !state.isAdmin){
+      const limitCard = document.createElement('div');
+      limitCard.className = 'slot-card slot-card-new';
+      limitCard.style.cursor = 'default';
+      limitCard.style.opacity = '0.6';
+      limitCard.innerHTML =
+        '<div>' +
+          '<div class="slot-name">Limite de campanhas atingido</div>' +
+          '<div class="slot-status">Máximo de ' + MAX_CAMPAIGNS + ' campanhas — exclua uma existente para criar outra</div>' +
+        '</div>';
+      $cards.appendChild(limitCard);
+      return;
+    }
     const newCard = document.createElement('div');
     newCard.className = 'slot-card slot-card-new';
     newCard.innerHTML =
@@ -3250,7 +3271,7 @@
   }
 
   function showPortal(){
-    if(pollHandle){ clearInterval(pollHandle); pollHandle = null; }
+    stopAllListeners();
     state.currentSlot = null;
     state.role = null;
     state.isMaster = false;
@@ -3322,6 +3343,17 @@
           $modalError.textContent = 'Senha incorreta.';
         }
       } else {
+        if(!state.isAdmin){
+          const currentIds = await fetchCampaignIds();
+          const currentMetas = await Promise.all(currentIds.map(fetchSlotMeta));
+          const activeCount = currentMetas.filter(m => m.masterPass).length;
+          if(activeCount >= MAX_CAMPAIGNS){
+            $modalError.textContent = 'Limite de ' + MAX_CAMPAIGNS + ' campanhas atingido. Exclua uma existente para criar outra.';
+            $submitBtn.disabled = false;
+            $submitBtn.textContent = 'Entrar';
+            return;
+          }
+        }
         meta.masterPass = val;
         if(!meta.playerCode){
           let candidate = generateCode(6);
@@ -3439,9 +3471,7 @@
 
     render();
 
-    if(pollHandle) clearInterval(pollHandle);
-    lastPageContentSnapshot = '';
-    pollHandle = setInterval(pollForUpdates, 1500);
+    startRealtimeSync();
 
     try{
       localStorage.setItem('active-session', JSON.stringify({ slot: slotN, role, playerName: state.playerName, playerColor: state.playerColor }));
@@ -3824,6 +3854,10 @@
 
   // ---------- render ----------
   function render(){
+    if(state.currentPageId !== listenersForPageId){
+      listenersForPageId = state.currentPageId;
+      startPageListeners(state.currentPageId);
+    }
     $title.value = state.meta.title || "Campanha sem nome";
     el('title-input').value = state.meta.title || "";
     el('access-code-input').value = state.meta.playerCode || '';
@@ -4827,6 +4861,20 @@
     d.el.removeEventListener('pointermove', onTokenPointerMove);
     d.el.removeEventListener('pointerup', onTokenPointerUp);
     d.el.removeEventListener('pointercancel', onTokenPointerUp);
+
+    // A remote token update may have arrived mid-drag and been buffered (to avoid
+    // yanking the token out from under the cursor). Adopt it now for every OTHER
+    // token before I persist, so my write doesn't overwrite a concurrent change.
+    if(pendingTokensRaw && pendingTokensRaw !== lastTokensSnapshot){
+      try{
+        const incoming = JSON.parse(pendingTokensRaw).list || [];
+        const mine = state.tokens.find(t => t.id === d.id);
+        state.tokens = incoming.map(t => t.id === d.id ? (mine || t) : t);
+        lastTokensSnapshot = pendingTokensRaw;
+      }catch(e){}
+    }
+    pendingTokensRaw = null;
+
     const dist = Math.hypot((e.clientX||0) - d.startClientX, (e.clientY||0) - d.startClientY);
     if(typeof d.x === 'number' && dist >= 6){
       const tok = state.tokens.find(t => t.id === d.id);
@@ -4842,10 +4890,10 @@
       const tappedTok = state.tokens.find(t => t.id === d.id);
       if(canInteractWithToken(tappedTok)){
         state.selectedTokenId = state.selectedTokenId === d.id ? null : d.id;
-        render();
       }
     }
     state.dragging = null;
+    render();
   }
 
   async function removeTokenFromPage(id){
@@ -5394,6 +5442,7 @@
       if(txt){ txt.x = d.x; txt.y = d.y; await persistPageTexts(page); }
     }
     state.textDragging = null;
+    flushPendingPageUpdates('texts');
   }
 
   let newTextBold = false;
@@ -6171,6 +6220,7 @@
       redrawDrawCanvas(s.canvas, s.page);
     }
     await persistPageDraw(s.page);
+    flushPendingPageUpdates('draw');
   }
 
   function startFogPaint(e){
@@ -6199,38 +6249,144 @@
     page.fog.image = s.canvas.toDataURL('image/png');
     state.fogStroke = null;
     await persistPageFog(page);
+    flushPendingPageUpdates('fog');
   }
 
-  // ---------- polling for live sync ----------
+  // ---------- realtime sync (Firebase listeners, no polling) ----------
   let lastTokensSnapshot = '';
   let lastIndexSnapshot = '';
-  let lastPageContentSnapshot = '';
-  async function pollForUpdates(){
-    if(!state.currentSlot) return;
-    if(state.dragging || state.fogStroke || state.drawStroke || state.textDragging) return;
 
-    let changed = false;
+  function watchKey(key, onValue){
+    if(!db) return;
+    const ref = db.ref(key);
+    const cb = (snap) => {
+      const val = snap.val();
+      onValue(val === null || val === undefined ? null : val);
+    };
+    ref.on('value', cb, (err) => { console.error('listener failed', key, err); });
+    activeListeners.push({ ref, cb });
+  }
+  function watchPageKey(key, onValue){
+    if(!db) return;
+    const ref = db.ref(key);
+    const cb = (snap) => {
+      const val = snap.val();
+      onValue(val === null || val === undefined ? null : val);
+    };
+    ref.on('value', cb, (err) => { console.error('listener failed', key, err); });
+    pageListeners.push({ ref, cb });
+  }
+  function stopPageListeners(){
+    pageListeners.forEach(({ref, cb}) => { try{ ref.off('value', cb); }catch(e){} });
+    pageListeners = [];
+  }
+  function stopAllListeners(){
+    activeListeners.forEach(({ref, cb}) => { try{ ref.off('value', cb); }catch(e){} });
+    activeListeners = [];
+    stopPageListeners();
+    listenersForPageId = undefined;
+  }
 
-    // Meta (title, theme, access code, freeze flag) and the dice log always
-    // stay live for everyone, even while the map view is frozen for players.
-    const [metaRaw, diceLogRaw] = await Promise.all([ safeGet(slotKey('meta')), safeGet(slotKey('dice-log')) ]);
-    let frozenForPlayers = false;
-    if(metaRaw){
+  function applyTokensUpdate(raw){
+    lastTokensSnapshot = raw;
+    try{
+      const oldDamageById = new Map(state.tokens.map(t => [t.id, t.damageTrack || 0]));
+      const newTokens = JSON.parse(raw).list || [];
+      newTokens.forEach(t => {
+        const oldVal = oldDamageById.has(t.id) ? oldDamageById.get(t.id) : (t.damageTrack || 0);
+        if((t.damageTrack || 0) > oldVal) maybePlayDamageMarkerSound(t);
+      });
+      state.tokens = newTokens;
+      render();
+    }catch(e){}
+  }
+
+  function flushPendingPageUpdates(kind){
+    const page = currentPage();
+    if(!page || !pendingPageUpdates[kind]) return;
+    const raw = pendingPageUpdates[kind];
+    pendingPageUpdates[kind] = null;
+    try{
+      if(kind === 'map') page.map = JSON.parse(raw);
+      if(kind === 'fog') page.fog = JSON.parse(raw);
+      if(kind === 'draw') page.draw = JSON.parse(raw);
+      if(kind === 'texts') page.texts = JSON.parse(raw).list || [];
+      render();
+    }catch(e){}
+  }
+
+  function startPageListeners(pageId){
+    stopPageListeners();
+    if(!pageId || !db) return;
+    watchPageKey(slotKey('page-'+pageId+'-ping'), (raw) => {
+      if(!raw) return;
       try{
-        const m = JSON.parse(metaRaw);
-        if(m.title !== state.meta.title){ state.meta.title = m.title; changed = true; }
-        if(m.playerCode !== state.meta.playerCode){ state.meta.playerCode = m.playerCode; changed = true; }
-        if(JSON.stringify(m.theme) !== JSON.stringify(state.meta.theme)){ state.meta.theme = m.theme; changed = true; }
-        if(m.titleFont !== state.meta.titleFont){ state.meta.titleFont = m.titleFont; changed = true; }
-        if(!state.meta.masterPass && m.masterPass){ state.meta.masterPass = m.masterPass; }
-        if(!!state.meta.playersFrozen !== !!m.playersFrozen){ state.meta.playersFrozen = !!m.playersFrozen; changed = true; }
-        frozenForPlayers = !!m.playersFrozen;
+        const p = JSON.parse(raw);
+        if(p.ts && p.ts !== lastPingTs){
+          lastPingTs = p.ts;
+          showPingLocally(p.x, p.y);
+        }
       }catch(e){}
-    }
-    if(diceLogRaw && diceLogRaw !== lastDiceLogSnapshot){
-      lastDiceLogSnapshot = diceLogRaw;
+    });
+    watchPageKey(slotKey('page-'+pageId+'-map'), (raw) => {
+      if(!raw || (!state.isMaster && state.meta.playersFrozen)) return;
+      const page = currentPage();
+      if(!page || page.id !== pageId) return;
+      if(state.dragging){ pendingPageUpdates.map = raw; return; }
+      try{ page.map = JSON.parse(raw); render(); }catch(e){}
+    });
+    watchPageKey(slotKey('page-'+pageId+'-fog'), (raw) => {
+      if(!raw || (!state.isMaster && state.meta.playersFrozen)) return;
+      const page = currentPage();
+      if(!page || page.id !== pageId) return;
+      if(state.fogStroke){ pendingPageUpdates.fog = raw; return; }
+      try{ page.fog = JSON.parse(raw); render(); }catch(e){}
+    });
+    watchPageKey(slotKey('page-'+pageId+'-draw'), (raw) => {
+      if(!raw || (!state.isMaster && state.meta.playersFrozen)) return;
+      const page = currentPage();
+      if(!page || page.id !== pageId) return;
+      if(state.drawStroke){ pendingPageUpdates.draw = raw; return; }
+      try{ page.draw = JSON.parse(raw); render(); }catch(e){}
+    });
+    watchPageKey(slotKey('page-'+pageId+'-texts'), (raw) => {
+      if(!raw || (!state.isMaster && state.meta.playersFrozen)) return;
+      const page = currentPage();
+      if(!page || page.id !== pageId) return;
+      if(state.textDragging){ pendingPageUpdates.texts = raw; return; }
+      try{ page.texts = JSON.parse(raw).list || []; render(); }catch(e){}
+    });
+    watchPageKey(slotKey('page-'+pageId+'-grid'), (raw) => {
+      if(!raw || (!state.isMaster && state.meta.playersFrozen)) return;
+      const page = currentPage();
+      if(!page || page.id !== pageId) return;
+      try{ page.grid = Object.assign({ enabled:false, size:50, thickness:1, color:'#e2a53f' }, JSON.parse(raw)); render(); }catch(e){}
+    });
+  }
+
+  function startRealtimeSync(){
+    stopAllListeners();
+
+    watchKey(slotKey('meta'), (raw) => {
+      if(!raw) return;
       try{
-        const newRolls = JSON.parse(diceLogRaw).list || [];
+        const m = JSON.parse(raw);
+        let ch = false;
+        if(m.title !== state.meta.title){ state.meta.title = m.title; ch = true; }
+        if(m.playerCode !== state.meta.playerCode){ state.meta.playerCode = m.playerCode; ch = true; }
+        if(JSON.stringify(m.theme) !== JSON.stringify(state.meta.theme)){ state.meta.theme = m.theme; ch = true; }
+        if(m.titleFont !== state.meta.titleFont){ state.meta.titleFont = m.titleFont; ch = true; }
+        if(!state.meta.masterPass && m.masterPass){ state.meta.masterPass = m.masterPass; }
+        if(!!state.meta.playersFrozen !== !!m.playersFrozen){ state.meta.playersFrozen = !!m.playersFrozen; ch = true; }
+        if(ch) render();
+      }catch(e){}
+    });
+
+    watchKey(slotKey('dice-log'), (raw) => {
+      if(!raw || raw === lastDiceLogSnapshot) return;
+      lastDiceLogSnapshot = raw;
+      try{
+        const newRolls = JSON.parse(raw).list || [];
         const myName = state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
         const newest = newRolls[0];
         if(newest && newest.id !== lastSeenRollId){
@@ -6243,28 +6399,28 @@
         }
         if(newest) lastSeenRollId = newest.id;
         state.diceRolls = newRolls;
-        changed = true;
+        render();
       }catch(e){}
-    }
+    });
 
-    const initRaw = await safeGet(slotKey('initiative'));
-    if(initRaw && initRaw !== lastInitiativeSnapshot){
-      lastInitiativeSnapshot = initRaw;
-      try{ state.initiative = JSON.parse(initRaw); changed = true; }catch(e){}
-    }
+    watchKey(slotKey('initiative'), (raw) => {
+      if(!raw || raw === lastInitiativeSnapshot) return;
+      lastInitiativeSnapshot = raw;
+      try{ state.initiative = JSON.parse(raw); render(); }catch(e){}
+    });
 
-    const journalRaw = await safeGet(slotKey('journal'));
-    if(journalRaw && journalRaw !== lastJournalSnapshot){
-      lastJournalSnapshot = journalRaw;
-      try{ state.journal = JSON.parse(journalRaw).list || []; changed = true; }catch(e){}
-    }
+    watchKey(slotKey('journal'), (raw) => {
+      if(!raw || raw === lastJournalSnapshot) return;
+      lastJournalSnapshot = raw;
+      try{ state.journal = JSON.parse(raw).list || []; render(); }catch(e){}
+    });
 
-    const sendsRaw = await safeGet(slotKey('sends'));
-    if(sendsRaw && sendsRaw !== lastSendsSnapshot){
+    watchKey(slotKey('sends'), (raw) => {
+      if(!raw || raw === lastSendsSnapshot) return;
       const prevIds = new Set(state.sends.map(e => e.id));
-      lastSendsSnapshot = sendsRaw;
+      lastSendsSnapshot = raw;
       try{
-        const newSends = JSON.parse(sendsRaw).list || [];
+        const newSends = JSON.parse(raw).list || [];
         const freshOnes = newSends.filter(e => !prevIds.has(e.id));
         state.sends = newSends;
         freshOnes.forEach(entry => {
@@ -6282,93 +6438,45 @@
           playSound('messageNotify');
         });
         renderHandoutGallery();
-        changed = true;
+        render();
       }catch(e){}
-    }
+    });
 
-    const musicTracksRaw = await safeGet(slotKey('music-tracks'));
-    if(musicTracksRaw && musicTracksRaw !== lastMusicTracksSnapshot){
-      lastMusicTracksSnapshot = musicTracksRaw;
-      try{ state.musicTracks = JSON.parse(musicTracksRaw).list || []; changed = true; }catch(e){}
-    }
-    const musicStateRaw = await safeGet(slotKey('music-state'));
-    if(musicStateRaw && musicStateRaw !== lastMusicStateSnapshot){
-      lastMusicStateSnapshot = musicStateRaw;
+    watchKey(slotKey('music-tracks'), (raw) => {
+      if(!raw || raw === lastMusicTracksSnapshot) return;
+      lastMusicTracksSnapshot = raw;
+      try{ state.musicTracks = JSON.parse(raw).list || []; render(); }catch(e){}
+    });
+
+    watchKey(slotKey('music-state'), (raw) => {
+      if(!raw || raw === lastMusicStateSnapshot) return;
+      lastMusicStateSnapshot = raw;
       try{
-        const ms = JSON.parse(musicStateRaw);
+        const ms = JSON.parse(raw);
         state.musicPlayingIds = Array.isArray(ms.playingIds) ? ms.playingIds : [];
-        changed = true;
+        render();
       }catch(e){}
-    }
+    });
 
-    const pingPage = currentPage();
-    if(pingPage){
-      const pingRaw = await safeGet(slotKey('page-'+pingPage.id+'-ping'));
-      if(pingRaw){
-        try{
-          const p = JSON.parse(pingRaw);
-          if(p.ts && p.ts !== lastPingTs){
-            lastPingTs = p.ts;
-            showPingLocally(p.x, p.y);
-          }
-        }catch(e){}
-      }
-    }
-
-    // A player whose master has frozen the view stops here — the map, fog,
-    // tokens, texts and page history all stay exactly as they last saw them.
-    if(!state.isMaster && frozenForPlayers){
-      if(changed) render();
-      return;
-    }
-
-    const indexRaw = await safeGet(slotKey('pages-index'));
-    if(indexRaw && indexRaw !== lastIndexSnapshot){
-      lastIndexSnapshot = indexRaw;
+    watchKey(slotKey('pages-index'), async (raw) => {
+      if(!raw || raw === lastIndexSnapshot) return;
+      if(!state.isMaster && state.meta.playersFrozen) return;
+      lastIndexSnapshot = raw;
       await loadSlotData();
-      lastPageContentSnapshot = '';
       render();
-      return;
-    }
+    });
 
-    const page = currentPage();
+    watchKey(slotKey('tokens'), (raw) => {
+      if(!raw || raw === lastTokensSnapshot) return;
+      if(!state.isMaster && state.meta.playersFrozen) return;
+      if(state.dragging){ pendingTokensRaw = raw; return; }
+      applyTokensUpdate(raw);
+    });
 
-    const tokensRaw = await safeGet(slotKey('tokens'));
-    if(tokensRaw && tokensRaw !== lastTokensSnapshot){
-      lastTokensSnapshot = tokensRaw;
-      try{
-        const oldDamageById = new Map(state.tokens.map(t => [t.id, t.damageTrack || 0]));
-        const newTokens = JSON.parse(tokensRaw).list || [];
-        newTokens.forEach(t => {
-          const oldVal = oldDamageById.has(t.id) ? oldDamageById.get(t.id) : (t.damageTrack || 0);
-          if((t.damageTrack || 0) > oldVal) maybePlayDamageMarkerSound(t);
-        });
-        state.tokens = newTokens;
-        changed = true;
-      }catch(e){}
-    }
-
-    if(page){
-      const [mapRaw, fogRaw, drawRaw, textsRaw, gridRaw] = await Promise.all([
-        safeGet(slotKey('page-'+page.id+'-map')),
-        safeGet(slotKey('page-'+page.id+'-fog')),
-        safeGet(slotKey('page-'+page.id+'-draw')),
-        safeGet(slotKey('page-'+page.id+'-texts')),
-        safeGet(slotKey('page-'+page.id+'-grid'))
-      ]);
-      const combined = (mapRaw||'') + '|' + (fogRaw||'') + '|' + (drawRaw||'') + '|' + (textsRaw||'') + '|' + (gridRaw||'');
-      if(combined !== lastPageContentSnapshot){
-        lastPageContentSnapshot = combined;
-        if(mapRaw){ try{ page.map = JSON.parse(mapRaw); changed = true; }catch(e){} }
-        if(fogRaw){ try{ page.fog = JSON.parse(fogRaw); changed = true; }catch(e){} }
-        if(drawRaw){ try{ page.draw = JSON.parse(drawRaw); changed = true; }catch(e){} }
-        if(textsRaw){ try{ page.texts = JSON.parse(textsRaw).list || []; changed = true; }catch(e){} }
-        if(gridRaw){ try{ page.grid = Object.assign({ enabled:false, size:50, thickness:1, color:'#e2a53f' }, JSON.parse(gridRaw)); changed = true; }catch(e){} }
-      }
-    }
-
-    if(changed) render();
+    startPageListeners(state.currentPageId);
+    listenersForPageId = state.currentPageId;
   }
+
 
   // ---------- init ----------
   document.addEventListener('keydown', (e) => {
