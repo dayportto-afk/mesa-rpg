@@ -1476,7 +1476,7 @@
 
       <div class="float-panel" id="float-grid" style="left:224px; top:40px;">
         <div class="float-panel-header">
-          <span>🔲 Grade</span>
+          <span>⬡ Grade hexagonal</span>
           <button type="button" class="float-panel-close" data-close-panel="float-grid">✕</button>
         </div>
         <div class="float-panel-body">
@@ -1493,7 +1493,7 @@
             <label for="grid-color-input">Cor</label>
             <input type="color" id="grid-color-input" value="#e2a53f">
           </div>
-          <div class="hint">A grade é própria de cada página do histórico e aparece para todos.</div>
+          <div class="hint">A grade hexagonal é própria de cada página do histórico e aparece para todos. O tamanho define o raio de cada hexágono.</div>
         </div>
       </div>
 
@@ -3812,12 +3812,13 @@
         safeGet(slotKey('page-'+stub.id+'-texts')),
         safeGet(slotKey('page-'+stub.id+'-grid'))
       ]);
-      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
+      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'hex' };
       if(mapRaw){ try{ map = JSON.parse(mapRaw); }catch(e){} }
       if(fogRaw){ try{ fog = JSON.parse(fogRaw); }catch(e){} }
       if(drawRaw){ try{ draw = JSON.parse(drawRaw); }catch(e){} }
       if(textsRaw){ try{ texts = JSON.parse(textsRaw).list || []; }catch(e){} }
       if(gridRaw){ try{ grid = Object.assign(grid, JSON.parse(gridRaw)); }catch(e){} }
+       grid.type = 'hex';
       return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], map, fog, draw, texts, grid };
     }));
     state.pages = pages;
@@ -4066,7 +4067,7 @@
     el('draw-move-hint').style.display = state.drawPaintMode === 'move' ? 'block' : 'none';
     el('btn-draw-clear-all').style.display = effectiveMaster() ? 'block' : 'none';
 
-    const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f' };
+    const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'hex' };
     el('btn-grid-toggle').textContent = gridSettings.enabled ? 'Desativar grade' : 'Ativar grade';
     el('btn-grid-toggle').classList.toggle('toggle-active', gridSettings.enabled);
     el('grid-size-input').value = gridSettings.size;
@@ -6240,7 +6241,7 @@
   el('btn-grid-toggle').addEventListener('click', async () => {
     const page = currentPage();
     if(!page) return;
-    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
+    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'hex' };
     page.grid.enabled = !page.grid.enabled;
     render();
     await persistPageGrid(page);
@@ -6249,7 +6250,7 @@
     return async (e) => {
       const page = currentPage();
       if(!page) return;
-      if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
+      if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'hex' };
       page.grid[field] = parse ? parse(e.target.value) : e.target.value;
       setupGridOverlay();
       await persistPageGrid(page);
@@ -6262,16 +6263,80 @@
   function setupGridOverlay(){
     const existing = document.getElementById('grid-overlay');
     if(existing) existing.remove();
+
     const page = currentPage();
     const img = document.getElementById('map-img');
     if(!img || !page || !page.grid || !page.grid.enabled) return;
+
     const g = page.grid;
-    const div = document.createElement('div');
-    div.id = 'grid-overlay';
-    div.style.backgroundImage =
-      'repeating-linear-gradient(0deg, '+g.color+' 0, '+g.color+' '+g.thickness+'px, transparent '+g.thickness+'px, transparent '+g.size+'px),' +
-      'repeating-linear-gradient(90deg, '+g.color+' 0, '+g.color+' '+g.thickness+'px, transparent '+g.thickness+'px, transparent '+g.size+'px)';
-    $canvas.appendChild(div);
+    const radius = Math.max(5, Number(g.size) || 50);
+    const stroke = Math.max(0.5, Number(g.thickness) || 1);
+    const color = g.color || '#e2a53f';
+
+    // Grade hexagonal regular, com hexágonos orientados para cima.
+    const hexW = Math.sqrt(3) * radius;
+    const stepY = 1.5 * radius;
+    const patternW = 2 * hexW;
+    const patternH = 2 * stepY;
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.id = 'grid-overlay';
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
+    svg.setAttribute('viewBox', '0 0 '+(img.naturalWidth || 1200)+' '+(img.naturalHeight || 800));
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.position = 'absolute';
+    svg.style.inset = '0';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none';
+    svg.style.overflow = 'visible';
+
+    const defs = document.createElementNS(svgNS, 'defs');
+    const pattern = document.createElementNS(svgNS, 'pattern');
+    pattern.setAttribute('id', 'hex-grid-pattern');
+    pattern.setAttribute('width', String(patternW));
+    pattern.setAttribute('height', String(patternH));
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+
+    const makeHex = (cx, cy) => {
+      const poly = document.createElementNS(svgNS, 'polygon');
+      const points = [];
+      for(let i = 0; i < 6; i++){
+        const angle = (Math.PI / 180) * (-90 + i * 60);
+        points.push((cx + radius * Math.cos(angle)).toFixed(3) + ',' +
+                    (cy + radius * Math.sin(angle)).toFixed(3));
+      }
+      poly.setAttribute('points', points.join(' '));
+      poly.setAttribute('fill', 'none');
+      poly.setAttribute('stroke', color);
+      poly.setAttribute('stroke-width', String(stroke));
+      poly.setAttribute('vector-effect', 'non-scaling-stroke');
+      return poly;
+    };
+
+    // Linhas alternadas ficam deslocadas em meio hexágono.
+    pattern.appendChild(makeHex(hexW / 2, radius));
+    pattern.appendChild(makeHex(hexW * 1.5, radius));
+    pattern.appendChild(makeHex(0, radius + stepY));
+    pattern.appendChild(makeHex(hexW, radius + stepY));
+    pattern.appendChild(makeHex(patternW, radius + stepY));
+    pattern.appendChild(makeHex(hexW / 2, radius + patternH));
+    pattern.appendChild(makeHex(hexW * 1.5, radius + patternH));
+
+    defs.appendChild(pattern);
+    svg.appendChild(defs);
+
+    const rect = document.createElementNS(svgNS, 'rect');
+    rect.setAttribute('x', '0');
+    rect.setAttribute('y', '0');
+    rect.setAttribute('width', '100%');
+    rect.setAttribute('height', '100%');
+    rect.setAttribute('fill', 'url(#hex-grid-pattern)');
+    svg.appendChild(rect);
+
+    $canvas.appendChild(svg);
   }
 
   let fogBuildId = 0;
