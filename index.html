@@ -1485,6 +1485,8 @@
               <div id="new-hp-fields">
                 <label for="token-maxhp" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Vida máxima (HP)</label>
                 <input type="number" id="token-maxhp" min="1" max="999" value="10" placeholder="Vida máxima">
+                <label for="token-armor" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Armadura</label>
+                <input type="number" id="token-armor" min="0" max="99" value="0" placeholder="Armadura">
               </div>
               <div id="new-numenera-fields" style="display:none;">
                 <label for="token-max-intellect" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Intelecto máx.</label>
@@ -2938,7 +2940,7 @@
     return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
   }
 
-  async function appendCombatHistory(token, text, kind){
+  async function appendCombatHistory(token, text, kind, publicText){
     const active = activeInitiativeEntry();
     if(!active || !state.initiative.list.length || !text) return;
     const entry = {
@@ -2952,7 +2954,8 @@
       targetTokenId:token ? token.id : null,
       targetName:token ? token.name : '',
       actor:state.isMaster ? 'Mestre' : (state.playerName || 'Jogador'),
-      kind:kind || 'change', text
+      kind:kind || 'change', text,
+      publicText: publicText || null
     };
     let list = [];
     const raw = await safeGet(slotKey('combat-history'));
@@ -2964,6 +2967,30 @@
     lastCombatHistorySnapshot = payload;
     renderCombatHistory();
     await safeSet(slotKey('combat-history'), {list});
+  }
+
+  function combatHistoryDisplayText(item){
+    if(effectiveMaster()) return item.text || '';
+    const target = item.targetTokenId ? state.tokens.find(t => t.id === item.targetTokenId) : null;
+    const npcPrivate = !!(target && target.masterLocked);
+    if(!npcPrivate) return item.publicText || item.text || '';
+    if(item.publicText) return item.publicText;
+    const name = item.targetName || (target && target.name) || 'NPC';
+    if(item.kind === 'hp-zero') return 'O HP de ' + name + ' zerou.';
+    if(item.kind === 'hp'){
+      const raw = item.text || '';
+      if(/ganhou/i.test(raw)) return name + ' ganhou HP.';
+      if(/perdeu/i.test(raw)) return name + ' perdeu HP.';
+      return 'O HP de ' + name + ' foi alterado.';
+    }
+    if(item.kind === 'hp-temp'){
+      const raw = item.text || '';
+      if(/ganhou/i.test(raw)) return name + ' ganhou HP temporário.';
+      if(/perdeu/i.test(raw)) return name + ' perdeu HP temporário.';
+      return 'O HP temporário de ' + name + ' foi alterado.';
+    }
+    if(item.kind === 'hp-max') return 'O HP máximo de ' + name + ' foi alterado.';
+    return item.text || '';
   }
 
   function renderCombatHistory(){
@@ -2989,7 +3016,7 @@
       '<div class="combat-history-turn">' +
         '<div class="combat-history-turn-head">Rodada '+g.round+' · vez de '+escapeHtml(g.activeName)+'</div>' +
         '<div class="combat-history-turn-scroll">' + g.items.map(item =>
-          '<div class="combat-history-change"><span class="combat-history-time">'+formatCombatHistoryTime(item.ts)+'</span>'+escapeHtml(item.text)+'</div>'
+          '<div class="combat-history-change"><span class="combat-history-time">'+formatCombatHistoryTime(item.ts)+'</span>'+escapeHtml(combatHistoryDisplayText(item))+'</div>'
         ).join('') + '</div>' +
       '</div>'
     ).join('');
@@ -4952,6 +4979,10 @@
       '<div class="token-row-hp">' +
         '<span class="row-label">PV temp.</span>' +
         '<input type="number" class="hp-max-input" min="0" max="999" value="'+(hp.temp||0)+'" data-hp-temp="'+tok.id+'">' +
+      '</div>' +
+      '<div class="token-row-hp">' +
+        '<span class="row-label">Armadura</span>' +
+        '<input type="number" class="hp-max-input" min="0" max="99" value="'+(tok.armor||0)+'" data-armor-input="'+tok.id+'">' +
       '</div>'
     );
   }
@@ -5533,8 +5564,22 @@
     const afterPct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
     const hpChange = tok.hp.current - beforeHpCurrent;
     const tempChange = tok.hp.temp - beforeTempHp;
-    if(tempChange) await appendCombatHistory(tok, tok.name + (tempChange > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(tempChange) + ' de HP temporário.', 'hp-temp');
-    if(hpChange) await appendCombatHistory(tok, tok.name + (hpChange > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(hpChange) + ' de HP.', 'hp');
+    if(tempChange){
+      const action = tempChange > 0 ? 'ganhou' : 'perdeu';
+      const exactText = tok.masterLocked
+        ? tok.name + ' ' + action + ' HP temporário (' + Math.abs(tempChange) + ').'
+        : tok.name + ' ' + action + ' ' + Math.abs(tempChange) + ' de HP temporário.';
+      const publicText = tok.masterLocked ? tok.name + ' ' + action + ' HP temporário.' : null;
+      await appendCombatHistory(tok, exactText, 'hp-temp', publicText);
+    }
+    if(hpChange){
+      const action = hpChange > 0 ? 'ganhou' : 'perdeu';
+      const exactText = tok.masterLocked
+        ? tok.name + ' ' + action + ' HP (' + Math.abs(hpChange) + ').'
+        : tok.name + ' ' + action + ' ' + Math.abs(hpChange) + ' de HP.';
+      const publicText = tok.masterLocked ? tok.name + ' ' + action + ' HP.' : null;
+      await appendCombatHistory(tok, exactText, 'hp', publicText);
+    }
     // Registra separadamente quando o personagem/inimigo cruza o limiar de 0 HP durante este turno.
     // Mesmo que o dano leve o valor para abaixo de zero, o evento relevante continua sendo que o HP zerou.
     if(beforeHpCurrent > 0 && tok.hp.current <= 0){
@@ -5558,7 +5603,14 @@
     const before = tok.hp.temp || 0;
     tok.hp.temp = temp;
     const diff = tok.hp.temp - before;
-    if(diff) await appendCombatHistory(tok, tok.name + (diff > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(diff) + ' de HP temporário.', 'hp-temp');
+    if(diff){
+      const action = diff > 0 ? 'ganhou' : 'perdeu';
+      const exactText = tok.masterLocked
+        ? tok.name + ' ' + action + ' HP temporário (' + Math.abs(diff) + ').'
+        : tok.name + ' ' + action + ' ' + Math.abs(diff) + ' de HP temporário.';
+      const publicText = tok.masterLocked ? tok.name + ' ' + action + ' HP temporário.' : null;
+      await appendCombatHistory(tok, exactText, 'hp-temp', publicText);
+    }
     render();
     await persistTokens();
   }
@@ -5891,8 +5943,22 @@
     const beforeCurrent = tok.hp.current;
     tok.hp.max = max;
     tok.hp.current = Math.min(tok.hp.current, max);
-    if(beforeMax !== max) await appendCombatHistory(tok, 'HP máximo de ' + tok.name + ' mudou de ' + beforeMax + ' para ' + max + '.', 'hp-max');
-    if(tok.hp.current !== beforeCurrent) await appendCombatHistory(tok, tok.name + ' perdeu ' + (beforeCurrent - tok.hp.current) + ' de HP pelo ajuste do máximo.', 'hp');
+    if(beforeMax !== max){
+      const exactText = 'HP máximo de ' + tok.name + ' mudou de ' + beforeMax + ' para ' + max + '.';
+      const publicText = tok.masterLocked ? 'O HP máximo de ' + tok.name + ' foi alterado.' : null;
+      await appendCombatHistory(tok, exactText, 'hp-max', publicText);
+    }
+    if(tok.hp.current !== beforeCurrent){
+      const lost = beforeCurrent - tok.hp.current;
+      const exactText = tok.masterLocked
+        ? tok.name + ' perdeu HP (' + lost + ') pelo ajuste do máximo.'
+        : tok.name + ' perdeu ' + lost + ' de HP pelo ajuste do máximo.';
+      const publicText = tok.masterLocked ? tok.name + ' perdeu HP pelo ajuste do máximo.' : null;
+      await appendCombatHistory(tok, exactText, 'hp', publicText);
+      if(beforeCurrent > 0 && tok.hp.current <= 0){
+        await appendCombatHistory(tok, 'O HP de ' + tok.name + ' zerou.', 'hp-zero', 'O HP de ' + tok.name + ' zerou.');
+      }
+    }
     render();
     await persistTokens();
   }
@@ -6373,6 +6439,9 @@
         let maxHp = parseInt(el('token-maxhp').value, 10);
         if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
         tok.hp = { current: maxHp, max: maxHp, temp: 0 };
+        let armor = parseInt(el('token-armor').value, 10);
+        if(isNaN(armor) || armor < 0) armor = 0;
+        tok.armor = Math.min(99, armor);
       }
       if(state.currentPageId){
         const staged = state.tokens.filter(t => !t.isReference && !t.masterLocked).length;
