@@ -669,6 +669,8 @@
   #initiative-master-controls input[type=number]{ padding:7px 8px; }
   #btn-initiative-next{ flex:2; }
   #btn-initiative-clear{ flex:1; }
+  #btn-pass-turn{ width:100%; margin-bottom:2px; font-weight:600; }
+  #btn-pass-turn:disabled{ opacity:0.45; }
 
   .initiative-entry{
     display:flex; align-items:center; gap:10px; padding:8px 10px;
@@ -1690,6 +1692,7 @@
             <button type="button" id="btn-initiative-clear" class="danger">Encerrar combate</button>
           </div>
         </div>
+        <button type="button" id="btn-pass-turn" class="primary" style="display:none;">Passar vez →</button>
         <div id="initiative-list"></div>
       </div>
     </div>
@@ -2862,8 +2865,45 @@
     ).join('');
   }
 
+  function activeInitiativeEntry(){
+    return state.initiative.list.find(entry => entry.id === state.initiative.activeId) || null;
+  }
+
+  function canPassCurrentTurn(){
+    const active = activeInitiativeEntry();
+    if(!active) return false;
+    if(effectiveMaster()) return true;
+    const me = (state.playerName || '').trim().toLowerCase();
+    if(!me) return false;
+    const tok = state.tokens.find(t => t.id === active.tokenId);
+    const activeName = ((tok && tok.name) || active.name || '').trim().toLowerCase();
+    return activeName === me;
+  }
+
+  function updatePassTurnButton(){
+    const btn = el('btn-pass-turn');
+    if(!btn) return;
+    const inCombat = state.initiative.list.length > 0 && !!state.initiative.activeId;
+    btn.style.display = inCombat ? 'block' : 'none';
+    if(!inCombat) return;
+    const allowed = canPassCurrentTurn();
+    btn.disabled = !allowed;
+    if(effectiveMaster()){
+      btn.textContent = 'Passar vez →';
+      btn.title = 'Avançar para o próximo combatente';
+    } else if(allowed){
+      btn.textContent = 'Passar minha vez →';
+      btn.title = 'Encerrar suas ações e avançar para o próximo combatente';
+    } else {
+      const active = activeInitiativeEntry();
+      btn.textContent = 'Aguardando ' + ((active && active.name) || 'turno') + '…';
+      btn.title = 'Você só pode passar a vez quando for o seu turno';
+    }
+  }
+
   function renderInitiativeList(){
     el('initiative-round').textContent = state.initiative.round;
+    updatePassTurnButton();
     el('initiative-master-controls').style.display = effectiveMaster() ? 'block' : 'none';
     if(effectiveMaster()){
       const sel = el('initiative-token-select');
@@ -2918,6 +2958,14 @@
     renderInitiativeHud();
     renderTokens();
     await persistInitiative();
+  }
+
+  async function passCurrentTurn(){
+    if(!canPassCurrentTurn()){
+      showToast('Você só pode passar a vez quando for o seu turno.');
+      return;
+    }
+    await nextInitiativeTurn();
   }
 
   async function nextInitiativeTurn(){
@@ -3008,6 +3056,7 @@
     el('initiative-score-input').value = '';
   });
   el('btn-initiative-next').addEventListener('click', nextInitiativeTurn);
+  el('btn-pass-turn').addEventListener('click', passCurrentTurn);
   el('btn-initiative-clear').addEventListener('click', clearInitiative);
 
   // ---------- campaign journal (master AND players can write) ----------
