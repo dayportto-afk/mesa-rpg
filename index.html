@@ -713,6 +713,18 @@
   #combat-history-list{ display:flex; flex-direction:column; gap:9px; max-height:300px; overflow-y:auto; }
   .combat-history-turn{ border:1px solid var(--line); border-radius:5px; background:#120e08; overflow:hidden; }
   .combat-history-turn-head{ padding:7px 9px; background:#1a1309; border-bottom:1px solid var(--line); font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--amber-bright); }
+  .combat-history-turn-scroll{
+    max-height:112px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    scrollbar-width:thin;
+    scrollbar-color:var(--amber) transparent;
+    overscroll-behavior:contain;
+  }
+  .combat-history-turn-scroll::-webkit-scrollbar{ width:6px; }
+  .combat-history-turn-scroll::-webkit-scrollbar-thumb{ background:var(--amber); border-radius:4px; }
+  .combat-history-turn-scroll::-webkit-scrollbar-track{ background:transparent; }
+
   .combat-history-change{ padding:6px 9px; border-top:1px dashed rgba(61,47,28,.75); font-size:13px; line-height:1.35; color:var(--parchment); }
   .combat-history-change:first-child{ border-top:none; }
   .combat-history-time{ float:right; color:var(--parchment-dim); font-family:'JetBrains Mono',monospace; font-size:9px; margin-left:8px; }
@@ -2976,7 +2988,7 @@
     root.innerHTML = groups.slice().reverse().map(g =>
       '<div class="combat-history-turn">' +
         '<div class="combat-history-turn-head">Rodada '+g.round+' · vez de '+escapeHtml(g.activeName)+'</div>' +
-        '<div>' + g.items.map(item =>
+        '<div class="combat-history-turn-scroll">' + g.items.map(item =>
           '<div class="combat-history-change"><span class="combat-history-time">'+formatCombatHistoryTime(item.ts)+'</span>'+escapeHtml(item.text)+'</div>'
         ).join('') + '</div>' +
       '</div>'
