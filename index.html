@@ -549,6 +549,18 @@
   .token.defeated img{ filter:grayscale(100%); }
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
   .token.selected{ box-shadow:0 0 0 2px var(--amber-bright), 0 3px 10px var(--shadow); }
+  .token.token-current-turn{
+    outline:3px solid var(--amber-bright);
+    outline-offset:4px;
+  }
+  .token-hp-status{
+    position:absolute; left:50%; transform:translateX(-50%);
+    padding:2px 7px; border-radius:10px; border:1px solid var(--amber);
+    background:#150f09; color:var(--parchment);
+    font-family:'JetBrains Mono', monospace; font-size:9px; line-height:1.2;
+    white-space:nowrap; pointer-events:none; z-index:7;
+    box-shadow:0 2px 6px rgba(0,0,0,0.45);
+  }
   .token-label{
     position:absolute; bottom:-24px; left:50%; transform:translateX(-50%);
     font-family:'IM Fell English', serif; font-size:13px; color:var(--parchment);
@@ -1532,6 +1544,12 @@
           <button type="button" class="float-panel-close" data-close-panel="float-danger">✕</button>
         </div>
         <div class="float-panel-body">
+          <div style="font-family:'Cinzel',serif; color:var(--amber-bright); font-size:12px; margin-bottom:6px;">💾 Backup da campanha</div>
+          <button id="btn-export-campaign" type="button" style="width:100%;">Baixar backup (.json)</button>
+          <label class="file-btn" for="campaign-backup-input" style="margin-top:8px;">Restaurar backup (.json)</label>
+          <input type="file" id="campaign-backup-input" accept="application/json,.json">
+          <div class="hint" style="margin-bottom:14px;">O backup inclui mapas, fichas, páginas, névoa, desenhos, textos, iniciativa, diário, conversas, música e configurações. Ao restaurar, o conteúdo atual é substituído, mas a senha e o código de acesso atuais desta vaga são preservados.</div>
+          <div style="border-top:1px solid var(--line); margin:4px 0 12px;"></div>
           <button id="btn-delete-campaign" class="danger" style="width:100%;">Excluir esta campanha</button>
           <div class="hint">Apaga todo o histórico de mapas, fichas, névoa e configurações desta campanha. A vaga volta a ficar livre para uma campanha futura. Não pode ser desfeito.</div>
         </div>
@@ -2886,6 +2904,7 @@
     if(!state.initiative.activeId) state.initiative.activeId = entry.id;
     renderInitiativeList();
     renderInitiativeHud();
+    renderTokens();
     await persistInitiative();
   }
 
@@ -2897,6 +2916,7 @@
     }
     renderInitiativeList();
     renderInitiativeHud();
+    renderTokens();
     await persistInitiative();
   }
 
@@ -2909,6 +2929,7 @@
     state.initiative.activeId = sorted[idx].id;
     renderInitiativeList();
     renderInitiativeHud();
+    renderTokens();
     await persistInitiative();
   }
 
@@ -2917,6 +2938,7 @@
     state.initiative = { list:[], activeId:null, round:1 };
     renderInitiativeList();
     renderInitiativeHud();
+    renderTokens();
     await persistInitiative();
   }
 
@@ -3240,6 +3262,85 @@
   async function safeDelete(key){
     if(!db) return;
     try{ await withTimeout(db.ref(key).remove(), 8000); }catch(e){}
+  }
+
+  function backupSafeFileName(name){
+    return (name || 'campanha')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-zA-Z0-9_-]+/g,'-')
+      .replace(/^-+|-+$/g,'')
+      .slice(0,60) || 'campanha';
+  }
+
+  async function exportCampaignBackup(){
+    if(!effectiveMaster() || !state.currentSlot || !db) return;
+    try{
+      const prefix = 'c' + state.currentSlot + '-';
+      const snap = await withTimeout(db.ref('/').orderByKey().startAt(prefix).endAt(prefix + '\uf8ff').once('value'), 12000);
+      const root = snap.val() || {};
+      const data = {};
+      Object.keys(root).forEach(key => {
+        if(!key.startsWith(prefix)) return;
+        const shortKey = key.slice(prefix.length);
+        const raw = root[key];
+        if(typeof raw === 'string'){
+          try{ data[shortKey] = JSON.parse(raw); }catch(e){ data[shortKey] = raw; }
+        } else data[shortKey] = raw;
+      });
+      const backup = {
+        format:'mesa-de-jogo-campaign-backup', version:1,
+        exportedAt:new Date().toISOString(),
+        campaignTitle:(state.meta && state.meta.title) || 'Campanha sem nome', data
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = backupSafeFileName(backup.campaignTitle) + '-backup-' + new Date().toISOString().slice(0,10) + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast('Backup da campanha baixado.');
+    }catch(e){ console.error('backup export failed', e); showToast('Não foi possível gerar o backup.'); }
+  }
+
+  async function restoreCampaignBackup(file){
+    if(!effectiveMaster() || !state.currentSlot || !db || !file) return;
+    let backup;
+    try{ backup = JSON.parse(await file.text()); }catch(e){ showToast('Arquivo JSON inválido.'); return; }
+    if(!backup || backup.format !== 'mesa-de-jogo-campaign-backup' || !backup.data || typeof backup.data !== 'object'){
+      showToast('Este arquivo não é um backup válido da Mesa de Jogo.'); return;
+    }
+    const title = backup.campaignTitle || 'campanha sem nome';
+    if(!confirm('Restaurar o backup de "' + title + '"? O conteúdo atual desta campanha será substituído.')) return;
+    try{
+      const currentSlot = state.currentSlot;
+      const prefix = 'c' + currentSlot + '-';
+      const currentMeta = Object.assign({}, state.meta || {});
+      const snap = await withTimeout(db.ref('/').orderByKey().startAt(prefix).endAt(prefix + '\uf8ff').once('value'), 12000);
+      const root = snap.val() || {};
+      const updates = {};
+      Object.keys(root).forEach(key => { if(key.startsWith(prefix)) updates[key] = null; });
+      Object.keys(backup.data).forEach(shortKey => {
+        if(!shortKey || shortKey.includes('/')) return;
+        let value = backup.data[shortKey];
+        if(shortKey === 'meta'){
+          value = Object.assign({}, value || {}, {
+            masterPass:currentMeta.masterPass || (value && value.masterPass) || '',
+            playerCode:currentMeta.playerCode || (value && value.playerCode) || ''
+          });
+        }
+        updates[prefix + shortKey] = JSON.stringify(value);
+      });
+      if(!Object.prototype.hasOwnProperty.call(backup.data,'meta')) updates[prefix+'meta'] = JSON.stringify(currentMeta);
+      await withTimeout(db.ref('/').update(updates), 20000);
+      await addCampaignToIndex(currentSlot);
+      stopAllListeners();
+      state.tokens=[]; state.pages=[]; state.currentPageId=null;
+      state.initiative={list:[],activeId:null,round:1}; state.journal=[]; state.sends=[]; state.diceRolls=[];
+      await loadSlotData();
+      render(); startRealtimeSync(); closeAllFloatPanels();
+      showToast('Backup restaurado com sucesso.');
+    }catch(e){ console.error('backup restore failed', e); showToast('Não foi possível restaurar o backup.'); }
   }
 
   function generateCode(len){
@@ -3656,6 +3757,13 @@
   const $deleteOverlay = el('delete-overlay');
   const $deletePass = el('delete-pass');
   const $deleteError = el('delete-error');
+
+  el('btn-export-campaign').addEventListener('click', exportCampaignBackup);
+  el('campaign-backup-input').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if(file) await restoreCampaignBackup(file);
+  });
 
   el('btn-delete-campaign').addEventListener('click', () => {
     $deletePass.value = ''; $deleteError.textContent = '';
@@ -4396,15 +4504,25 @@
       t.style.borderColor = hpCol;
       t.classList.toggle('defeated', isDefeated);
       t.classList.toggle('selected', tok.id === state.selectedTokenId);
+      const combatActive = !!(state.initiative && Array.isArray(state.initiative.list) && state.initiative.list.length > 0);
+      const activeEntry = combatActive ? state.initiative.list.find(e => e.id === state.initiative.activeId) : null;
+      t.classList.toggle('token-current-turn', !!(activeEntry && activeEntry.tokenId === tok.id));
       const barW = Math.max(28, Math.round(size * 0.82));
       const barTop = -Math.round(size * 0.16) - 6;
+      const enemyHpPrivate = !effectiveMaster() && !!tok.masterLocked;
+      let qualitativeHp = '';
+      if(enemyHpPrivate && combatActive){
+        const pct = Math.max(0, frac) * 100;
+        qualitativeHp = pct <= 0 ? 'Derrotado' : (pct <= 15 ? 'Muito ferido' : (pct <= 60 ? 'Ferido' : 'Intacto'));
+      }
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
       const condBadges = (tok.conditions || []).map(key => {
         const c = CONDITIONS.find(c => c.key === key);
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('');
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                    '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' +
+                    (combatActive && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
+                    (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
