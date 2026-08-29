@@ -1379,8 +1379,18 @@
           <button type="button" class="float-panel-close" data-close-panel="float-maps">✕</button>
         </div>
         <div class="float-panel-body">
-          <label class="file-btn" for="map-upload">Adicionar nova página de mapa</label>
+          <label class="file-btn" for="map-upload">Escolher imagem para novo mapa</label>
           <input type="file" id="map-upload" accept="image/*">
+          <div id="new-map-preview" style="display:none;">
+            <img id="new-map-preview-img" alt="Pré-visualização do novo mapa" style="width:100%; border-radius:4px; margin-top:8px; display:block;">
+            <button type="button" class="notes-toggle" id="new-map-access-toggle" style="margin-top:8px;">👥 Quem vê <span>▼</span></button>
+            <div id="new-map-access-list" style="display:none; background:#120e08; border:1px solid var(--line); border-top:none; border-radius:0 0 3px 3px; padding:6px 8px 8px;"></div>
+            <div class="hint">Nenhuma marca = visível para todo mundo assim que abrir.</div>
+            <div style="display:flex; gap:6px; margin-top:8px;">
+              <button type="button" id="btn-cancel-new-map" style="flex:1;">Cancelar</button>
+              <button type="button" id="btn-open-new-map" class="primary" style="flex:2;">Abrir mapa</button>
+            </div>
+          </div>
           <div id="page-history-list"></div>
           <div class="hint">Cada imagem enviada vira uma nova página no histórico — as anteriores continuam salvas. As fichas de personagem aparecem em todas as páginas por padrão; "Remover desta página" só as esconde ali, sem apagá-las das demais.</div>
         </div>
@@ -3034,6 +3044,7 @@
     const entry = state.journal.find(e => e.id === id);
     if(!entry) return;
     if(!effectiveMaster() && entry.author !== currentDisplayName()) return;
+    if(!confirm('Excluir esta entrada do diário? Essa ação não pode ser desfeita.')) return;
     state.journal = state.journal.filter(e => e.id !== id);
     lastJournalSnapshot = JSON.stringify({ list: state.journal });
     renderJournalList();
@@ -5084,7 +5095,11 @@
   }
 
   async function deleteTokenPermanently(id){
-    if(!confirm('Excluir esta ficha de todas as páginas permanentemente? Essa ação não pode ser desfeita com o botão de remover desta página.')) return;
+    const tok = state.tokens.find(t => t.id === id);
+    const message = tok && tok.isReference
+      ? 'Excluir esta imagem de referência permanentemente? Essa ação não pode ser desfeita.'
+      : 'Excluir esta ficha de todas as páginas permanentemente? Essa ação não pode ser desfeita com o botão de remover desta página.';
+    if(!confirm(message)) return;
     pushUndo();
     state.tokens = state.tokens.filter(t => t.id !== id);
     render();
@@ -5716,18 +5731,69 @@
     await safeSet(slotKey('meta'), state.meta);
   });
 
+  let pendingNewMapDataUrl = null;
+  let pendingNewMapAllowedPlayers = [];
+
   el('map-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
+    let dataUrl;
+    try{
+      dataUrl = await resizeImage(file, 1800, 0.82);
+    }catch(err){
+      alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+      e.target.value = '';
+      return;
+    }
+    pendingNewMapDataUrl = dataUrl;
+    pendingNewMapAllowedPlayers = [];
+    el('new-map-preview-img').src = dataUrl;
+    const players = knownPlayerNames();
+    el('new-map-access-list').innerHTML = players.length === 0
+      ? '<div class="hint">Nenhum jogador com ficha ainda — crie as fichas dos personagens primeiro.</div>'
+      : players.map(name =>
+          '<label class="checkbox-row"><input type="checkbox" data-new-map-access="'+escapeHtml(name)+'"><span>'+escapeHtml(name)+'</span></label>'
+        ).join('');
+    el('new-map-access-list').querySelectorAll('[data-new-map-access]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const name = inp.getAttribute('data-new-map-access');
+        if(inp.checked){
+          if(!pendingNewMapAllowedPlayers.includes(name)) pendingNewMapAllowedPlayers.push(name);
+        } else {
+          pendingNewMapAllowedPlayers = pendingNewMapAllowedPlayers.filter(n => n !== name);
+        }
+      });
+    });
+    el('new-map-access-list').style.display = 'none';
+    el('new-map-access-toggle').querySelector('span').textContent = '▼';
+    el('new-map-preview').style.display = 'block';
+  });
+
+  el('new-map-access-toggle').addEventListener('click', () => {
+    const list = el('new-map-access-list');
+    const isOpen = list.style.display !== 'none';
+    list.style.display = isOpen ? 'none' : 'block';
+    el('new-map-access-toggle').querySelector('span').textContent = isOpen ? '▼' : '▲';
+  });
+
+  function resetNewMapStaging(){
+    pendingNewMapDataUrl = null;
+    pendingNewMapAllowedPlayers = [];
+    el('new-map-preview').style.display = 'none';
+    el('map-upload').value = '';
+  }
+  el('btn-cancel-new-map').addEventListener('click', resetNewMapStaging);
+
+  el('btn-open-new-map').addEventListener('click', async () => {
+    if(!pendingNewMapDataUrl) return;
     pushUndo();
-    const dataUrl = await resizeImage(file, 1800, 0.82);
-    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers:[], map:{ image:dataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
+    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers: pendingNewMapAllowedPlayers.slice(), map:{ image:pendingNewMapDataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
     state.pages.push(page);
     state.currentPageId = page.id;
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
+    resetNewMapStaging();
     render();
     await Promise.all([ persistPageMap(page), persistPagesIndex() ]);
-    e.target.value = '';
     noteDailyUpload('map', '⚠️ Você já trocou de mapa 10 vezes hoje nessa campanha. Pode continuar — mas trocar de imagem com muita frequência consome dados rápido, principalmente se for só pra testar.');
   });
 
