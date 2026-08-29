@@ -766,7 +766,7 @@
   #draw-panel-close{ padding:4px 9px; font-size:12px; }
   #draw-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
 
-  /* Master-only: draw panel becomes a floating, draggable window instead of a slide-in drawer */
+  /* Drawing panel: floating and draggable for both master and players */
   #draw-panel.float-style{
     position:absolute; top:16px; left:80px; right:auto; bottom:auto; z-index:130;
     width:280px; max-width:90vw; max-height:80vh; max-height:80dvh;
@@ -1998,6 +1998,14 @@
     const me = (state.playerName||'').trim().toLowerCase();
     return page.allowedPlayers.some(name => (name||'').trim().toLowerCase() === me);
   }
+  function canPlayerDraw(page){
+    // The master is never restricted by per-player drawing permissions.
+    if(state.isMaster) return true;
+    if(!page) return true;
+    const blocked = Array.isArray(page.drawingBlockedPlayers) ? page.drawingBlockedPlayers : [];
+    const me = (state.playerName||'').trim().toLowerCase();
+    return !blocked.some(name => (name||'').trim().toLowerCase() === me);
+  }
   function knownPlayerNames(){
     const names = state.tokens
       .filter(t => !t.isReference && !t.masterLocked && (t.name||'').trim())
@@ -2215,8 +2223,25 @@
   });
 
   function openDrawPanel(){
-    el('draw-panel').classList.add('open');
-    el('draw-backdrop').classList.add('open');
+    const page = currentPage();
+    if(!canPlayerDraw(page)){
+      state.drawMode = false;
+      el('draw-panel').classList.remove('open');
+      el('draw-backdrop').classList.remove('open');
+      showToast('O mestre desativou a ferramenta de desenho para você nesta cena.');
+      render();
+      return;
+    }
+    const panel = el('draw-panel');
+    panel.classList.add('open');
+    // The drawing tool is a floating window for both master and players,
+    // so it must not create a modal backdrop that blocks the map.
+    if(panel.classList.contains('float-style')){
+      el('draw-backdrop').classList.remove('open');
+      bringFloatToFront(panel);
+    } else {
+      el('draw-backdrop').classList.add('open');
+    }
   }
   function closeDrawPanel(){
     el('draw-panel').classList.remove('open');
@@ -4017,7 +4042,7 @@
       if(textsRaw){ try{ texts = JSON.parse(textsRaw).list || []; }catch(e){} }
       if(gridRaw){ try{ grid = Object.assign(grid, JSON.parse(gridRaw)); }catch(e){} }
        grid.type = 'hex';
-      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], map, fog, draw, texts, grid };
+      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], drawingBlockedPlayers: stub.drawingBlockedPlayers || [], map, fog, draw, texts, grid };
     }));
     state.pages = pages;
     state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
@@ -4027,7 +4052,7 @@
 
   async function persistPagesIndex(){
     await safeSet(slotKey('pages-index'), {
-      list: state.pages.map(p => ({ id:p.id, name:p.name, allowedPlayers: p.allowedPlayers || [] })),
+      list: state.pages.map(p => ({ id:p.id, name:p.name, allowedPlayers: p.allowedPlayers || [], drawingBlockedPlayers: p.drawingBlockedPlayers || [] })),
       currentPageId: state.currentPageId
     });
   }
@@ -4215,8 +4240,15 @@
     el('btn-freeze-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('tokens-panel-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('music-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
-    el('draw-panel').classList.toggle('float-style', effectiveMaster());
-    el('draw-panel-toggle').style.display = effectiveMaster() ? 'none' : 'inline-block';
+    // Master and players use the same movable floating drawing window.
+    el('draw-panel').classList.add('float-style');
+    const drawingAllowedHere = canPlayerDraw(page);
+    el('draw-panel-toggle').style.display = effectiveMaster() ? 'none' : (drawingAllowedHere ? 'inline-block' : 'none');
+    if(!drawingAllowedHere && !state.isMaster){
+      state.drawMode = false;
+      el('draw-panel').classList.remove('open');
+      el('draw-backdrop').classList.remove('open');
+    }
     updateMusicIndicator();
     updateAmbientAudio();
     el('btn-freeze-toggle').textContent = state.meta.playersFrozen ? '🔒 Jogadores congelados' : '🔓 Jogadores atualizados';
@@ -4293,7 +4325,9 @@
     $list.innerHTML = state.pages.map(p => {
       const active = p.id === state.currentPageId;
       const isOpen = openPageAccessRows.has(p.id);
+      const drawAccessOpen = openPageAccessRows.has('draw:'+p.id);
       const restricted = p.allowedPlayers && p.allowedPlayers.length > 0;
+      const blockedDrawCount = (p.drawingBlockedPlayers || []).length;
       return (
         '<div class="page-row-wrap">' +
           '<div class="page-row' + (active ? ' active' : '') + '" data-page-select="'+p.id+'">' +
@@ -4311,6 +4345,18 @@
                   ).join('')
               ) +
               '<div class="hint">Nenhuma marca = visível para todo mundo.</div>' +
+            '</div>'
+          ) : '') +
+          '<button type="button" class="notes-toggle" data-page-draw-access-toggle="'+p.id+'">✏️ Quem pode desenhar'+(blockedDrawCount ? ' ('+(players.length-blockedDrawCount)+'/'+players.length+')' : '')+' <span>'+(drawAccessOpen ? '▲' : '▼')+'</span></button>' +
+          (drawAccessOpen ? (
+            '<div class="page-access-list">' +
+              (players.length === 0
+                ? '<div class="hint">Nenhum jogador com ficha ainda — crie as fichas dos personagens primeiro.</div>'
+                : players.map(name =>
+                    '<label class="checkbox-row"><input type="checkbox" data-page-draw-access="'+p.id+':'+escapeHtml(name)+'"'+(!(p.drawingBlockedPlayers||[]).includes(name) ? ' checked' : '')+'><span>'+escapeHtml(name)+'</span></label>'
+                  ).join('')
+              ) +
+              '<div class="hint">Desmarque um jogador para bloquear Desenho e os atalhos D/M apenas para ele nesta cena.</div>' +
             '</div>'
           ) : '') +
         '</div>'
@@ -4342,6 +4388,35 @@
         setPageAccess(pageId, name, inp.checked);
       });
     });
+    $list.querySelectorAll('[data-page-draw-access-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = 'draw:' + btn.getAttribute('data-page-draw-access-toggle');
+        if(openPageAccessRows.has(id)) openPageAccessRows.delete(id); else openPageAccessRows.add(id);
+        renderPageHistory();
+      });
+    });
+    $list.querySelectorAll('[data-page-draw-access]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const raw = inp.getAttribute('data-page-draw-access');
+        const idx = raw.indexOf(':');
+        const pageId = raw.slice(0, idx);
+        const name = raw.slice(idx + 1);
+        setPageDrawAccess(pageId, name, inp.checked);
+      });
+    });
+  }
+
+  async function setPageDrawAccess(pageId, name, allowed){
+    const page = state.pages.find(p => p.id === pageId);
+    if(!page) return;
+    if(!Array.isArray(page.drawingBlockedPlayers)) page.drawingBlockedPlayers = [];
+    if(allowed){
+      page.drawingBlockedPlayers = page.drawingBlockedPlayers.filter(n => n !== name);
+    } else {
+      if(!page.drawingBlockedPlayers.includes(name)) page.drawingBlockedPlayers.push(name);
+    }
+    render();
+    await persistPagesIndex();
   }
 
   async function setPageAccess(pageId, name, allowed){
@@ -6333,6 +6408,12 @@
       return;
     }
     if(state.drawMode){
+      if(!canPlayerDraw(currentPage())){
+        state.drawMode = false;
+        closeDrawPanel();
+        render();
+        return;
+      }
       startDrawPaint(e);
       return;
     }
@@ -6794,6 +6875,13 @@
     const canvas = document.getElementById('draw-canvas');
     const page = currentPage();
     if(!canvas || !page) return;
+    if(!canPlayerDraw(page)){
+      state.drawMode = false;
+      closeDrawPanel();
+      showToast('O mestre desativou a ferramenta de desenho para você nesta cena.');
+      render();
+      return;
+    }
     const pt = canvasPointFromEvent(e, canvas);
     if(!pt.inBounds) return;
     if(state.drawPaintMode === 'move'){
@@ -7117,15 +7205,108 @@
 
 
   // ---------- init ----------
-  document.addEventListener('keydown', (e) => {
-    if(e.key === 'Escape' && document.activeElement && typeof document.activeElement.blur === 'function'){
-      document.activeElement.blur();
-    }
-    if(e.key === 'Escape' && (state.drawMode || state.fogMode || state.pingArmed)){
+  // ---------- keyboard shortcuts ----------
+  function keyboardShortcutTypingTarget(target){
+    if(!target) return false;
+    return !!target.closest('input, textarea, select, [contenteditable=\"true\"]');
+  }
+
+  function closeOpenToolPanels(){
+    closeAllFloatPanels();
+    closeDrawPanel();
+    closeTokensPanel();
+    closeInitiativePanel();
+    ['dice','journal','music','send','my-sheet'].forEach(name => {
+      const panel = el(name+'-panel');
+      const backdrop = el(name+'-backdrop');
+      if(panel) panel.classList.remove('open');
+      if(backdrop) backdrop.classList.remove('open');
+    });
+  }
+
+  document.addEventListener('keydown', async (e) => {
+    const key = e.key.toLowerCase();
+    const typing = keyboardShortcutTypingTarget(e.target);
+
+    if(e.key === 'Escape'){
+      if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
       state.drawMode = false;
       state.fogMode = false;
       state.pingArmed = false;
+      state.measureArmed = false;
+      closeOpenToolPanels();
       render();
+      return;
+    }
+
+    // Never fire letter/Delete shortcuts while the user is typing in a field.
+    if(typing || e.ctrlKey || e.metaKey || e.altKey) return;
+    if(!state.currentSlot) return;
+
+    if(key === 'n'){
+      // Fog is a master-only tool.
+      if(!effectiveMaster()) return;
+      e.preventDefault();
+      openFloatPanel('float-fog');
+      state.fogMode = true;
+      state.drawMode = false;
+      render();
+      return;
+    }
+
+    if(key === 'd'){
+      if(!canPlayerDraw(currentPage())){
+        e.preventDefault();
+        showToast('O mestre desativou a ferramenta de desenho para você nesta cena.');
+        return;
+      }
+      e.preventDefault();
+      openDrawPanel();
+      state.drawMode = true;
+      state.fogMode = false;
+      state.drawPaintMode = 'pen';
+      render();
+      return;
+    }
+
+    if(key === 'm'){
+      if(!canPlayerDraw(currentPage())){
+        e.preventDefault();
+        showToast('O mestre desativou a ferramenta de desenho para você nesta cena.');
+        return;
+      }
+      e.preventDefault();
+      openDrawPanel();
+      state.drawMode = true;
+      state.fogMode = false;
+      state.drawPaintMode = 'move';
+      render();
+      return;
+    }
+
+    if(key === 'i'){
+      e.preventDefault();
+      openInitiativePanel();
+      return;
+    }
+
+    if(key === 't'){
+      e.preventDefault();
+      // The full token manager is master-only; players keep their own-sheet permissions.
+      if(effectiveMaster()) openTokensPanel();
+      else openMySheet();
+      return;
+    }
+
+    if(e.key === 'Delete' && state.selectedTokenId){
+      const tok = state.tokens.find(t => t.id === state.selectedTokenId);
+      if(!tok || !canInteractWithToken(tok)) return;
+      e.preventDefault();
+      const id = tok.id;
+      state.selectedTokenId = null;
+      // Delete removes the selected element from the CURRENT map. Permanent deletion
+      // remains available from the token manager, avoiding accidental data loss.
+      await removeTokenFromPage(id);
     }
   });
   document.addEventListener('click', (e) => {
