@@ -706,6 +706,17 @@
   .initiative-entry .initiative-remove{ padding:3px 7px; font-size:9px; flex-shrink:0; }
   .initiative-turn-tag{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--amber-bright); letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
 
+  #combat-history-wrap{ border-top:1px solid var(--line); padding-top:12px; margin-top:4px; }
+  #combat-history-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  #combat-history-header h3{ margin:0; font-family:'Cinzel',serif; font-size:13px; color:var(--amber-bright); letter-spacing:.6px; }
+  #combat-history-header button{ padding:4px 8px; font-size:9px; }
+  #combat-history-list{ display:flex; flex-direction:column; gap:9px; max-height:300px; overflow-y:auto; }
+  .combat-history-turn{ border:1px solid var(--line); border-radius:5px; background:#120e08; overflow:hidden; }
+  .combat-history-turn-head{ padding:7px 9px; background:#1a1309; border-bottom:1px solid var(--line); font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--amber-bright); }
+  .combat-history-change{ padding:6px 9px; border-top:1px dashed rgba(61,47,28,.75); font-size:13px; line-height:1.35; color:var(--parchment); }
+  .combat-history-change:first-child{ border-top:none; }
+  .combat-history-time{ float:right; color:var(--parchment-dim); font-family:'JetBrains Mono',monospace; font-size:9px; margin-left:8px; }
+
   /* Campaign journal (same drawer pattern; open to master AND players) */
   #journal-backdrop{
     display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
@@ -1724,6 +1735,13 @@
         </div>
         <button type="button" id="btn-pass-turn" class="primary" style="display:none;">PASSAR VEZ →</button>
         <div id="initiative-list"></div>
+        <div id="combat-history-wrap">
+          <div id="combat-history-header">
+            <h3>Histórico de combate</h3>
+            <button type="button" id="btn-combat-history-clear" class="danger" style="display:none;">Limpar histórico</button>
+          </div>
+          <div id="combat-history-list"><div class="hint">Nenhuma alteração registrada em combate.</div></div>
+        </div>
       </div>
     </div>
 
@@ -1950,7 +1968,8 @@
     pingArmed:false,
     measureArmed:false,
     measureDrag:null,
-    initiative:{ list:[], activeId:null, round:1 },
+    initiative:{ list:[], activeId:null, round:1, turnSeq:0, combatId:null },
+    combatHistory:[],
     journal:[],
     undoStack:[],
     redoStack:[],
@@ -2017,6 +2036,7 @@
   const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
   let lastDiceLogSnapshot = '';
   let lastInitiativeSnapshot = '';
+  let lastCombatHistorySnapshot = '';
   let lastJournalSnapshot = '';
   let openNotesTokens = new Set();
   let openTokenCards = new Set();
@@ -2896,6 +2916,82 @@
     }).join('');
   }
 
+  // ---------- combat history ----------
+  function combatPoolLabel(key){
+    return ({ intellect:'Intelecto', might:'Potência', speed:'Velocidade' })[key] || key;
+  }
+
+  function formatCombatHistoryTime(ts){
+    const d = new Date(ts || Date.now());
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+
+  async function appendCombatHistory(token, text, kind){
+    const active = activeInitiativeEntry();
+    if(!active || !state.initiative.list.length || !text) return;
+    const entry = {
+      id:newId('ch'), ts:Date.now(),
+      combatId:state.initiative.combatId || 'legacy-combat',
+      round:state.initiative.round || 1,
+      turnSeq:state.initiative.turnSeq || 1,
+      activeEntryId:active.id,
+      activeTokenId:active.tokenId,
+      activeName:active.name || 'Turno',
+      targetTokenId:token ? token.id : null,
+      targetName:token ? token.name : '',
+      actor:state.isMaster ? 'Mestre' : (state.playerName || 'Jogador'),
+      kind:kind || 'change', text
+    };
+    let list = [];
+    const raw = await safeGet(slotKey('combat-history'));
+    if(raw){ try{ list = JSON.parse(raw).list || []; }catch(e){} }
+    list.push(entry);
+    if(list.length > 600) list = list.slice(list.length - 600);
+    state.combatHistory = list;
+    const payload = JSON.stringify({list});
+    lastCombatHistorySnapshot = payload;
+    renderCombatHistory();
+    await safeSet(slotKey('combat-history'), {list});
+  }
+
+  function renderCombatHistory(){
+    const root = el('combat-history-list');
+    const clearBtn = el('btn-combat-history-clear');
+    if(!root) return;
+    if(clearBtn) clearBtn.style.display = effectiveMaster() && state.combatHistory.length ? 'block' : 'none';
+    if(!state.combatHistory.length){
+      root.innerHTML = '<div class="hint">Nenhuma alteração registrada em combate.</div>';
+      return;
+    }
+    const groups = [];
+    const map = new Map();
+    state.combatHistory.forEach(item => {
+      const key = (item.combatId||'legacy')+'|'+(item.turnSeq||0)+'|'+(item.round||1)+'|'+(item.activeEntryId||item.activeName||'turn');
+      if(!map.has(key)){
+        const g = { key, combatId:item.combatId, round:item.round||1, turnSeq:item.turnSeq||0, activeName:item.activeName||'Turno', ts:item.ts, items:[] };
+        map.set(key,g); groups.push(g);
+      }
+      map.get(key).items.push(item);
+    });
+    root.innerHTML = groups.slice().reverse().map(g =>
+      '<div class="combat-history-turn">' +
+        '<div class="combat-history-turn-head">Rodada '+g.round+' · vez de '+escapeHtml(g.activeName)+'</div>' +
+        '<div>' + g.items.map(item =>
+          '<div class="combat-history-change"><span class="combat-history-time">'+formatCombatHistoryTime(item.ts)+'</span>'+escapeHtml(item.text)+'</div>'
+        ).join('') + '</div>' +
+      '</div>'
+    ).join('');
+  }
+
+  async function clearCombatHistory(){
+    if(!effectiveMaster()) return;
+    if(state.combatHistory.length && !confirm('Limpar todo o histórico de combate desta campanha?')) return;
+    state.combatHistory = [];
+    lastCombatHistorySnapshot = JSON.stringify({list:[]});
+    renderCombatHistory();
+    await safeSet(slotKey('combat-history'), {list:[]});
+  }
+
   // ---------- initiative tracker ----------
   async function persistInitiative(){
     await safeSet(slotKey('initiative'), state.initiative);
@@ -2969,6 +3065,7 @@
 
   function renderInitiativeList(){
     el('initiative-round').textContent = state.initiative.round;
+    renderCombatHistory();
     updatePassTurnButton();
     el('initiative-master-controls').style.display = effectiveMaster() ? 'block' : 'none';
     if(effectiveMaster()){
@@ -3006,8 +3103,13 @@
     const tok = state.tokens.find(t => t.id === tokenId);
     if(!tok) return;
     const entry = { id:newId('i'), tokenId:tok.id, name:tok.name, image:tok.image, score:score||0 };
+    const wasEmpty = state.initiative.list.length === 0;
     state.initiative.list.push(entry);
-    if(!state.initiative.activeId) state.initiative.activeId = entry.id;
+    if(!state.initiative.activeId){
+      state.initiative.activeId = entry.id;
+      state.initiative.turnSeq = 1;
+      if(wasEmpty) state.initiative.combatId = newId('combat');
+    }
     renderInitiativeList();
     renderInitiativeHud();
     renderTokens();
@@ -3041,6 +3143,7 @@
     idx = (idx + 1) % sorted.length;
     if(idx === 0) state.initiative.round = (state.initiative.round || 1) + 1;
     state.initiative.activeId = sorted[idx].id;
+    state.initiative.turnSeq = (state.initiative.turnSeq || 0) + 1;
     renderInitiativeList();
     renderInitiativeHud();
     renderTokens();
@@ -3049,7 +3152,7 @@
 
   async function clearInitiative(){
     if(state.initiative.list.length && !confirm('Encerrar o combate e limpar a iniciativa?')) return;
-    state.initiative = { list:[], activeId:null, round:1 };
+    state.initiative = { list:[], activeId:null, round:1, turnSeq:0, combatId:null };
     renderInitiativeList();
     renderInitiativeHud();
     renderTokens();
@@ -3066,6 +3169,7 @@
     el('initiative-backdrop').classList.remove('open');
   }
   el('initiative-toggle').addEventListener('click', openInitiativePanel);
+  el('btn-combat-history-clear').addEventListener('click', clearCombatHistory);
   let hudUserPositioned = false;
   let userZoomedManually = false;
 
@@ -3706,7 +3810,7 @@
     state.pingArmed = false;
     state.measureArmed = false;
     state.measureDrag = null;
-    state.initiative = { list:[], activeId:null, round:1 };
+    state.initiative = { list:[], activeId:null, round:1, turnSeq:0, combatId:null };
     state.journal = [];
     state.sends = [];
     state.sendImage = null;
@@ -3733,6 +3837,7 @@
     openPageAccessRows = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
+    lastCombatHistorySnapshot = '';
     lastJournalSnapshot = '';
     el('dice-panel').classList.remove('open');
     el('dice-backdrop').classList.remove('open');
@@ -4004,13 +4109,16 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state'))
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, combatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; lastSeenRollId = state.diceRolls[0] ? state.diceRolls[0].id : 'NONE'; }catch(e){} }
     if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
+    if(!state.initiative.turnSeq) state.initiative.turnSeq = state.initiative.activeId ? 1 : 0;
+    if(!('combatId' in state.initiative)) state.initiative.combatId = state.initiative.list.length ? 'legacy-combat' : null;
+    if(combatHistoryRaw){ try{ state.combatHistory = JSON.parse(combatHistoryRaw).list || []; lastCombatHistorySnapshot = combatHistoryRaw; }catch(e){} }
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
     if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
     if(musicTracksRaw){ try{ state.musicTracks = JSON.parse(musicTracksRaw).list || []; lastMusicTracksSnapshot = musicTracksRaw; }catch(e){} }
@@ -5397,6 +5505,8 @@
     if(!tok.hp) tok.hp = { current:10, max:10, temp:0 };
     if(typeof tok.hp.temp !== 'number') tok.hp.temp = 0;
     const beforePct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
+    const beforeHpCurrent = tok.hp.current;
+    const beforeTempHp = tok.hp.temp;
     if(delta < 0){
       let dmg = -delta;
       if(tok.hp.temp > 0){
@@ -5409,6 +5519,15 @@
       tok.hp.current = Math.min(tok.hp.max, tok.hp.current + delta);
     }
     const afterPct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
+    const hpChange = tok.hp.current - beforeHpCurrent;
+    const tempChange = tok.hp.temp - beforeTempHp;
+    if(tempChange) await appendCombatHistory(tok, tok.name + (tempChange > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(tempChange) + ' de HP temporário.', 'hp-temp');
+    if(hpChange) await appendCombatHistory(tok, tok.name + (hpChange > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(hpChange) + ' de HP.', 'hp');
+    // Registra separadamente quando o personagem/inimigo cruza o limiar de 0 HP durante este turno.
+    // Mesmo que o dano leve o valor para abaixo de zero, o evento relevante continua sendo que o HP zerou.
+    if(beforeHpCurrent > 0 && tok.hp.current <= 0){
+      await appendCombatHistory(tok, 'O HP de ' + tok.name + ' zerou.', 'hp-zero');
+    }
     if([0.2, 0.1, 0].some(threshold => beforePct > threshold && afterPct <= threshold)){
       maybePlayDamageMarkerSound(tok);
     }
@@ -5424,7 +5543,10 @@
     if(temp > 999) temp = 999;
     pushUndo();
     if(!tok.hp) tok.hp = { current:10, max:10, temp:0 };
+    const before = tok.hp.temp || 0;
     tok.hp.temp = temp;
+    const diff = tok.hp.temp - before;
+    if(diff) await appendCombatHistory(tok, tok.name + (diff > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(diff) + ' de HP temporário.', 'hp-temp');
     render();
     await persistTokens();
   }
@@ -5457,8 +5579,16 @@
     if(!tok.pools[poolKey]) tok.pools[poolKey] = { current:10, max:10 };
     const pool = tok.pools[poolKey];
     const before = pool.current;
+    const beforeDamageTrack = tok.damageTrack || 0;
     pool.current = Math.max(0, Math.min(pool.max, pool.current + delta));
-    if(before > 0 && pool.current === 0) advanceDamageTrackIfNeeded(tok);
+    const actual = pool.current - before;
+    if(actual) await appendCombatHistory(tok, tok.name + (actual > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(actual) + ' de ' + combatPoolLabel(poolKey) + '.', 'pool');
+    if(before > 0 && pool.current === 0){
+      await appendCombatHistory(tok, 'A ' + combatPoolLabel(poolKey) + ' de ' + tok.name + ' chegou a 0.', 'pool-zero');
+      advanceDamageTrackIfNeeded(tok);
+    }
+    const afterDamageTrack = tok.damageTrack || 0;
+    if(afterDamageTrack !== beforeDamageTrack) await appendCombatHistory(tok, 'Estado de dano de ' + tok.name + ' mudou de ' + DAMAGE_TRACK[beforeDamageTrack].label + ' para ' + DAMAGE_TRACK[afterDamageTrack].label + '.', 'damage-track');
     render();
     await persistTokens();
   }
@@ -5472,8 +5602,17 @@
     pushUndo();
     if(!tok.pools) tok.pools = {};
     if(!tok.pools[poolKey]) tok.pools[poolKey] = { current:max, max:max };
+    const beforeMax = tok.pools[poolKey].max;
+    const beforeCurrent = tok.pools[poolKey].current;
     tok.pools[poolKey].max = max;
     tok.pools[poolKey].current = Math.min(tok.pools[poolKey].current, max);
+    if(beforeMax !== max) await appendCombatHistory(tok, 'Máximo de ' + combatPoolLabel(poolKey) + ' de ' + tok.name + ' mudou de ' + beforeMax + ' para ' + max + '.', 'pool-max');
+    if(tok.pools[poolKey].current !== beforeCurrent){
+      await appendCombatHistory(tok, tok.name + ' perdeu ' + (beforeCurrent - tok.pools[poolKey].current) + ' de ' + combatPoolLabel(poolKey) + ' pelo ajuste do máximo.', 'pool');
+      if(beforeCurrent > 0 && tok.pools[poolKey].current === 0){
+        await appendCombatHistory(tok, 'A ' + combatPoolLabel(poolKey) + ' de ' + tok.name + ' chegou a 0.', 'pool-zero');
+      }
+    }
     render();
     await persistTokens();
   }
@@ -5582,6 +5721,7 @@
     const previous = tok.damageTrack || 0;
     const next = Math.max(0, Math.min(DAMAGE_TRACK.length - 1, idx));
     tok.damageTrack = next;
+    if(next !== previous) await appendCombatHistory(tok, 'Estado de dano de ' + tok.name + ' mudou de ' + DAMAGE_TRACK[previous].label + ' para ' + DAMAGE_TRACK[next].label + '.', 'damage-track');
     if(next > previous) maybePlayDamageMarkerSound(tok);
     render();
     await persistTokens();
@@ -5662,6 +5802,8 @@
     pushUndo();
     const current = tok.xp || 0;
     tok.xp = Math.max(0, Math.min(999, current + delta));
+    const actual = tok.xp - current;
+    if(actual) await appendCombatHistory(tok, tok.name + (actual > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(actual) + ' XP.', 'xp');
     render();
     await persistTokens();
   }
@@ -5673,7 +5815,10 @@
     if(isNaN(xp) || xp < 0) xp = 0;
     if(xp > 999) xp = 999;
     pushUndo();
+    const before = tok.xp || 0;
     tok.xp = xp;
+    const actual = tok.xp - before;
+    if(actual) await appendCombatHistory(tok, tok.name + (actual > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(actual) + ' XP.', 'xp');
     render();
     await persistTokens();
   }
@@ -5730,8 +5875,12 @@
     let max = parseInt(value, 10);
     if(isNaN(max) || max < 1) max = 1;
     if(!tok.hp) tok.hp = { current:max, max:max };
+    const beforeMax = tok.hp.max;
+    const beforeCurrent = tok.hp.current;
     tok.hp.max = max;
     tok.hp.current = Math.min(tok.hp.current, max);
+    if(beforeMax !== max) await appendCombatHistory(tok, 'HP máximo de ' + tok.name + ' mudou de ' + beforeMax + ' para ' + max + '.', 'hp-max');
+    if(tok.hp.current !== beforeCurrent) await appendCombatHistory(tok, tok.name + ' perdeu ' + (beforeCurrent - tok.hp.current) + ' de HP pelo ajuste do máximo.', 'hp');
     render();
     await persistTokens();
   }
@@ -7133,6 +7282,11 @@
       if(!raw || raw === lastInitiativeSnapshot) return;
       lastInitiativeSnapshot = raw;
       try{ state.initiative = JSON.parse(raw); render(); }catch(e){}
+    });
+    watchKey(slotKey('combat-history'), (raw) => {
+      if(!raw || raw === lastCombatHistorySnapshot) return;
+      lastCombatHistorySnapshot = raw;
+      try{ state.combatHistory = JSON.parse(raw).list || []; renderCombatHistory(); }catch(e){}
     });
 
     watchKey(slotKey('journal'), (raw) => {
