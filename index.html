@@ -410,6 +410,9 @@
     display:flex; align-items:center; gap:8px; padding:8px; border-radius:3px;
     border:1px solid var(--line); background:#120e08; cursor:pointer;
   }
+  .page-row-wrap{ margin-bottom:6px; }
+  .page-access-list{ background:#120e08; border:1px solid var(--line); border-top:none; border-radius:0 0 3px 3px; padding:6px 8px 8px; }
+  .page-access-list .hint{ font-size:11px; margin:2px 0 4px; }
   .page-row:hover{ border-color:var(--amber); }
   .page-row.active{ border-color:var(--amber-bright); background:#1c1509; }
   .page-row input[type=text]{ flex:0 1 62%; min-width:70px; font-size:13px; padding:5px 7px; background:transparent; border:1px solid transparent; }
@@ -430,6 +433,8 @@
   /* Fog panel */
   .fog-mode-row{ display:flex; gap:6px; margin-top:8px; }
   .fog-mode-row button{ flex:1; }
+  #draw-shape-row button{ font-size:11px; padding:6px 4px; }
+  #draw-mode-row button{ font-size:11px; padding:6px 4px; }
   #fog-brush-row{ display:flex; align-items:center; gap:8px; margin-top:10px; }
   #fog-brush-row label{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; white-space:nowrap;}
   #fog-brush-row input[type=range]{ flex:1; accent-color:var(--amber); }
@@ -516,6 +521,11 @@
     text-align:center; letter-spacing:1px; padding:40px;
   }
   #empty-map small{ display:block; margin-top:10px; font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0; }
+  #scene-blocked{
+    color:var(--parchment-dim); font-family:'Cinzel', serif; font-size:16px;
+    text-align:center; letter-spacing:1px; padding:40px;
+  }
+  #scene-blocked small{ display:block; margin-top:10px; font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:0; }
 
   .token{
     position:absolute; width:64px; height:64px; margin:-32px 0 0 -32px;
@@ -1550,9 +1560,19 @@
       </div>
       <div id="draw-panel-body">
         <button id="btn-draw-toggle" class="primary" style="width:100%;">Ativar modo desenho</button>
-        <div class="fog-mode-row">
+        <div class="fog-mode-row" id="draw-mode-row">
           <button id="btn-draw-pen" class="toggle-active">Desenhar</button>
+          <button id="btn-draw-move">Mover forma</button>
           <button id="btn-draw-erase">Apagar</button>
+        </div>
+        <div class="fog-mode-row" id="draw-shape-row">
+          <button type="button" id="btn-shape-freehand" class="toggle-active" title="Traço livre">✏️ Livre</button>
+          <button type="button" id="btn-shape-line" title="Linha reta">📏 Linha</button>
+          <button type="button" id="btn-shape-circle" title="Círculo">⭕ Círculo</button>
+        </div>
+        <div class="fog-mode-row">
+          <button type="button" id="btn-shape-rect" title="Retângulo">▭ Retângulo</button>
+          <button type="button" id="btn-shape-cone" title="Cone">🔺 Cone</button>
         </div>
         <div id="fog-brush-row">
           <label for="draw-brush">Pincel</label>
@@ -1572,6 +1592,7 @@
           <input type="color" id="draw-color-picker" value="#e2a53f" title="Cor personalizada">
         </div>
         <div class="hint" id="draw-erase-hint">No modo "Apagar", você só remove os próprios traços — os de outras pessoas ficam intactos.</div>
+        <div class="hint" id="draw-move-hint">No modo "Mover forma", clique numa forma geométrica (linha, círculo, retângulo ou cone) e arraste — o traço livre não pode ser movido. Você só move as próprias formas.</div>
         <button id="btn-draw-clear-mine" class="danger" style="width:100%; margin-top:4px;">Apagar todos os meus traços nesta página</button>
         <button id="btn-draw-clear-all" class="danger" style="width:100%; margin-top:4px; display:none;">Apagar TODO o desenho desta página (qualquer autor)</button>
       </div>
@@ -1855,6 +1876,7 @@
     fogStroke:null,
     drawMode:false,
     drawPaintMode:'pen',
+    drawShape:'freehand',
     drawBrush:10,
     drawColor:'#e2a53f',
     drawOpacity:100,
@@ -1881,11 +1903,13 @@
   let activeListeners = [];
   let pageListeners = [];
   let listenersForPageId = undefined;
+  let openPageAccessRows = new Set();
   let pendingTokensRaw = null;
   let pendingPageUpdates = {};
   let pendingSlot = null;
 
   const el = id => document.getElementById(id);
+  const SHAPE_BUTTONS = { freehand:'btn-shape-freehand', line:'btn-shape-line', circle:'btn-shape-circle', rect:'btn-shape-rect', cone:'btn-shape-cone' };
   const $portalScreen = el('portal-screen');
   const $appScreen = el('app-screen');
   const $iconRail = el('icon-rail');
@@ -1907,6 +1931,18 @@
     return (tok.name||'').trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
   }
   function canResizeToken(tok){ return effectiveMaster() || (!tok.isReference && !tok.masterLocked && isOwnToken(tok)); }
+  function canPlayerSeePage(page){
+    if(!page) return true;
+    if(!page.allowedPlayers || page.allowedPlayers.length === 0) return true;
+    const me = (state.playerName||'').trim().toLowerCase();
+    return page.allowedPlayers.some(name => (name||'').trim().toLowerCase() === me);
+  }
+  function knownPlayerNames(){
+    const names = state.tokens
+      .filter(t => !t.isReference && !t.masterLocked && (t.name||'').trim())
+      .map(t => t.name.trim());
+    return [...new Set(names)];
+  }
 
   // ---------- dice roller (available to master and players alike) ----------
   const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
@@ -3041,6 +3077,16 @@
       phraseAndDamageMarkup(tok) +
       lifeBlockMarkup(tok) +
       numeneraExtrasMarkup(tok) +
+      (tok.statSystem !== 'numenera' ? (
+        '<div class="token-row-hp">' +
+          '<span class="row-label">Mana</span>' +
+          '<button type="button" data-mana-minus="'+tok.id+'">−</button>' +
+          '<span class="hp-value">'+((tok.mana&&tok.mana.current)||0)+' / '+((tok.mana&&tok.mana.max)||0)+'</span>' +
+          '<button type="button" data-mana-plus="'+tok.id+'">+</button>' +
+          '<span class="hp-max-label">Máx.</span>' +
+          '<input type="number" class="hp-max-input" min="0" max="999" value="'+((tok.mana&&tok.mana.max)||0)+'" data-mana-max="'+tok.id+'">' +
+        '</div>'
+      ) : '') +
       '<div class="token-row-hp">' +
         '<span class="row-label">XP</span>' +
         '<button type="button" data-xp-minus="'+tok.id+'">−</button>' +
@@ -3457,6 +3503,7 @@
     openRecoveriesTokens = new Set();
     openAdvancementTokens = new Set();
     collapsedStatsTokens = new Set();
+    openPageAccessRows = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
     lastJournalSnapshot = '';
@@ -3760,7 +3807,7 @@
       if(drawRaw){ try{ draw = JSON.parse(drawRaw); }catch(e){} }
       if(textsRaw){ try{ texts = JSON.parse(textsRaw).list || []; }catch(e){} }
       if(gridRaw){ try{ grid = Object.assign(grid, JSON.parse(gridRaw)); }catch(e){} }
-      return { id: stub.id, name: stub.name, map, fog, draw, texts, grid };
+      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], map, fog, draw, texts, grid };
     }));
     state.pages = pages;
     state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
@@ -3770,7 +3817,7 @@
 
   async function persistPagesIndex(){
     await safeSet(slotKey('pages-index'), {
-      list: state.pages.map(p => ({ id:p.id, name:p.name })),
+      list: state.pages.map(p => ({ id:p.id, name:p.name, allowedPlayers: p.allowedPlayers || [] })),
       currentPageId: state.currentPageId
     });
   }
@@ -3909,7 +3956,13 @@
     }
 
     const page = currentPage();
-    if(page && page.map.image){
+    const blockedFromScene = page && !effectiveMaster() && !canPlayerSeePage(page);
+    if(blockedFromScene){
+      if(!document.getElementById('scene-blocked')){
+        $canvas.style.aspectRatio = '';
+        $canvas.innerHTML = '<div id="scene-blocked">✦ Você não está nesta cena agora ✦<small>Aguarde o mestre trazer você de volta ao mapa.</small></div>';
+      }
+    } else if(page && page.map.image){
       const existingImg = document.getElementById('map-img');
       if(!existingImg || existingImg.src !== page.map.image){
         $canvas.innerHTML = '<img id="map-img" src="'+page.map.image+'" alt="Mapa de combate" draggable="false">';
@@ -3926,11 +3979,13 @@
         $canvas.innerHTML = '<div id="empty-map">✦ Nenhum mapa carregado ainda ✦<small>Entre como mestre para enviar a imagem do mapa de combate</small></div>';
       }
     }
-    setupGridOverlay();
-    setupDrawCanvas();
-    renderTokens();
-    renderTexts();
-    setupFogCanvas();
+    if(!blockedFromScene){
+      setupGridOverlay();
+      setupDrawCanvas();
+      renderTokens();
+      renderTexts();
+      setupFogCanvas();
+    }
     renderTokenList();
     renderTextList();
     renderPageHistory();
@@ -3985,7 +4040,11 @@
     el('btn-draw-toggle').textContent = state.drawMode ? 'Desativar modo desenho' : 'Ativar modo desenho';
     el('btn-draw-toggle').classList.toggle('toggle-active', state.drawMode);
     el('btn-draw-pen').classList.toggle('toggle-active', state.drawPaintMode === 'pen');
+    el('btn-draw-move').classList.toggle('toggle-active', state.drawPaintMode === 'move');
     el('btn-draw-erase').classList.toggle('toggle-active', state.drawPaintMode === 'erase');
+    Object.keys(SHAPE_BUTTONS).forEach(shape => {
+      el(SHAPE_BUTTONS[shape]).classList.toggle('toggle-active', state.drawShape === shape);
+    });
     el('draw-brush').value = state.drawBrush;
     el('draw-opacity').value = state.drawOpacity;
     document.querySelectorAll('.draw-swatch').forEach(sw => {
@@ -3993,6 +4052,7 @@
     });
     el('draw-color-picker').value = state.drawColor;
     el('draw-erase-hint').style.display = state.drawPaintMode === 'erase' ? 'block' : 'none';
+    el('draw-move-hint').style.display = state.drawPaintMode === 'move' ? 'block' : 'none';
     el('btn-draw-clear-all').style.display = effectiveMaster() ? 'block' : 'none';
 
     const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f' };
@@ -4019,13 +4079,30 @@
       $list.innerHTML = '<div class="hint">Nenhuma página ainda. Envie a primeira imagem de mapa acima.</div>';
       return;
     }
+    const players = knownPlayerNames();
     $list.innerHTML = state.pages.map(p => {
       const active = p.id === state.currentPageId;
+      const isOpen = openPageAccessRows.has(p.id);
+      const restricted = p.allowedPlayers && p.allowedPlayers.length > 0;
       return (
-        '<div class="page-row' + (active ? ' active' : '') + '" data-page-select="'+p.id+'">' +
-          '<input type="text" value="'+escapeHtml(p.name)+'" data-page-rename="'+p.id+'">' +
-          (active ? '<span class="page-active-tag">Atual</span>' : '') +
-          '<button class="danger" data-page-delete="'+p.id+'">Excluir</button>' +
+        '<div class="page-row-wrap">' +
+          '<div class="page-row' + (active ? ' active' : '') + '" data-page-select="'+p.id+'">' +
+            '<input type="text" value="'+escapeHtml(p.name)+'" data-page-rename="'+p.id+'">' +
+            (active ? '<span class="page-active-tag">Atual</span>' : '') +
+            '<button class="danger" data-page-delete="'+p.id+'">Excluir</button>' +
+          '</div>' +
+          '<button type="button" class="notes-toggle" data-page-access-toggle="'+p.id+'">👥 Quem vê'+(restricted ? ' ('+p.allowedPlayers.length+')' : '')+' <span>'+(isOpen ? '▲' : '▼')+'</span></button>' +
+          (isOpen ? (
+            '<div class="page-access-list">' +
+              (players.length === 0
+                ? '<div class="hint">Nenhum jogador com ficha ainda — crie as fichas dos personagens primeiro.</div>'
+                : players.map(name =>
+                    '<label class="checkbox-row"><input type="checkbox" data-page-access="'+p.id+':'+escapeHtml(name)+'"'+((p.allowedPlayers||[]).includes(name) ? ' checked' : '')+'><span>'+escapeHtml(name)+'</span></label>'
+                  ).join('')
+              ) +
+              '<div class="hint">Nenhuma marca = visível para todo mundo.</div>' +
+            '</div>'
+          ) : '') +
         '</div>'
       );
     }).join('');
@@ -4042,6 +4119,32 @@
     $list.querySelectorAll('[data-page-delete]').forEach(btn => {
       btn.addEventListener('click', (e) => { e.stopPropagation(); deletePage(btn.getAttribute('data-page-delete')); });
     });
+    $list.querySelectorAll('[data-page-access-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-page-access-toggle');
+        if(openPageAccessRows.has(id)) openPageAccessRows.delete(id); else openPageAccessRows.add(id);
+        renderPageHistory();
+      });
+    });
+    $list.querySelectorAll('[data-page-access]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const [pageId, name] = inp.getAttribute('data-page-access').split(':');
+        setPageAccess(pageId, name, inp.checked);
+      });
+    });
+  }
+
+  async function setPageAccess(pageId, name, allowed){
+    const page = state.pages.find(p => p.id === pageId);
+    if(!page) return;
+    if(!page.allowedPlayers) page.allowedPlayers = [];
+    if(allowed){
+      if(!page.allowedPlayers.includes(name)) page.allowedPlayers.push(name);
+    } else {
+      page.allowedPlayers = page.allowedPlayers.filter(n => n !== name);
+    }
+    render();
+    await persistPagesIndex();
   }
 
   async function setActivePage(id){
@@ -4289,7 +4392,7 @@
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('');
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                    '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(frac*100)+'%; background:'+hpCol+';"></div></div>' +
+                    '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' +
                     '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
@@ -4612,6 +4715,15 @@
     $root.querySelectorAll('[data-xp-input]').forEach(inp=>{
       inp.addEventListener('change', () => setXp(inp.getAttribute('data-xp-input'), inp.value));
     });
+    $root.querySelectorAll('[data-mana-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustMana(btn.getAttribute('data-mana-minus'), -1));
+    });
+    $root.querySelectorAll('[data-mana-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustMana(btn.getAttribute('data-mana-plus'), 1));
+    });
+    $root.querySelectorAll('[data-mana-max]').forEach(inp=>{
+      inp.addEventListener('change', () => setManaMax(inp.getAttribute('data-mana-max'), inp.value));
+    });
     $root.querySelectorAll('[data-condition]').forEach(btn=>{
       btn.addEventListener('click', () => {
         const [id, key] = btn.getAttribute('data-condition').split(':');
@@ -4646,6 +4758,16 @@
           '</div>' +
           lifeBlockMarkup(tok) +
           numeneraExtrasMarkup(tok) +
+          (tok.statSystem !== 'numenera' ? (
+            '<div class="token-row-hp">' +
+              '<span class="row-label">Mana</span>' +
+              '<button type="button" data-mana-minus="'+tok.id+'">−</button>' +
+              '<span class="hp-value">'+((tok.mana&&tok.mana.current)||0)+' / '+((tok.mana&&tok.mana.max)||0)+'</span>' +
+              '<button type="button" data-mana-plus="'+tok.id+'">+</button>' +
+              '<span class="hp-max-label">Máx.</span>' +
+              '<input type="number" class="hp-max-input" min="0" max="999" value="'+((tok.mana&&tok.mana.max)||0)+'" data-mana-max="'+tok.id+'">' +
+            '</div>'
+          ) : '') +
           '<div class="token-row-hp">' +
             '<span class="row-label">XP</span>' +
             '<button type="button" data-xp-minus="'+tok.id+'">−</button>' +
@@ -4975,6 +5097,7 @@
     pushUndo();
     if(!tok.hp) tok.hp = { current:10, max:10, temp:0 };
     if(typeof tok.hp.temp !== 'number') tok.hp.temp = 0;
+    const beforePct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
     if(delta < 0){
       let dmg = -delta;
       if(tok.hp.temp > 0){
@@ -4982,9 +5105,13 @@
         tok.hp.temp -= absorbed;
         dmg -= absorbed;
       }
-      tok.hp.current = Math.max(0, tok.hp.current - dmg);
+      tok.hp.current = Math.max(-999, tok.hp.current - dmg);
     } else {
       tok.hp.current = Math.min(tok.hp.max, tok.hp.current + delta);
+    }
+    const afterPct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
+    if([0.2, 0.1, 0].some(threshold => beforePct > threshold && afterPct <= threshold)){
+      maybePlayDamageMarkerSound(tok);
     }
     render();
     await persistTokens();
@@ -5248,6 +5375,30 @@
     if(xp > 999) xp = 999;
     pushUndo();
     tok.xp = xp;
+    render();
+    await persistTokens();
+  }
+
+  async function adjustMana(id, delta){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.mana) tok.mana = { current:0, max:0 };
+    tok.mana.current = Math.max(0, Math.min(tok.mana.max, tok.mana.current + delta));
+    render();
+    await persistTokens();
+  }
+
+  async function setManaMax(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let max = parseInt(value, 10);
+    if(isNaN(max) || max < 0) max = 0;
+    if(max > 999) max = 999;
+    pushUndo();
+    if(!tok.mana) tok.mana = { current:0, max:0 };
+    tok.mana.max = max;
+    tok.mana.current = Math.min(tok.mana.current, max);
     render();
     await persistTokens();
   }
@@ -5570,7 +5721,7 @@
     if(!file) return;
     pushUndo();
     const dataUrl = await resizeImage(file, 1800, 0.82);
-    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), map:{ image:dataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
+    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers:[], map:{ image:dataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
     state.pages.push(page);
     state.currentPageId = page.id;
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
@@ -5963,6 +6114,14 @@
   el('btn-draw-toggle').addEventListener('click', () => { state.drawMode = !state.drawMode; if(state.drawMode) state.fogMode = false; render(); });
   el('btn-draw-pen').addEventListener('click', () => { state.drawPaintMode = 'pen'; render(); });
   el('btn-draw-erase').addEventListener('click', () => { state.drawPaintMode = 'erase'; render(); });
+  el('btn-draw-move').addEventListener('click', () => { state.drawPaintMode = 'move'; render(); });
+  Object.keys(SHAPE_BUTTONS).forEach(shape => {
+    el(SHAPE_BUTTONS[shape]).addEventListener('click', () => {
+      state.drawShape = shape;
+      state.drawPaintMode = 'pen';
+      render();
+    });
+  });
   el('draw-brush').addEventListener('input', (e) => { state.drawBrush = Number(e.target.value); });
   el('draw-opacity').addEventListener('input', (e) => { state.drawOpacity = Number(e.target.value); });
   document.querySelectorAll('.draw-swatch').forEach(sw => {
@@ -6156,9 +6315,47 @@
   }
 
   function drawStrokeOnCtx(ctx, stroke){
+    ctx.globalCompositeOperation = 'source-over';
+    const shape = stroke.shape || 'freehand';
+    if(shape !== 'freehand'){
+      if(!stroke.start || !stroke.end) return;
+      const { x:x1, y:y1 } = stroke.start;
+      const { x:x2, y:y2 } = stroke.end;
+      ctx.strokeStyle = hexToRgba(stroke.color, stroke.opacity / 100);
+      ctx.lineWidth = Math.max(2, stroke.brush * 0.6);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if(shape === 'line'){
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      } else if(shape === 'circle'){
+        const r = Math.hypot(x2 - x1, y2 - y1);
+        ctx.beginPath();
+        ctx.arc(x1, y1, r, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if(shape === 'rect'){
+        ctx.strokeRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+      } else if(shape === 'cone'){
+        const dist = Math.hypot(x2 - x1, y2 - y1);
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const spread = Math.PI / 6;
+        const leftX = x1 + dist * Math.cos(angle - spread);
+        const leftY = y1 + dist * Math.sin(angle - spread);
+        const rightX = x1 + dist * Math.cos(angle + spread);
+        const rightY = y1 + dist * Math.sin(angle + spread);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(leftX, leftY);
+        ctx.lineTo(rightX, rightY);
+        ctx.closePath();
+        ctx.stroke();
+      }
+      return;
+    }
     const pts = stroke.points;
     if(!pts || pts.length === 0) return;
-    ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = hexToRgba(stroke.color, stroke.opacity / 100);
     if(pts.length === 1){
       ctx.beginPath();
@@ -6186,6 +6383,38 @@
     if(inProgressStroke) drawStrokeOnCtx(ctx, inProgressStroke);
   }
 
+  function isNearShapeOutline(stroke, pt, reach){
+    const r = reach + (stroke.brush || 10);
+    const s = stroke.start, e = stroke.end;
+    if(!s || !e) return false;
+    const candidates = [s, e, { x:(s.x+e.x)/2, y:(s.y+e.y)/2 }];
+    if(stroke.shape === 'rect'){
+      candidates.push({x:s.x, y:e.y}, {x:e.x, y:s.y});
+    }
+    if(stroke.shape === 'circle'){
+      const radius = Math.hypot(e.x - s.x, e.y - s.y);
+      for(let a = 0; a < 8; a++){
+        const ang = (a / 8) * Math.PI * 2;
+        candidates.push({ x:s.x + radius * Math.cos(ang), y:s.y + radius * Math.sin(ang) });
+      }
+    }
+    return candidates.some(p => Math.hypot(p.x - pt.x, p.y - pt.y) <= r);
+  }
+
+  function findMovableShapeNear(page, pt, reach){
+    if(!page.draw.strokes) return null;
+    const me = myDrawAuthorName();
+    const canMove = (stroke) => effectiveMaster() || stroke.author === me;
+    const strokes = page.draw.strokes;
+    for(let i = strokes.length - 1; i >= 0; i--){
+      const stroke = strokes[i];
+      if((stroke.shape || 'freehand') === 'freehand') continue;
+      if(!canMove(stroke)) continue;
+      if(isNearShapeOutline(stroke, pt, reach)) return stroke;
+    }
+    return null;
+  }
+
   function eraseNear(page, pt){
     if(!page.draw.strokes) page.draw.strokes = [];
     const me = myDrawAuthorName();
@@ -6194,6 +6423,12 @@
     const result = [];
     page.draw.strokes.forEach(stroke => {
       if(!canErase(stroke)){ result.push(stroke); return; }
+      const shape = stroke.shape || 'freehand';
+      if(shape !== 'freehand'){
+        if(isNearShapeOutline(stroke, pt, reach)) return;
+        result.push(stroke);
+        return;
+      }
       const strokeReach = reach + (stroke.brush || 10);
       const pts = stroke.points || [];
       const isHit = (p) => Math.hypot(p.x - pt.x, p.y - pt.y) <= strokeReach;
@@ -6222,13 +6457,30 @@
     if(!canvas || !page) return;
     const pt = canvasPointFromEvent(e, canvas);
     if(!pt.inBounds) return;
+    if(state.drawPaintMode === 'move'){
+      const target = findMovableShapeNear(page, pt, state.drawBrush);
+      if(!target) return;
+      pushUndo();
+      state.drawStroke = {
+        canvas, page, mode:'move', stroke: target,
+        origStart: { x:target.start.x, y:target.start.y },
+        origEnd: { x:target.end.x, y:target.end.y },
+        startPt: { x:pt.x, y:pt.y }
+      };
+      $mapViewport.setPointerCapture(e.pointerId);
+      return;
+    }
     pushUndo();
     if(state.drawPaintMode === 'erase'){
       eraseNear(page, pt);
       state.drawStroke = { canvas, page, mode:'erase' };
       redrawDrawCanvas(canvas, page);
+    } else if(state.drawShape !== 'freehand'){
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape: state.drawShape, start:{x:pt.x, y:pt.y}, end:{x:pt.x, y:pt.y} };
+      state.drawStroke = { canvas, page, mode:'shape', stroke };
+      redrawDrawCanvas(canvas, page, stroke);
     } else {
-      const stroke = { id:newId('dr'), author: myDrawAuthorName(), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, points:[{x:pt.x, y:pt.y}] };
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape:'freehand', points:[{x:pt.x, y:pt.y}] };
       state.drawStroke = { canvas, page, mode:'pen', stroke };
       redrawDrawCanvas(canvas, page, stroke);
     }
@@ -6242,6 +6494,15 @@
     if(s.mode === 'erase'){
       eraseNear(s.page, pt);
       redrawDrawCanvas(s.canvas, s.page);
+    } else if(s.mode === 'move'){
+      const dx = pt.x - s.startPt.x;
+      const dy = pt.y - s.startPt.y;
+      s.stroke.start = { x: s.origStart.x + dx, y: s.origStart.y + dy };
+      s.stroke.end = { x: s.origEnd.x + dx, y: s.origEnd.y + dy };
+      redrawDrawCanvas(s.canvas, s.page);
+    } else if(s.mode === 'shape'){
+      s.stroke.end = {x:pt.x, y:pt.y};
+      redrawDrawCanvas(s.canvas, s.page, s.stroke);
     } else {
       s.stroke.points.push({x:pt.x, y:pt.y});
       redrawDrawCanvas(s.canvas, s.page, s.stroke);
@@ -6251,7 +6512,7 @@
     const s = state.drawStroke;
     if(!s) return;
     state.drawStroke = null;
-    if(s.mode === 'pen'){
+    if(s.mode === 'pen' || s.mode === 'shape'){
       if(!s.page.draw.strokes) s.page.draw.strokes = [];
       s.page.draw.strokes.push(s.stroke);
       redrawDrawCanvas(s.canvas, s.page);
