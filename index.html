@@ -669,6 +669,29 @@
   #initiative-master-controls input[type=number]{ padding:7px 8px; }
   #btn-initiative-next{ flex:2; }
   #btn-initiative-clear{ flex:1; }
+
+  #initiative-current-turn-box{
+    display:none; align-items:center; gap:10px; padding:11px 12px;
+    background:#120e08; border:1px solid var(--amber); border-radius:6px;
+  }
+  #initiative-current-turn-box.show{ display:flex; }
+  #initiative-current-turn-box img{
+    width:42px; height:42px; border-radius:50%; object-fit:cover;
+    border:2px solid var(--amber-bright); flex-shrink:0;
+  }
+  #initiative-current-turn-info{ min-width:0; flex:1; }
+  #initiative-current-turn-label{
+    font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim);
+    letter-spacing:1px; text-transform:uppercase; margin-bottom:2px;
+  }
+  #initiative-current-turn-name{
+    font-family:'Cinzel', serif; font-size:15px; color:var(--amber-bright);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #btn-pass-turn{
+    width:100%; min-height:48px; padding:12px 16px; font-size:13px;
+    font-weight:700; letter-spacing:1px;
+  }
   #btn-pass-turn{ width:100%; margin-bottom:2px; font-weight:600; }
   #btn-pass-turn:disabled{ opacity:0.45; }
 
@@ -1688,11 +1711,18 @@
           </div>
           <button id="btn-initiative-add" class="primary" style="width:100%; margin-top:6px;">Adicionar ao combate</button>
           <div class="dice-visibility-row" style="margin-top:8px;">
-            <button type="button" id="btn-initiative-next">Próximo turno →</button>
+            <button type="button" id="btn-initiative-next">Avançar turno</button>
             <button type="button" id="btn-initiative-clear" class="danger">Encerrar combate</button>
           </div>
         </div>
-        <button type="button" id="btn-pass-turn" class="primary" style="display:none;">Passar vez →</button>
+        <div id="initiative-current-turn-box">
+          <img id="initiative-current-turn-image" src="" alt="">
+          <div id="initiative-current-turn-info">
+            <div id="initiative-current-turn-label">Turno atual</div>
+            <div id="initiative-current-turn-name"></div>
+          </div>
+        </div>
+        <button type="button" id="btn-pass-turn" class="primary" style="display:none;">PASSAR VEZ →</button>
         <div id="initiative-list"></div>
       </div>
     </div>
@@ -2882,21 +2912,32 @@
 
   function updatePassTurnButton(){
     const btn = el('btn-pass-turn');
+    const box = el('initiative-current-turn-box');
+    const nameEl = el('initiative-current-turn-name');
+    const imageEl = el('initiative-current-turn-image');
     if(!btn) return;
     const inCombat = state.initiative.list.length > 0 && !!state.initiative.activeId;
     btn.style.display = inCombat ? 'block' : 'none';
+    if(box) box.classList.toggle('show', inCombat);
     if(!inCombat) return;
+
+    const active = activeInitiativeEntry();
+    if(nameEl) nameEl.textContent = (active && active.name) || '—';
+    if(imageEl){
+      imageEl.src = (active && active.image) || '';
+      imageEl.style.display = (active && active.image) ? 'block' : 'none';
+    }
+
     const allowed = canPassCurrentTurn();
     btn.disabled = !allowed;
     if(effectiveMaster()){
-      btn.textContent = 'Passar vez →';
-      btn.title = 'Avançar para o próximo combatente';
+      btn.textContent = 'PASSAR VEZ →';
+      btn.title = 'Encerrar o turno atual e avançar para o próximo combatente';
     } else if(allowed){
-      btn.textContent = 'Passar minha vez →';
+      btn.textContent = 'PASSAR MINHA VEZ →';
       btn.title = 'Encerrar suas ações e avançar para o próximo combatente';
     } else {
-      const active = activeInitiativeEntry();
-      btn.textContent = 'Aguardando ' + ((active && active.name) || 'turno') + '…';
+      btn.textContent = 'AGUARDANDO ' + ((active && active.name) || 'TURNO') + '…';
       btn.title = 'Você só pode passar a vez quando for o seu turno';
     }
   }
