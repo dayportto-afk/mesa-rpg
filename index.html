@@ -361,11 +361,6 @@
     outline:none; resize:vertical; min-height:160px;
   }
   .notes-textarea:focus{ border-color:var(--amber); }
-  .notes-preview{
-    width:100%; margin-top:6px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
-    color:var(--parchment); padding:8px 9px; font-family:'EB Garamond', serif; font-size:14px;
-    line-height:1.5; white-space:pre-wrap; word-break:break-word;
-  }
   .token-photos-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
   .token-photo-item{ position:relative; width:56px; height:56px; flex-shrink:0; }
   .token-photo-item img{
@@ -701,10 +696,10 @@
   }
   #journal-input:focus{ border-color:var(--amber); }
   #journal-list{ display:flex; flex-direction:column; gap:8px; padding-top:6px; border-top:1px solid var(--line); }
-  .rich-toolbar{ display:flex; gap:4px; margin-bottom:6px; }
-  .rich-toolbar button{ width:30px; height:28px; padding:0; font-size:12px; line-height:1; }
+  .rich-toolbar{ display:flex; gap:3px; margin-bottom:5px; }
+  .rich-toolbar button{ width:22px; height:20px; padding:0; font-size:10px; line-height:1; }
   .rich-toolbar button b, .rich-toolbar button i, .rich-toolbar button u{ font-family:'EB Garamond', serif; }
-  .journal-entry-text b, .chat-bubble-text b, .notes-preview b{ color:var(--amber-bright); }
+  .journal-entry-text b, .chat-bubble-text b{ color:var(--amber-bright); }
   .journal-entry{ background:#120e08; border:1px solid var(--line); border-radius:5px; padding:9px 11px; }
   .journal-entry-meta{
     display:flex; justify-content:space-between; align-items:baseline;
@@ -4457,8 +4452,7 @@
             '<button type="button" data-fmt="i" title="Itálico"><i>I</i></button>' +
             '<button type="button" data-fmt="u" title="Sublinhado"><u>S</u></button>' +
           '</div>' +
-          '<textarea class="notes-textarea" id="'+taId+'" data-notes-input="'+tok.id+'" placeholder="Liste itens, informações essenciais...">'+escapeHtml(notes)+'</textarea>' +
-          (notes ? '<div class="notes-preview">'+renderRichText(notes)+'</div>' : '')
+          '<textarea class="notes-textarea" id="'+taId+'" data-notes-input="'+tok.id+'" placeholder="Liste itens, informações essenciais...">'+escapeHtml(notes)+'</textarea>'
         ) : '') +
       '</div>'
     );
