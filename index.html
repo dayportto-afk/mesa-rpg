@@ -361,6 +361,11 @@
     outline:none; resize:vertical; min-height:160px;
   }
   .notes-textarea:focus{ border-color:var(--amber); }
+  .notes-preview{
+    width:100%; margin-top:6px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
+    color:var(--parchment); padding:8px 9px; font-family:'EB Garamond', serif; font-size:14px;
+    line-height:1.5; white-space:pre-wrap; word-break:break-word;
+  }
   .token-photos-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
   .token-photo-item{ position:relative; width:56px; height:56px; flex-shrink:0; }
   .token-photo-item img{
@@ -549,18 +554,6 @@
   .token.defeated img{ filter:grayscale(100%); }
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
   .token.selected{ box-shadow:0 0 0 2px var(--amber-bright), 0 3px 10px var(--shadow); }
-  .token.token-current-turn{
-    outline:3px solid var(--amber-bright);
-    outline-offset:4px;
-  }
-  .token-hp-status{
-    position:absolute; left:50%; transform:translateX(-50%);
-    padding:2px 7px; border-radius:10px; border:1px solid var(--amber);
-    background:#150f09; color:var(--parchment);
-    font-family:'JetBrains Mono', monospace; font-size:9px; line-height:1.2;
-    white-space:nowrap; pointer-events:none; z-index:7;
-    box-shadow:0 2px 6px rgba(0,0,0,0.45);
-  }
   .token-label{
     position:absolute; bottom:-24px; left:50%; transform:translateX(-50%);
     font-family:'IM Fell English', serif; font-size:13px; color:var(--parchment);
@@ -670,31 +663,6 @@
   #btn-initiative-next{ flex:2; }
   #btn-initiative-clear{ flex:1; }
 
-  #initiative-current-turn-box{
-    display:none; align-items:center; gap:10px; padding:11px 12px;
-    background:#120e08; border:1px solid var(--amber); border-radius:6px;
-  }
-  #initiative-current-turn-box.show{ display:flex; }
-  #initiative-current-turn-box img{
-    width:42px; height:42px; border-radius:50%; object-fit:cover;
-    border:2px solid var(--amber-bright); flex-shrink:0;
-  }
-  #initiative-current-turn-info{ min-width:0; flex:1; }
-  #initiative-current-turn-label{
-    font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim);
-    letter-spacing:1px; text-transform:uppercase; margin-bottom:2px;
-  }
-  #initiative-current-turn-name{
-    font-family:'Cinzel', serif; font-size:15px; color:var(--amber-bright);
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
-  #btn-pass-turn{
-    width:100%; min-height:48px; padding:12px 16px; font-size:13px;
-    font-weight:700; letter-spacing:1px;
-  }
-  #btn-pass-turn{ width:100%; margin-bottom:2px; font-weight:600; }
-  #btn-pass-turn:disabled{ opacity:0.45; }
-
   .initiative-entry{
     display:flex; align-items:center; gap:10px; padding:8px 10px;
     background:#120e08; border:1px solid var(--line); border-radius:5px;
@@ -705,29 +673,6 @@
   .initiative-entry .initiative-score{ font-family:'Cinzel', serif; font-size:16px; color:var(--amber-bright); min-width:24px; text-align:center; flex-shrink:0; }
   .initiative-entry .initiative-remove{ padding:3px 7px; font-size:9px; flex-shrink:0; }
   .initiative-turn-tag{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--amber-bright); letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
-
-  #combat-history-wrap{ border-top:1px solid var(--line); padding-top:12px; margin-top:4px; }
-  #combat-history-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-  #combat-history-header h3{ margin:0; font-family:'Cinzel',serif; font-size:13px; color:var(--amber-bright); letter-spacing:.6px; }
-  #combat-history-header button{ padding:4px 8px; font-size:9px; }
-  #combat-history-list{ display:flex; flex-direction:column; gap:9px; max-height:300px; overflow-y:auto; }
-  .combat-history-turn{ border:1px solid var(--line); border-radius:5px; background:#120e08; overflow:hidden; }
-  .combat-history-turn-head{ padding:7px 9px; background:#1a1309; border-bottom:1px solid var(--line); font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--amber-bright); }
-  .combat-history-turn-scroll{
-    max-height:112px;
-    overflow-y:auto;
-    overflow-x:hidden;
-    scrollbar-width:thin;
-    scrollbar-color:var(--amber) transparent;
-    overscroll-behavior:contain;
-  }
-  .combat-history-turn-scroll::-webkit-scrollbar{ width:6px; }
-  .combat-history-turn-scroll::-webkit-scrollbar-thumb{ background:var(--amber); border-radius:4px; }
-  .combat-history-turn-scroll::-webkit-scrollbar-track{ background:transparent; }
-
-  .combat-history-change{ padding:6px 9px; border-top:1px dashed rgba(61,47,28,.75); font-size:13px; line-height:1.35; color:var(--parchment); }
-  .combat-history-change:first-child{ border-top:none; }
-  .combat-history-time{ float:right; color:var(--parchment-dim); font-family:'JetBrains Mono',monospace; font-size:9px; margin-left:8px; }
 
   /* Campaign journal (same drawer pattern; open to master AND players) */
   #journal-backdrop{
@@ -756,6 +701,10 @@
   }
   #journal-input:focus{ border-color:var(--amber); }
   #journal-list{ display:flex; flex-direction:column; gap:8px; padding-top:6px; border-top:1px solid var(--line); }
+  .rich-toolbar{ display:flex; gap:4px; margin-bottom:6px; }
+  .rich-toolbar button{ width:30px; height:28px; padding:0; font-size:12px; line-height:1; }
+  .rich-toolbar button b, .rich-toolbar button i, .rich-toolbar button u{ font-family:'EB Garamond', serif; }
+  .journal-entry-text b, .chat-bubble-text b, .notes-preview b{ color:var(--amber-bright); }
   .journal-entry{ background:#120e08; border:1px solid var(--line); border-radius:5px; padding:9px 11px; }
   .journal-entry-meta{
     display:flex; justify-content:space-between; align-items:baseline;
@@ -789,7 +738,7 @@
   #draw-panel-close{ padding:4px 9px; font-size:12px; }
   #draw-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
 
-  /* Drawing panel: floating and draggable for both master and players */
+  /* Master-only: draw panel becomes a floating, draggable window instead of a slide-in drawer */
   #draw-panel.float-style{
     position:absolute; top:16px; left:80px; right:auto; bottom:auto; z-index:130;
     width:280px; max-width:90vw; max-height:80vh; max-height:80dvh;
@@ -961,7 +910,7 @@
   .chat-bubble.mine{ align-self:flex-end; background:#241a0a; border-color:var(--amber); }
   .chat-bubble-author{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:0.5px; margin-bottom:3px; }
   .chat-bubble-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.4; white-space:pre-wrap; }
-  .chat-bubble-image{ max-width:100%; border-radius:5px; margin-top:4px; cursor:zoom-in; }
+  .chat-bubble-image{ max-width:100%; border-radius:5px; margin-top:4px; cursor:zoom-in; user-select:none; -webkit-user-drag:none; -webkit-tap-highlight-color:transparent; }
 
   #thread-compose-bar{ border-top:1px solid var(--line); padding:10px 12px; flex-shrink:0; }
   #thread-compose-row{ display:flex; align-items:flex-end; gap:8px; }
@@ -984,7 +933,12 @@
     box-shadow:0 4px 16px rgba(0,0,0,0.4); overflow:hidden;
   }
   #handout-gallery.show{ display:block; }
-  #handout-gallery-image{ cursor:zoom-in; }
+  #handout-gallery-image{ cursor:zoom-in; user-select:none; -webkit-user-drag:none; -webkit-tap-highlight-color:transparent; }
+  #handout-gallery-thread{
+    padding:5px 8px 0; font-family:'JetBrains Mono', monospace; font-size:9px; letter-spacing:0.5px;
+    color:var(--amber-bright); text-align:center; text-transform:uppercase; display:none;
+  }
+  #handout-gallery-thread.show{ display:block; }
   #handout-gallery-header{
     display:flex; align-items:center; justify-content:space-between;
     padding:5px 8px; background:#0e0a06; border-bottom:1px solid var(--line);
@@ -1439,18 +1393,8 @@
           <button type="button" class="float-panel-close" data-close-panel="float-maps">✕</button>
         </div>
         <div class="float-panel-body">
-          <label class="file-btn" for="map-upload">Escolher imagem para novo mapa</label>
+          <label class="file-btn" for="map-upload">Adicionar nova página de mapa</label>
           <input type="file" id="map-upload" accept="image/*">
-          <div id="new-map-preview" style="display:none;">
-            <img id="new-map-preview-img" alt="Pré-visualização do novo mapa" style="width:100%; border-radius:4px; margin-top:8px; display:block;">
-            <button type="button" class="notes-toggle" id="new-map-access-toggle" style="margin-top:8px;">👥 Quem vê <span>▼</span></button>
-            <div id="new-map-access-list" style="display:none; background:#120e08; border:1px solid var(--line); border-top:none; border-radius:0 0 3px 3px; padding:6px 8px 8px;"></div>
-            <div class="hint">Nenhuma marca = visível para todo mundo assim que abrir.</div>
-            <div style="display:flex; gap:6px; margin-top:8px;">
-              <button type="button" id="btn-cancel-new-map" style="flex:1;">Cancelar</button>
-              <button type="button" id="btn-open-new-map" class="primary" style="flex:2;">Abrir mapa</button>
-            </div>
-          </div>
           <div id="page-history-list"></div>
           <div class="hint">Cada imagem enviada vira uma nova página no histórico — as anteriores continuam salvas. As fichas de personagem aparecem em todas as páginas por padrão; "Remover desta página" só as esconde ali, sem apagá-las das demais.</div>
         </div>
@@ -1485,8 +1429,6 @@
               <div id="new-hp-fields">
                 <label for="token-maxhp" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Vida máxima (HP)</label>
                 <input type="number" id="token-maxhp" min="1" max="999" value="10" placeholder="Vida máxima">
-                <label for="token-armor" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Armadura</label>
-                <input type="number" id="token-armor" min="0" max="99" value="0" placeholder="Armadura">
               </div>
               <div id="new-numenera-fields" style="display:none;">
                 <label for="token-max-intellect" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Intelecto máx.</label>
@@ -1538,7 +1480,7 @@
 
       <div class="float-panel" id="float-grid" style="left:224px; top:40px;">
         <div class="float-panel-header">
-          <span>⬡ Grade hexagonal</span>
+          <span>🔲 Grade</span>
           <button type="button" class="float-panel-close" data-close-panel="float-grid">✕</button>
         </div>
         <div class="float-panel-body">
@@ -1555,7 +1497,7 @@
             <label for="grid-color-input">Cor</label>
             <input type="color" id="grid-color-input" value="#e2a53f">
           </div>
-          <div class="hint">A grade hexagonal é própria de cada página do histórico e aparece para todos. O tamanho define o raio de cada hexágono.</div>
+          <div class="hint">A grade é própria de cada página do histórico e aparece para todos.</div>
         </div>
       </div>
 
@@ -1594,12 +1536,6 @@
           <button type="button" class="float-panel-close" data-close-panel="float-danger">✕</button>
         </div>
         <div class="float-panel-body">
-          <div style="font-family:'Cinzel',serif; color:var(--amber-bright); font-size:12px; margin-bottom:6px;">💾 Backup da campanha</div>
-          <button id="btn-export-campaign" type="button" style="width:100%;">Baixar backup (.json)</button>
-          <label class="file-btn" for="campaign-backup-input" style="margin-top:8px;">Restaurar backup (.json)</label>
-          <input type="file" id="campaign-backup-input" accept="application/json,.json">
-          <div class="hint" style="margin-bottom:14px;">O backup inclui mapas, fichas, páginas, névoa, desenhos, textos, iniciativa, diário, conversas, música e configurações. Ao restaurar, o conteúdo atual é substituído, mas a senha e o código de acesso atuais desta vaga são preservados.</div>
-          <div style="border-top:1px solid var(--line); margin:4px 0 12px;"></div>
           <button id="btn-delete-campaign" class="danger" style="width:100%;">Excluir esta campanha</button>
           <div class="hint">Apaga todo o histórico de mapas, fichas, névoa e configurações desta campanha. A vaga volta a ficar livre para uma campanha futura. Não pode ser desfeito.</div>
         </div>
@@ -1736,26 +1672,11 @@
           </div>
           <button id="btn-initiative-add" class="primary" style="width:100%; margin-top:6px;">Adicionar ao combate</button>
           <div class="dice-visibility-row" style="margin-top:8px;">
-            <button type="button" id="btn-initiative-next">Avançar turno</button>
+            <button type="button" id="btn-initiative-next">Próximo turno →</button>
             <button type="button" id="btn-initiative-clear" class="danger">Encerrar combate</button>
           </div>
         </div>
-        <div id="initiative-current-turn-box">
-          <img id="initiative-current-turn-image" src="" alt="">
-          <div id="initiative-current-turn-info">
-            <div id="initiative-current-turn-label">Turno atual</div>
-            <div id="initiative-current-turn-name"></div>
-          </div>
-        </div>
-        <button type="button" id="btn-pass-turn" class="primary" style="display:none;">PASSAR VEZ →</button>
         <div id="initiative-list"></div>
-        <div id="combat-history-wrap">
-          <div id="combat-history-header">
-            <h3>Histórico de combate</h3>
-            <button type="button" id="btn-combat-history-clear" class="danger" style="display:none;">Limpar histórico</button>
-          </div>
-          <div id="combat-history-list"><div class="hint">Nenhuma alteração registrada em combate.</div></div>
-        </div>
       </div>
     </div>
 
@@ -1766,6 +1687,11 @@
         <button id="journal-panel-close">✕</button>
       </div>
       <div id="journal-panel-body">
+        <div class="rich-toolbar" data-toolbar-for="journal-input">
+          <button type="button" data-fmt="b" title="Negrito"><b>N</b></button>
+          <button type="button" data-fmt="i" title="Itálico"><i>I</i></button>
+          <button type="button" data-fmt="u" title="Sublinhado"><u>S</u></button>
+        </div>
         <textarea id="journal-input" placeholder="Escreva uma entrada no diário — o que aconteceu, uma pista, um resumo da sessão..." rows="3"></textarea>
         <button id="btn-journal-add" class="primary" style="width:100%; margin-top:6px;">Adicionar entrada</button>
         <div id="journal-list"></div>
@@ -1813,6 +1739,11 @@
             <img id="send-image-preview-img" alt="Pré-visualização">
             <button type="button" id="send-image-remove">Remover imagem</button>
           </div>
+          <div class="rich-toolbar" data-toolbar-for="send-text-input">
+            <button type="button" data-fmt="b" title="Negrito"><b>N</b></button>
+            <button type="button" data-fmt="i" title="Itálico"><i>I</i></button>
+            <button type="button" data-fmt="u" title="Sublinhado"><u>S</u></button>
+          </div>
           <div id="thread-compose-row">
             <label class="file-btn" for="send-image-input" title="Anexar imagem">📎</label>
             <input type="file" id="send-image-input" accept="image/*">
@@ -1828,7 +1759,8 @@
         <span id="handout-gallery-counter"></span>
         <button type="button" id="handout-gallery-close" title="Minimizar">−</button>
       </div>
-      <img id="handout-gallery-image" src="" alt="Imagem enviada pelo mestre" title="Clique para ampliar">
+      <div id="handout-gallery-thread"></div>
+      <img id="handout-gallery-image" src="" alt="Imagem enviada pelo mestre" title="Clique para ampliar" draggable="false">
       <div id="handout-gallery-caption"></div>
       <div id="handout-gallery-nav">
         <button type="button" id="handout-prev">‹</button>
@@ -1982,8 +1914,7 @@
     pingArmed:false,
     measureArmed:false,
     measureDrag:null,
-    initiative:{ list:[], activeId:null, round:1, turnSeq:0, combatId:null },
-    combatHistory:[],
+    initiative:{ list:[], activeId:null, round:1 },
     journal:[],
     undoStack:[],
     redoStack:[],
@@ -2031,14 +1962,6 @@
     const me = (state.playerName||'').trim().toLowerCase();
     return page.allowedPlayers.some(name => (name||'').trim().toLowerCase() === me);
   }
-  function canPlayerDraw(page){
-    // The master is never restricted by per-player drawing permissions.
-    if(state.isMaster) return true;
-    if(!page) return true;
-    const blocked = Array.isArray(page.drawingBlockedPlayers) ? page.drawingBlockedPlayers : [];
-    const me = (state.playerName||'').trim().toLowerCase();
-    return !blocked.some(name => (name||'').trim().toLowerCase() === me);
-  }
   function knownPlayerNames(){
     const names = state.tokens
       .filter(t => !t.isReference && !t.masterLocked && (t.name||'').trim())
@@ -2050,7 +1973,6 @@
   const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
   let lastDiceLogSnapshot = '';
   let lastInitiativeSnapshot = '';
-  let lastCombatHistorySnapshot = '';
   let lastJournalSnapshot = '';
   let openNotesTokens = new Set();
   let openTokenCards = new Set();
@@ -2257,25 +2179,8 @@
   });
 
   function openDrawPanel(){
-    const page = currentPage();
-    if(!canPlayerDraw(page)){
-      state.drawMode = false;
-      el('draw-panel').classList.remove('open');
-      el('draw-backdrop').classList.remove('open');
-      showToast('O mestre desativou a ferramenta de desenho para você nesta cena.');
-      render();
-      return;
-    }
-    const panel = el('draw-panel');
-    panel.classList.add('open');
-    // The drawing tool is a floating window for both master and players,
-    // so it must not create a modal backdrop that blocks the map.
-    if(panel.classList.contains('float-style')){
-      el('draw-backdrop').classList.remove('open');
-      bringFloatToFront(panel);
-    } else {
-      el('draw-backdrop').classList.add('open');
-    }
+    el('draw-panel').classList.add('open');
+    el('draw-backdrop').classList.add('open');
   }
   function closeDrawPanel(){
     el('draw-panel').classList.remove('open');
@@ -2456,9 +2361,23 @@
     $reopen.classList.remove('show');
     const entry = state.handoutGallery[state.handoutIndex];
     el('handout-gallery-image').src = entry.image;
-    el('handout-gallery-caption').textContent = entry.text || '';
+    el('handout-gallery-caption').innerHTML = renderRichText(entry.text || '');
     el('handout-gallery-caption').style.display = entry.text ? 'block' : 'none';
     el('handout-gallery-counter').textContent = (state.handoutIndex+1) + ' / ' + state.handoutGallery.length + ((entry.targets && entry.targets.length) ? ' 🔒' : '');
+    const $thread = el('handout-gallery-thread');
+    if(effectiveMaster()){
+      $thread.textContent = handoutThreadLabel(entry);
+      $thread.classList.add('show');
+    } else {
+      $thread.classList.remove('show');
+    }
+  }
+
+  function handoutThreadLabel(entry){
+    if(!entry.targets || entry.targets.length === 0) return 'Conversa: Todos';
+    const names = [...new Set([entry.from, ...entry.targets].map(n => (n||'').trim()).filter(Boolean))];
+    const others = names.filter(n => n.toLowerCase() !== 'mestre');
+    return 'Conversa: ' + (others.length ? others.join(', ') : names.join(', '));
   }
 
   el('handout-prev').addEventListener('click', () => {
@@ -2472,6 +2391,7 @@
     renderHandoutGallery();
   });
   el('handout-gallery-close').addEventListener('click', () => { state.handoutMinimized = true; renderHandoutGallery(); });
+  wireRichToolbars(document);
 
   (function setupHandoutDrag(){
     function wireDrag(handle, target, onPlainClick){
@@ -2513,7 +2433,7 @@
     const src = el('handout-gallery-image').src;
     if(!src) return;
     el('handout-lightbox-image').src = src;
-    el('handout-lightbox-caption').textContent = el('handout-gallery-caption').textContent;
+    el('handout-lightbox-caption').innerHTML = el('handout-gallery-caption').innerHTML;
     el('handout-lightbox').classList.add('show');
   });
   function closeHandoutLightbox(){ el('handout-lightbox').classList.remove('show'); }
@@ -2621,10 +2541,10 @@
       const mine = m.from === me;
       let body = '';
       if(m.kind === 'image' && m.image){
-        body += '<img class="chat-bubble-image" src="'+m.image+'" alt="" data-chat-image="1">';
-        if(m.text) body += '<div class="chat-bubble-text">'+escapeHtml(m.text)+'</div>';
+        body += '<img class="chat-bubble-image" src="'+m.image+'" alt="" data-chat-image="1" draggable="false">';
+        if(m.text) body += '<div class="chat-bubble-text">'+renderRichText(m.text)+'</div>';
       } else {
-        body = '<div class="chat-bubble-text">'+escapeHtml(m.text)+'</div>';
+        body = '<div class="chat-bubble-text">'+renderRichText(m.text)+'</div>';
       }
       return (
         '<div class="chat-bubble'+(mine?' mine':'')+'">' +
@@ -2930,107 +2850,6 @@
     }).join('');
   }
 
-  // ---------- combat history ----------
-  function combatPoolLabel(key){
-    return ({ intellect:'Intelecto', might:'Potência', speed:'Velocidade' })[key] || key;
-  }
-
-  function formatCombatHistoryTime(ts){
-    const d = new Date(ts || Date.now());
-    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-  }
-
-  async function appendCombatHistory(token, text, kind, publicText){
-    const active = activeInitiativeEntry();
-    if(!active || !state.initiative.list.length || !text) return;
-    const entry = {
-      id:newId('ch'), ts:Date.now(),
-      combatId:state.initiative.combatId || 'legacy-combat',
-      round:state.initiative.round || 1,
-      turnSeq:state.initiative.turnSeq || 1,
-      activeEntryId:active.id,
-      activeTokenId:active.tokenId,
-      activeName:active.name || 'Turno',
-      targetTokenId:token ? token.id : null,
-      targetName:token ? token.name : '',
-      actor:state.isMaster ? 'Mestre' : (state.playerName || 'Jogador'),
-      kind:kind || 'change', text,
-      publicText: publicText || null
-    };
-    let list = [];
-    const raw = await safeGet(slotKey('combat-history'));
-    if(raw){ try{ list = JSON.parse(raw).list || []; }catch(e){} }
-    list.push(entry);
-    if(list.length > 600) list = list.slice(list.length - 600);
-    state.combatHistory = list;
-    const payload = JSON.stringify({list});
-    lastCombatHistorySnapshot = payload;
-    renderCombatHistory();
-    await safeSet(slotKey('combat-history'), {list});
-  }
-
-  function combatHistoryDisplayText(item){
-    if(effectiveMaster()) return item.text || '';
-    const target = item.targetTokenId ? state.tokens.find(t => t.id === item.targetTokenId) : null;
-    const npcPrivate = !!(target && target.masterLocked);
-    if(!npcPrivate) return item.publicText || item.text || '';
-    if(item.publicText) return item.publicText;
-    const name = item.targetName || (target && target.name) || 'NPC';
-    if(item.kind === 'hp-zero') return 'O HP de ' + name + ' zerou.';
-    if(item.kind === 'hp'){
-      const raw = item.text || '';
-      if(/ganhou/i.test(raw)) return name + ' ganhou HP.';
-      if(/perdeu/i.test(raw)) return name + ' perdeu HP.';
-      return 'O HP de ' + name + ' foi alterado.';
-    }
-    if(item.kind === 'hp-temp'){
-      const raw = item.text || '';
-      if(/ganhou/i.test(raw)) return name + ' ganhou HP temporário.';
-      if(/perdeu/i.test(raw)) return name + ' perdeu HP temporário.';
-      return 'O HP temporário de ' + name + ' foi alterado.';
-    }
-    if(item.kind === 'hp-max') return 'O HP máximo de ' + name + ' foi alterado.';
-    return item.text || '';
-  }
-
-  function renderCombatHistory(){
-    const root = el('combat-history-list');
-    const clearBtn = el('btn-combat-history-clear');
-    if(!root) return;
-    if(clearBtn) clearBtn.style.display = effectiveMaster() && state.combatHistory.length ? 'block' : 'none';
-    if(!state.combatHistory.length){
-      root.innerHTML = '<div class="hint">Nenhuma alteração registrada em combate.</div>';
-      return;
-    }
-    const groups = [];
-    const map = new Map();
-    state.combatHistory.forEach(item => {
-      const key = (item.combatId||'legacy')+'|'+(item.turnSeq||0)+'|'+(item.round||1)+'|'+(item.activeEntryId||item.activeName||'turn');
-      if(!map.has(key)){
-        const g = { key, combatId:item.combatId, round:item.round||1, turnSeq:item.turnSeq||0, activeName:item.activeName||'Turno', ts:item.ts, items:[] };
-        map.set(key,g); groups.push(g);
-      }
-      map.get(key).items.push(item);
-    });
-    root.innerHTML = groups.slice().reverse().map(g =>
-      '<div class="combat-history-turn">' +
-        '<div class="combat-history-turn-head">Rodada '+g.round+' · vez de '+escapeHtml(g.activeName)+'</div>' +
-        '<div class="combat-history-turn-scroll">' + g.items.map(item =>
-          '<div class="combat-history-change"><span class="combat-history-time">'+formatCombatHistoryTime(item.ts)+'</span>'+escapeHtml(combatHistoryDisplayText(item))+'</div>'
-        ).join('') + '</div>' +
-      '</div>'
-    ).join('');
-  }
-
-  async function clearCombatHistory(){
-    if(!effectiveMaster()) return;
-    if(state.combatHistory.length && !confirm('Limpar todo o histórico de combate desta campanha?')) return;
-    state.combatHistory = [];
-    lastCombatHistorySnapshot = JSON.stringify({list:[]});
-    renderCombatHistory();
-    await safeSet(slotKey('combat-history'), {list:[]});
-  }
-
   // ---------- initiative tracker ----------
   async function persistInitiative(){
     await safeSet(slotKey('initiative'), state.initiative);
@@ -3055,57 +2874,8 @@
     ).join('');
   }
 
-  function activeInitiativeEntry(){
-    return state.initiative.list.find(entry => entry.id === state.initiative.activeId) || null;
-  }
-
-  function canPassCurrentTurn(){
-    const active = activeInitiativeEntry();
-    if(!active) return false;
-    if(effectiveMaster()) return true;
-    const me = (state.playerName || '').trim().toLowerCase();
-    if(!me) return false;
-    const tok = state.tokens.find(t => t.id === active.tokenId);
-    const activeName = ((tok && tok.name) || active.name || '').trim().toLowerCase();
-    return activeName === me;
-  }
-
-  function updatePassTurnButton(){
-    const btn = el('btn-pass-turn');
-    const box = el('initiative-current-turn-box');
-    const nameEl = el('initiative-current-turn-name');
-    const imageEl = el('initiative-current-turn-image');
-    if(!btn) return;
-    const inCombat = state.initiative.list.length > 0 && !!state.initiative.activeId;
-    btn.style.display = inCombat ? 'block' : 'none';
-    if(box) box.classList.toggle('show', inCombat);
-    if(!inCombat) return;
-
-    const active = activeInitiativeEntry();
-    if(nameEl) nameEl.textContent = (active && active.name) || '—';
-    if(imageEl){
-      imageEl.src = (active && active.image) || '';
-      imageEl.style.display = (active && active.image) ? 'block' : 'none';
-    }
-
-    const allowed = canPassCurrentTurn();
-    btn.disabled = !allowed;
-    if(effectiveMaster()){
-      btn.textContent = 'PASSAR VEZ →';
-      btn.title = 'Encerrar o turno atual e avançar para o próximo combatente';
-    } else if(allowed){
-      btn.textContent = 'PASSAR MINHA VEZ →';
-      btn.title = 'Encerrar suas ações e avançar para o próximo combatente';
-    } else {
-      btn.textContent = 'AGUARDANDO ' + ((active && active.name) || 'TURNO') + '…';
-      btn.title = 'Você só pode passar a vez quando for o seu turno';
-    }
-  }
-
   function renderInitiativeList(){
     el('initiative-round').textContent = state.initiative.round;
-    renderCombatHistory();
-    updatePassTurnButton();
     el('initiative-master-controls').style.display = effectiveMaster() ? 'block' : 'none';
     if(effectiveMaster()){
       const sel = el('initiative-token-select');
@@ -3142,16 +2912,10 @@
     const tok = state.tokens.find(t => t.id === tokenId);
     if(!tok) return;
     const entry = { id:newId('i'), tokenId:tok.id, name:tok.name, image:tok.image, score:score||0 };
-    const wasEmpty = state.initiative.list.length === 0;
     state.initiative.list.push(entry);
-    if(!state.initiative.activeId){
-      state.initiative.activeId = entry.id;
-      state.initiative.turnSeq = 1;
-      if(wasEmpty) state.initiative.combatId = newId('combat');
-    }
+    if(!state.initiative.activeId) state.initiative.activeId = entry.id;
     renderInitiativeList();
     renderInitiativeHud();
-    renderTokens();
     await persistInitiative();
   }
 
@@ -3163,16 +2927,7 @@
     }
     renderInitiativeList();
     renderInitiativeHud();
-    renderTokens();
     await persistInitiative();
-  }
-
-  async function passCurrentTurn(){
-    if(!canPassCurrentTurn()){
-      showToast('Você só pode passar a vez quando for o seu turno.');
-      return;
-    }
-    await nextInitiativeTurn();
   }
 
   async function nextInitiativeTurn(){
@@ -3182,19 +2937,16 @@
     idx = (idx + 1) % sorted.length;
     if(idx === 0) state.initiative.round = (state.initiative.round || 1) + 1;
     state.initiative.activeId = sorted[idx].id;
-    state.initiative.turnSeq = (state.initiative.turnSeq || 0) + 1;
     renderInitiativeList();
     renderInitiativeHud();
-    renderTokens();
     await persistInitiative();
   }
 
   async function clearInitiative(){
     if(state.initiative.list.length && !confirm('Encerrar o combate e limpar a iniciativa?')) return;
-    state.initiative = { list:[], activeId:null, round:1, turnSeq:0, combatId:null };
+    state.initiative = { list:[], activeId:null, round:1 };
     renderInitiativeList();
     renderInitiativeHud();
-    renderTokens();
     await persistInitiative();
   }
 
@@ -3208,7 +2960,6 @@
     el('initiative-backdrop').classList.remove('open');
   }
   el('initiative-toggle').addEventListener('click', openInitiativePanel);
-  el('btn-combat-history-clear').addEventListener('click', clearCombatHistory);
   let hudUserPositioned = false;
   let userZoomedManually = false;
 
@@ -3265,7 +3016,6 @@
     el('initiative-score-input').value = '';
   });
   el('btn-initiative-next').addEventListener('click', nextInitiativeTurn);
-  el('btn-pass-turn').addEventListener('click', passCurrentTurn);
   el('btn-initiative-clear').addEventListener('click', clearInitiative);
 
   // ---------- campaign journal (master AND players can write) ----------
@@ -3299,7 +3049,7 @@
             '<span>'+formatJournalTime(entry.ts)+'</span>' +
             (canRemove ? '<button type="button" class="danger journal-remove" data-journal-remove="'+entry.id+'">✕</button>' : '') +
           '</div>' +
-          '<div class="journal-entry-text">'+escapeHtml(entry.text)+'</div>' +
+          '<div class="journal-entry-text">'+renderRichText(entry.text)+'</div>' +
         '</div>'
       );
     }).join('');
@@ -3324,7 +3074,6 @@
     const entry = state.journal.find(e => e.id === id);
     if(!entry) return;
     if(!effectiveMaster() && entry.author !== currentDisplayName()) return;
-    if(!confirm('Excluir esta entrada do diário? Essa ação não pode ser desfeita.')) return;
     state.journal = state.journal.filter(e => e.id !== id);
     lastJournalSnapshot = JSON.stringify({ list: state.journal });
     renderJournalList();
@@ -3520,85 +3269,6 @@
   async function safeDelete(key){
     if(!db) return;
     try{ await withTimeout(db.ref(key).remove(), 8000); }catch(e){}
-  }
-
-  function backupSafeFileName(name){
-    return (name || 'campanha')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      .replace(/[^a-zA-Z0-9_-]+/g,'-')
-      .replace(/^-+|-+$/g,'')
-      .slice(0,60) || 'campanha';
-  }
-
-  async function exportCampaignBackup(){
-    if(!effectiveMaster() || !state.currentSlot || !db) return;
-    try{
-      const prefix = 'c' + state.currentSlot + '-';
-      const snap = await withTimeout(db.ref('/').orderByKey().startAt(prefix).endAt(prefix + '\uf8ff').once('value'), 12000);
-      const root = snap.val() || {};
-      const data = {};
-      Object.keys(root).forEach(key => {
-        if(!key.startsWith(prefix)) return;
-        const shortKey = key.slice(prefix.length);
-        const raw = root[key];
-        if(typeof raw === 'string'){
-          try{ data[shortKey] = JSON.parse(raw); }catch(e){ data[shortKey] = raw; }
-        } else data[shortKey] = raw;
-      });
-      const backup = {
-        format:'mesa-de-jogo-campaign-backup', version:1,
-        exportedAt:new Date().toISOString(),
-        campaignTitle:(state.meta && state.meta.title) || 'Campanha sem nome', data
-      };
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = backupSafeFileName(backup.campaignTitle) + '-backup-' + new Date().toISOString().slice(0,10) + '.json';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      showToast('Backup da campanha baixado.');
-    }catch(e){ console.error('backup export failed', e); showToast('Não foi possível gerar o backup.'); }
-  }
-
-  async function restoreCampaignBackup(file){
-    if(!effectiveMaster() || !state.currentSlot || !db || !file) return;
-    let backup;
-    try{ backup = JSON.parse(await file.text()); }catch(e){ showToast('Arquivo JSON inválido.'); return; }
-    if(!backup || backup.format !== 'mesa-de-jogo-campaign-backup' || !backup.data || typeof backup.data !== 'object'){
-      showToast('Este arquivo não é um backup válido da Mesa de Jogo.'); return;
-    }
-    const title = backup.campaignTitle || 'campanha sem nome';
-    if(!confirm('Restaurar o backup de "' + title + '"? O conteúdo atual desta campanha será substituído.')) return;
-    try{
-      const currentSlot = state.currentSlot;
-      const prefix = 'c' + currentSlot + '-';
-      const currentMeta = Object.assign({}, state.meta || {});
-      const snap = await withTimeout(db.ref('/').orderByKey().startAt(prefix).endAt(prefix + '\uf8ff').once('value'), 12000);
-      const root = snap.val() || {};
-      const updates = {};
-      Object.keys(root).forEach(key => { if(key.startsWith(prefix)) updates[key] = null; });
-      Object.keys(backup.data).forEach(shortKey => {
-        if(!shortKey || shortKey.includes('/')) return;
-        let value = backup.data[shortKey];
-        if(shortKey === 'meta'){
-          value = Object.assign({}, value || {}, {
-            masterPass:currentMeta.masterPass || (value && value.masterPass) || '',
-            playerCode:currentMeta.playerCode || (value && value.playerCode) || ''
-          });
-        }
-        updates[prefix + shortKey] = JSON.stringify(value);
-      });
-      if(!Object.prototype.hasOwnProperty.call(backup.data,'meta')) updates[prefix+'meta'] = JSON.stringify(currentMeta);
-      await withTimeout(db.ref('/').update(updates), 20000);
-      await addCampaignToIndex(currentSlot);
-      stopAllListeners();
-      state.tokens=[]; state.pages=[]; state.currentPageId=null;
-      state.initiative={list:[],activeId:null,round:1}; state.journal=[]; state.sends=[]; state.diceRolls=[];
-      await loadSlotData();
-      render(); startRealtimeSync(); closeAllFloatPanels();
-      showToast('Backup restaurado com sucesso.');
-    }catch(e){ console.error('backup restore failed', e); showToast('Não foi possível restaurar o backup.'); }
   }
 
   function generateCode(len){
@@ -3849,7 +3519,7 @@
     state.pingArmed = false;
     state.measureArmed = false;
     state.measureDrag = null;
-    state.initiative = { list:[], activeId:null, round:1, turnSeq:0, combatId:null };
+    state.initiative = { list:[], activeId:null, round:1 };
     state.journal = [];
     state.sends = [];
     state.sendImage = null;
@@ -3876,7 +3546,6 @@
     openPageAccessRows = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
-    lastCombatHistorySnapshot = '';
     lastJournalSnapshot = '';
     el('dice-panel').classList.remove('open');
     el('dice-backdrop').classList.remove('open');
@@ -4017,13 +3686,6 @@
   const $deletePass = el('delete-pass');
   const $deleteError = el('delete-error');
 
-  el('btn-export-campaign').addEventListener('click', exportCampaignBackup);
-  el('campaign-backup-input').addEventListener('change', async (e) => {
-    const file = e.target.files && e.target.files[0];
-    e.target.value = '';
-    if(file) await restoreCampaignBackup(file);
-  });
-
   el('btn-delete-campaign').addEventListener('click', () => {
     $deletePass.value = ''; $deleteError.textContent = '';
     $deleteOverlay.classList.remove('hidden');
@@ -4148,16 +3810,13 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, combatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state'))
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; lastSeenRollId = state.diceRolls[0] ? state.diceRolls[0].id : 'NONE'; }catch(e){} }
     if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
-    if(!state.initiative.turnSeq) state.initiative.turnSeq = state.initiative.activeId ? 1 : 0;
-    if(!('combatId' in state.initiative)) state.initiative.combatId = state.initiative.list.length ? 'legacy-combat' : null;
-    if(combatHistoryRaw){ try{ state.combatHistory = JSON.parse(combatHistoryRaw).list || []; lastCombatHistorySnapshot = combatHistoryRaw; }catch(e){} }
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
     if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
     if(musicTracksRaw){ try{ state.musicTracks = JSON.parse(musicTracksRaw).list || []; lastMusicTracksSnapshot = musicTracksRaw; }catch(e){} }
@@ -4182,14 +3841,13 @@
         safeGet(slotKey('page-'+stub.id+'-texts')),
         safeGet(slotKey('page-'+stub.id+'-grid'))
       ]);
-      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'hex' };
+      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
       if(mapRaw){ try{ map = JSON.parse(mapRaw); }catch(e){} }
       if(fogRaw){ try{ fog = JSON.parse(fogRaw); }catch(e){} }
       if(drawRaw){ try{ draw = JSON.parse(drawRaw); }catch(e){} }
       if(textsRaw){ try{ texts = JSON.parse(textsRaw).list || []; }catch(e){} }
       if(gridRaw){ try{ grid = Object.assign(grid, JSON.parse(gridRaw)); }catch(e){} }
-       grid.type = 'hex';
-      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], drawingBlockedPlayers: stub.drawingBlockedPlayers || [], map, fog, draw, texts, grid };
+      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], map, fog, draw, texts, grid };
     }));
     state.pages = pages;
     state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
@@ -4199,7 +3857,7 @@
 
   async function persistPagesIndex(){
     await safeSet(slotKey('pages-index'), {
-      list: state.pages.map(p => ({ id:p.id, name:p.name, allowedPlayers: p.allowedPlayers || [], drawingBlockedPlayers: p.drawingBlockedPlayers || [] })),
+      list: state.pages.map(p => ({ id:p.id, name:p.name, allowedPlayers: p.allowedPlayers || [] })),
       currentPageId: state.currentPageId
     });
   }
@@ -4387,15 +4045,8 @@
     el('btn-freeze-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('tokens-panel-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('music-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
-    // Master and players use the same movable floating drawing window.
-    el('draw-panel').classList.add('float-style');
-    const drawingAllowedHere = canPlayerDraw(page);
-    el('draw-panel-toggle').style.display = effectiveMaster() ? 'none' : (drawingAllowedHere ? 'inline-block' : 'none');
-    if(!drawingAllowedHere && !state.isMaster){
-      state.drawMode = false;
-      el('draw-panel').classList.remove('open');
-      el('draw-backdrop').classList.remove('open');
-    }
+    el('draw-panel').classList.toggle('float-style', effectiveMaster());
+    el('draw-panel-toggle').style.display = effectiveMaster() ? 'none' : 'inline-block';
     updateMusicIndicator();
     updateAmbientAudio();
     el('btn-freeze-toggle').textContent = state.meta.playersFrozen ? '🔒 Jogadores congelados' : '🔓 Jogadores atualizados';
@@ -4444,7 +4095,7 @@
     el('draw-move-hint').style.display = state.drawPaintMode === 'move' ? 'block' : 'none';
     el('btn-draw-clear-all').style.display = effectiveMaster() ? 'block' : 'none';
 
-    const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'hex' };
+    const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f' };
     el('btn-grid-toggle').textContent = gridSettings.enabled ? 'Desativar grade' : 'Ativar grade';
     el('btn-grid-toggle').classList.toggle('toggle-active', gridSettings.enabled);
     el('grid-size-input').value = gridSettings.size;
@@ -4472,9 +4123,7 @@
     $list.innerHTML = state.pages.map(p => {
       const active = p.id === state.currentPageId;
       const isOpen = openPageAccessRows.has(p.id);
-      const drawAccessOpen = openPageAccessRows.has('draw:'+p.id);
       const restricted = p.allowedPlayers && p.allowedPlayers.length > 0;
-      const blockedDrawCount = (p.drawingBlockedPlayers || []).length;
       return (
         '<div class="page-row-wrap">' +
           '<div class="page-row' + (active ? ' active' : '') + '" data-page-select="'+p.id+'">' +
@@ -4492,18 +4141,6 @@
                   ).join('')
               ) +
               '<div class="hint">Nenhuma marca = visível para todo mundo.</div>' +
-            '</div>'
-          ) : '') +
-          '<button type="button" class="notes-toggle" data-page-draw-access-toggle="'+p.id+'">✏️ Quem pode desenhar'+(blockedDrawCount ? ' ('+(players.length-blockedDrawCount)+'/'+players.length+')' : '')+' <span>'+(drawAccessOpen ? '▲' : '▼')+'</span></button>' +
-          (drawAccessOpen ? (
-            '<div class="page-access-list">' +
-              (players.length === 0
-                ? '<div class="hint">Nenhum jogador com ficha ainda — crie as fichas dos personagens primeiro.</div>'
-                : players.map(name =>
-                    '<label class="checkbox-row"><input type="checkbox" data-page-draw-access="'+p.id+':'+escapeHtml(name)+'"'+(!(p.drawingBlockedPlayers||[]).includes(name) ? ' checked' : '')+'><span>'+escapeHtml(name)+'</span></label>'
-                  ).join('')
-              ) +
-              '<div class="hint">Desmarque um jogador para bloquear Desenho e os atalhos D/M apenas para ele nesta cena.</div>' +
             '</div>'
           ) : '') +
         '</div>'
@@ -4535,35 +4172,6 @@
         setPageAccess(pageId, name, inp.checked);
       });
     });
-    $list.querySelectorAll('[data-page-draw-access-toggle]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = 'draw:' + btn.getAttribute('data-page-draw-access-toggle');
-        if(openPageAccessRows.has(id)) openPageAccessRows.delete(id); else openPageAccessRows.add(id);
-        renderPageHistory();
-      });
-    });
-    $list.querySelectorAll('[data-page-draw-access]').forEach(inp => {
-      inp.addEventListener('change', () => {
-        const raw = inp.getAttribute('data-page-draw-access');
-        const idx = raw.indexOf(':');
-        const pageId = raw.slice(0, idx);
-        const name = raw.slice(idx + 1);
-        setPageDrawAccess(pageId, name, inp.checked);
-      });
-    });
-  }
-
-  async function setPageDrawAccess(pageId, name, allowed){
-    const page = state.pages.find(p => p.id === pageId);
-    if(!page) return;
-    if(!Array.isArray(page.drawingBlockedPlayers)) page.drawingBlockedPlayers = [];
-    if(allowed){
-      page.drawingBlockedPlayers = page.drawingBlockedPlayers.filter(n => n !== name);
-    } else {
-      if(!page.drawingBlockedPlayers.includes(name)) page.drawingBlockedPlayers.push(name);
-    }
-    render();
-    await persistPagesIndex();
   }
 
   async function setPageAccess(pageId, name, allowed){
@@ -4816,25 +4424,15 @@
       t.style.borderColor = hpCol;
       t.classList.toggle('defeated', isDefeated);
       t.classList.toggle('selected', tok.id === state.selectedTokenId);
-      const combatActive = !!(state.initiative && Array.isArray(state.initiative.list) && state.initiative.list.length > 0);
-      const activeEntry = combatActive ? state.initiative.list.find(e => e.id === state.initiative.activeId) : null;
-      t.classList.toggle('token-current-turn', !!(activeEntry && activeEntry.tokenId === tok.id));
       const barW = Math.max(28, Math.round(size * 0.82));
       const barTop = -Math.round(size * 0.16) - 6;
-      const enemyHpPrivate = !effectiveMaster() && !!tok.masterLocked;
-      let qualitativeHp = '';
-      if(enemyHpPrivate && combatActive){
-        const pct = Math.max(0, frac) * 100;
-        qualitativeHp = pct <= 0 ? 'Derrotado' : (pct <= 15 ? 'Muito ferido' : (pct <= 60 ? 'Ferido' : 'Intacto'));
-      }
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
       const condBadges = (tok.conditions || []).map(key => {
         const c = CONDITIONS.find(c => c.key === key);
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('');
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                    (combatActive && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
-                    (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
+                    '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' +
                     '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
@@ -4849,15 +4447,25 @@
   function notesBlockMarkup(tok){
     const isOpen = openNotesTokens.has(tok.id);
     const notes = tok.notes || '';
+    const taId = 'notes-input-' + tok.id;
     return (
       '<div class="notes-block">' +
         '<button type="button" class="notes-toggle" data-notes-toggle="'+tok.id+'">🎒 ANOTAÇÕES <span>'+(isOpen ? '▲' : '▼')+'</span></button>' +
-        (isOpen ? '<textarea class="notes-textarea" data-notes-input="'+tok.id+'" placeholder="Liste itens, informações essenciais...">'+escapeHtml(notes)+'</textarea>' : '') +
+        (isOpen ? (
+          '<div class="rich-toolbar" data-toolbar-for="'+taId+'">' +
+            '<button type="button" data-fmt="b" title="Negrito"><b>N</b></button>' +
+            '<button type="button" data-fmt="i" title="Itálico"><i>I</i></button>' +
+            '<button type="button" data-fmt="u" title="Sublinhado"><u>S</u></button>' +
+          '</div>' +
+          '<textarea class="notes-textarea" id="'+taId+'" data-notes-input="'+tok.id+'" placeholder="Liste itens, informações essenciais...">'+escapeHtml(notes)+'</textarea>' +
+          (notes ? '<div class="notes-preview">'+renderRichText(notes)+'</div>' : '')
+        ) : '') +
       '</div>'
     );
   }
 
   function wireNotesControls($root){
+    wireRichToolbars($root);
     $root.querySelectorAll('[data-notes-toggle]').forEach(btn=>{
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-notes-toggle');
@@ -4979,10 +4587,6 @@
       '<div class="token-row-hp">' +
         '<span class="row-label">PV temp.</span>' +
         '<input type="number" class="hp-max-input" min="0" max="999" value="'+(hp.temp||0)+'" data-hp-temp="'+tok.id+'">' +
-      '</div>' +
-      '<div class="token-row-hp">' +
-        '<span class="row-label">Armadura</span>' +
-        '<input type="number" class="hp-max-input" min="0" max="99" value="'+(tok.armor||0)+'" data-armor-input="'+tok.id+'">' +
       '</div>'
     );
   }
@@ -5340,6 +4944,48 @@
     return (str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
+  // ---------- simple inline rich text: **negrito**, *itálico*, __sublinhado__ ----------
+  function renderRichText(str){
+    let s = escapeHtml(str || '');
+    s = s.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
+    s = s.replace(/__([\s\S]+?)__/g, '<u>$1</u>');
+    s = s.replace(/\*([\s\S]+?)\*/g, '<i>$1</i>');
+    return s;
+  }
+
+  const RICH_FORMAT_MARKERS = { b:'**', i:'*', u:'__' };
+
+  function applyInlineFormat(textarea, marker){
+    if(!textarea) return;
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    const value = textarea.value;
+    const selected = value.slice(start, end);
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    textarea.value = before + marker + selected + marker + after;
+    const caret = start + marker.length + selected.length + marker.length;
+    textarea.focus();
+    textarea.setSelectionRange(selected ? caret : start + marker.length, selected ? caret : start + marker.length);
+    textarea.dispatchEvent(new Event('input', { bubbles:true }));
+    textarea.dispatchEvent(new Event('change', { bubbles:true }));
+  }
+
+  function wireRichToolbars($root){
+    (($root || document)).querySelectorAll('.rich-toolbar[data-toolbar-for]').forEach($bar => {
+      if($bar.dataset.richWired) return;
+      $bar.dataset.richWired = '1';
+      $bar.querySelectorAll('button[data-fmt]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetId = $bar.getAttribute('data-toolbar-for');
+          const ta = document.getElementById(targetId);
+          const marker = RICH_FORMAT_MARKERS[btn.getAttribute('data-fmt')];
+          if(ta && marker) applyInlineFormat(ta, marker);
+        });
+      });
+    });
+  }
+
   function hpColor(fraction){
     const pct = Math.max(0, Math.min(1, fraction)) * 100;
     if(pct <= 25) return 'rgb(196,57,57)';
@@ -5530,11 +5176,7 @@
   }
 
   async function deleteTokenPermanently(id){
-    const tok = state.tokens.find(t => t.id === id);
-    const message = tok && tok.isReference
-      ? 'Excluir esta imagem de referência permanentemente? Essa ação não pode ser desfeita.'
-      : 'Excluir esta ficha de todas as páginas permanentemente? Essa ação não pode ser desfeita com o botão de remover desta página.';
-    if(!confirm(message)) return;
+    if(!confirm('Excluir esta ficha de todas as páginas permanentemente? Essa ação não pode ser desfeita com o botão de remover desta página.')) return;
     pushUndo();
     state.tokens = state.tokens.filter(t => t.id !== id);
     render();
@@ -5548,8 +5190,6 @@
     if(!tok.hp) tok.hp = { current:10, max:10, temp:0 };
     if(typeof tok.hp.temp !== 'number') tok.hp.temp = 0;
     const beforePct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
-    const beforeHpCurrent = tok.hp.current;
-    const beforeTempHp = tok.hp.temp;
     if(delta < 0){
       let dmg = -delta;
       if(tok.hp.temp > 0){
@@ -5562,29 +5202,6 @@
       tok.hp.current = Math.min(tok.hp.max, tok.hp.current + delta);
     }
     const afterPct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
-    const hpChange = tok.hp.current - beforeHpCurrent;
-    const tempChange = tok.hp.temp - beforeTempHp;
-    if(tempChange){
-      const action = tempChange > 0 ? 'ganhou' : 'perdeu';
-      const exactText = tok.masterLocked
-        ? tok.name + ' ' + action + ' HP temporário (' + Math.abs(tempChange) + ').'
-        : tok.name + ' ' + action + ' ' + Math.abs(tempChange) + ' de HP temporário.';
-      const publicText = tok.masterLocked ? tok.name + ' ' + action + ' HP temporário.' : null;
-      await appendCombatHistory(tok, exactText, 'hp-temp', publicText);
-    }
-    if(hpChange){
-      const action = hpChange > 0 ? 'ganhou' : 'perdeu';
-      const exactText = tok.masterLocked
-        ? tok.name + ' ' + action + ' HP (' + Math.abs(hpChange) + ').'
-        : tok.name + ' ' + action + ' ' + Math.abs(hpChange) + ' de HP.';
-      const publicText = tok.masterLocked ? tok.name + ' ' + action + ' HP.' : null;
-      await appendCombatHistory(tok, exactText, 'hp', publicText);
-    }
-    // Registra separadamente quando o personagem/inimigo cruza o limiar de 0 HP durante este turno.
-    // Mesmo que o dano leve o valor para abaixo de zero, o evento relevante continua sendo que o HP zerou.
-    if(beforeHpCurrent > 0 && tok.hp.current <= 0){
-      await appendCombatHistory(tok, 'O HP de ' + tok.name + ' zerou.', 'hp-zero');
-    }
     if([0.2, 0.1, 0].some(threshold => beforePct > threshold && afterPct <= threshold)){
       maybePlayDamageMarkerSound(tok);
     }
@@ -5600,17 +5217,7 @@
     if(temp > 999) temp = 999;
     pushUndo();
     if(!tok.hp) tok.hp = { current:10, max:10, temp:0 };
-    const before = tok.hp.temp || 0;
     tok.hp.temp = temp;
-    const diff = tok.hp.temp - before;
-    if(diff){
-      const action = diff > 0 ? 'ganhou' : 'perdeu';
-      const exactText = tok.masterLocked
-        ? tok.name + ' ' + action + ' HP temporário (' + Math.abs(diff) + ').'
-        : tok.name + ' ' + action + ' ' + Math.abs(diff) + ' de HP temporário.';
-      const publicText = tok.masterLocked ? tok.name + ' ' + action + ' HP temporário.' : null;
-      await appendCombatHistory(tok, exactText, 'hp-temp', publicText);
-    }
     render();
     await persistTokens();
   }
@@ -5643,16 +5250,8 @@
     if(!tok.pools[poolKey]) tok.pools[poolKey] = { current:10, max:10 };
     const pool = tok.pools[poolKey];
     const before = pool.current;
-    const beforeDamageTrack = tok.damageTrack || 0;
     pool.current = Math.max(0, Math.min(pool.max, pool.current + delta));
-    const actual = pool.current - before;
-    if(actual) await appendCombatHistory(tok, tok.name + (actual > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(actual) + ' de ' + combatPoolLabel(poolKey) + '.', 'pool');
-    if(before > 0 && pool.current === 0){
-      await appendCombatHistory(tok, 'A ' + combatPoolLabel(poolKey) + ' de ' + tok.name + ' chegou a 0.', 'pool-zero');
-      advanceDamageTrackIfNeeded(tok);
-    }
-    const afterDamageTrack = tok.damageTrack || 0;
-    if(afterDamageTrack !== beforeDamageTrack) await appendCombatHistory(tok, 'Estado de dano de ' + tok.name + ' mudou de ' + DAMAGE_TRACK[beforeDamageTrack].label + ' para ' + DAMAGE_TRACK[afterDamageTrack].label + '.', 'damage-track');
+    if(before > 0 && pool.current === 0) advanceDamageTrackIfNeeded(tok);
     render();
     await persistTokens();
   }
@@ -5666,17 +5265,8 @@
     pushUndo();
     if(!tok.pools) tok.pools = {};
     if(!tok.pools[poolKey]) tok.pools[poolKey] = { current:max, max:max };
-    const beforeMax = tok.pools[poolKey].max;
-    const beforeCurrent = tok.pools[poolKey].current;
     tok.pools[poolKey].max = max;
     tok.pools[poolKey].current = Math.min(tok.pools[poolKey].current, max);
-    if(beforeMax !== max) await appendCombatHistory(tok, 'Máximo de ' + combatPoolLabel(poolKey) + ' de ' + tok.name + ' mudou de ' + beforeMax + ' para ' + max + '.', 'pool-max');
-    if(tok.pools[poolKey].current !== beforeCurrent){
-      await appendCombatHistory(tok, tok.name + ' perdeu ' + (beforeCurrent - tok.pools[poolKey].current) + ' de ' + combatPoolLabel(poolKey) + ' pelo ajuste do máximo.', 'pool');
-      if(beforeCurrent > 0 && tok.pools[poolKey].current === 0){
-        await appendCombatHistory(tok, 'A ' + combatPoolLabel(poolKey) + ' de ' + tok.name + ' chegou a 0.', 'pool-zero');
-      }
-    }
     render();
     await persistTokens();
   }
@@ -5785,7 +5375,6 @@
     const previous = tok.damageTrack || 0;
     const next = Math.max(0, Math.min(DAMAGE_TRACK.length - 1, idx));
     tok.damageTrack = next;
-    if(next !== previous) await appendCombatHistory(tok, 'Estado de dano de ' + tok.name + ' mudou de ' + DAMAGE_TRACK[previous].label + ' para ' + DAMAGE_TRACK[next].label + '.', 'damage-track');
     if(next > previous) maybePlayDamageMarkerSound(tok);
     render();
     await persistTokens();
@@ -5866,8 +5455,6 @@
     pushUndo();
     const current = tok.xp || 0;
     tok.xp = Math.max(0, Math.min(999, current + delta));
-    const actual = tok.xp - current;
-    if(actual) await appendCombatHistory(tok, tok.name + (actual > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(actual) + ' XP.', 'xp');
     render();
     await persistTokens();
   }
@@ -5879,10 +5466,7 @@
     if(isNaN(xp) || xp < 0) xp = 0;
     if(xp > 999) xp = 999;
     pushUndo();
-    const before = tok.xp || 0;
     tok.xp = xp;
-    const actual = tok.xp - before;
-    if(actual) await appendCombatHistory(tok, tok.name + (actual > 0 ? ' ganhou ' : ' perdeu ') + Math.abs(actual) + ' XP.', 'xp');
     render();
     await persistTokens();
   }
@@ -5939,26 +5523,8 @@
     let max = parseInt(value, 10);
     if(isNaN(max) || max < 1) max = 1;
     if(!tok.hp) tok.hp = { current:max, max:max };
-    const beforeMax = tok.hp.max;
-    const beforeCurrent = tok.hp.current;
     tok.hp.max = max;
     tok.hp.current = Math.min(tok.hp.current, max);
-    if(beforeMax !== max){
-      const exactText = 'HP máximo de ' + tok.name + ' mudou de ' + beforeMax + ' para ' + max + '.';
-      const publicText = tok.masterLocked ? 'O HP máximo de ' + tok.name + ' foi alterado.' : null;
-      await appendCombatHistory(tok, exactText, 'hp-max', publicText);
-    }
-    if(tok.hp.current !== beforeCurrent){
-      const lost = beforeCurrent - tok.hp.current;
-      const exactText = tok.masterLocked
-        ? tok.name + ' perdeu HP (' + lost + ') pelo ajuste do máximo.'
-        : tok.name + ' perdeu ' + lost + ' de HP pelo ajuste do máximo.';
-      const publicText = tok.masterLocked ? tok.name + ' perdeu HP pelo ajuste do máximo.' : null;
-      await appendCombatHistory(tok, exactText, 'hp', publicText);
-      if(beforeCurrent > 0 && tok.hp.current <= 0){
-        await appendCombatHistory(tok, 'O HP de ' + tok.name + ' zerou.', 'hp-zero', 'O HP de ' + tok.name + ' zerou.');
-      }
-    }
     render();
     await persistTokens();
   }
@@ -6242,69 +5808,18 @@
     await safeSet(slotKey('meta'), state.meta);
   });
 
-  let pendingNewMapDataUrl = null;
-  let pendingNewMapAllowedPlayers = [];
-
   el('map-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
-    let dataUrl;
-    try{
-      dataUrl = await resizeImage(file, 1800, 0.82);
-    }catch(err){
-      alert('Não consegui carregar essa imagem. Tente outro arquivo.');
-      e.target.value = '';
-      return;
-    }
-    pendingNewMapDataUrl = dataUrl;
-    pendingNewMapAllowedPlayers = [];
-    el('new-map-preview-img').src = dataUrl;
-    const players = knownPlayerNames();
-    el('new-map-access-list').innerHTML = players.length === 0
-      ? '<div class="hint">Nenhum jogador com ficha ainda — crie as fichas dos personagens primeiro.</div>'
-      : players.map(name =>
-          '<label class="checkbox-row"><input type="checkbox" data-new-map-access="'+escapeHtml(name)+'"><span>'+escapeHtml(name)+'</span></label>'
-        ).join('');
-    el('new-map-access-list').querySelectorAll('[data-new-map-access]').forEach(inp => {
-      inp.addEventListener('change', () => {
-        const name = inp.getAttribute('data-new-map-access');
-        if(inp.checked){
-          if(!pendingNewMapAllowedPlayers.includes(name)) pendingNewMapAllowedPlayers.push(name);
-        } else {
-          pendingNewMapAllowedPlayers = pendingNewMapAllowedPlayers.filter(n => n !== name);
-        }
-      });
-    });
-    el('new-map-access-list').style.display = 'none';
-    el('new-map-access-toggle').querySelector('span').textContent = '▼';
-    el('new-map-preview').style.display = 'block';
-  });
-
-  el('new-map-access-toggle').addEventListener('click', () => {
-    const list = el('new-map-access-list');
-    const isOpen = list.style.display !== 'none';
-    list.style.display = isOpen ? 'none' : 'block';
-    el('new-map-access-toggle').querySelector('span').textContent = isOpen ? '▼' : '▲';
-  });
-
-  function resetNewMapStaging(){
-    pendingNewMapDataUrl = null;
-    pendingNewMapAllowedPlayers = [];
-    el('new-map-preview').style.display = 'none';
-    el('map-upload').value = '';
-  }
-  el('btn-cancel-new-map').addEventListener('click', resetNewMapStaging);
-
-  el('btn-open-new-map').addEventListener('click', async () => {
-    if(!pendingNewMapDataUrl) return;
     pushUndo();
-    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers: pendingNewMapAllowedPlayers.slice(), map:{ image:pendingNewMapDataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
+    const dataUrl = await resizeImage(file, 1800, 0.82);
+    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers:[], map:{ image:dataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f' } };
     state.pages.push(page);
     state.currentPageId = page.id;
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
-    resetNewMapStaging();
     render();
     await Promise.all([ persistPageMap(page), persistPagesIndex() ]);
+    e.target.value = '';
     noteDailyUpload('map', '⚠️ Você já trocou de mapa 10 vezes hoje nessa campanha. Pode continuar — mas trocar de imagem com muita frequência consome dados rápido, principalmente se for só pra testar.');
   });
 
@@ -6439,9 +5954,6 @@
         let maxHp = parseInt(el('token-maxhp').value, 10);
         if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
         tok.hp = { current: maxHp, max: maxHp, temp: 0 };
-        let armor = parseInt(el('token-armor').value, 10);
-        if(isNaN(armor) || armor < 0) armor = 0;
-        tok.armor = Math.min(99, armor);
       }
       if(state.currentPageId){
         const staged = state.tokens.filter(t => !t.isReference && !t.masterLocked).length;
@@ -6638,12 +6150,6 @@
       return;
     }
     if(state.drawMode){
-      if(!canPlayerDraw(currentPage())){
-        state.drawMode = false;
-        closeDrawPanel();
-        render();
-        return;
-      }
       startDrawPaint(e);
       return;
     }
@@ -6760,7 +6266,7 @@
   el('btn-grid-toggle').addEventListener('click', async () => {
     const page = currentPage();
     if(!page) return;
-    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'hex' };
+    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
     page.grid.enabled = !page.grid.enabled;
     render();
     await persistPageGrid(page);
@@ -6769,7 +6275,7 @@
     return async (e) => {
       const page = currentPage();
       if(!page) return;
-      if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'hex' };
+      if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f' };
       page.grid[field] = parse ? parse(e.target.value) : e.target.value;
       setupGridOverlay();
       await persistPageGrid(page);
@@ -6782,80 +6288,16 @@
   function setupGridOverlay(){
     const existing = document.getElementById('grid-overlay');
     if(existing) existing.remove();
-
     const page = currentPage();
     const img = document.getElementById('map-img');
     if(!img || !page || !page.grid || !page.grid.enabled) return;
-
     const g = page.grid;
-    const radius = Math.max(5, Number(g.size) || 50);
-    const stroke = Math.max(0.5, Number(g.thickness) || 1);
-    const color = g.color || '#e2a53f';
-
-    // Grade hexagonal regular, com hexágonos orientados para cima.
-    const hexW = Math.sqrt(3) * radius;
-    const stepY = 1.5 * radius;
-    const patternW = 2 * hexW;
-    const patternH = 2 * stepY;
-
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.id = 'grid-overlay';
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '100%');
-    svg.setAttribute('viewBox', '0 0 '+(img.naturalWidth || 1200)+' '+(img.naturalHeight || 800));
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.style.position = 'absolute';
-    svg.style.inset = '0';
-    svg.style.width = '100%';
-    svg.style.height = '100%';
-    svg.style.pointerEvents = 'none';
-    svg.style.overflow = 'visible';
-
-    const defs = document.createElementNS(svgNS, 'defs');
-    const pattern = document.createElementNS(svgNS, 'pattern');
-    pattern.setAttribute('id', 'hex-grid-pattern');
-    pattern.setAttribute('width', String(patternW));
-    pattern.setAttribute('height', String(patternH));
-    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
-
-    const makeHex = (cx, cy) => {
-      const poly = document.createElementNS(svgNS, 'polygon');
-      const points = [];
-      for(let i = 0; i < 6; i++){
-        const angle = (Math.PI / 180) * (-90 + i * 60);
-        points.push((cx + radius * Math.cos(angle)).toFixed(3) + ',' +
-                    (cy + radius * Math.sin(angle)).toFixed(3));
-      }
-      poly.setAttribute('points', points.join(' '));
-      poly.setAttribute('fill', 'none');
-      poly.setAttribute('stroke', color);
-      poly.setAttribute('stroke-width', String(stroke));
-      poly.setAttribute('vector-effect', 'non-scaling-stroke');
-      return poly;
-    };
-
-    // Linhas alternadas ficam deslocadas em meio hexágono.
-    pattern.appendChild(makeHex(hexW / 2, radius));
-    pattern.appendChild(makeHex(hexW * 1.5, radius));
-    pattern.appendChild(makeHex(0, radius + stepY));
-    pattern.appendChild(makeHex(hexW, radius + stepY));
-    pattern.appendChild(makeHex(patternW, radius + stepY));
-    pattern.appendChild(makeHex(hexW / 2, radius + patternH));
-    pattern.appendChild(makeHex(hexW * 1.5, radius + patternH));
-
-    defs.appendChild(pattern);
-    svg.appendChild(defs);
-
-    const rect = document.createElementNS(svgNS, 'rect');
-    rect.setAttribute('x', '0');
-    rect.setAttribute('y', '0');
-    rect.setAttribute('width', '100%');
-    rect.setAttribute('height', '100%');
-    rect.setAttribute('fill', 'url(#hex-grid-pattern)');
-    svg.appendChild(rect);
-
-    $canvas.appendChild(svg);
+    const div = document.createElement('div');
+    div.id = 'grid-overlay';
+    div.style.backgroundImage =
+      'repeating-linear-gradient(0deg, '+g.color+' 0, '+g.color+' '+g.thickness+'px, transparent '+g.thickness+'px, transparent '+g.size+'px),' +
+      'repeating-linear-gradient(90deg, '+g.color+' 0, '+g.color+' '+g.thickness+'px, transparent '+g.thickness+'px, transparent '+g.size+'px)';
+    $canvas.appendChild(div);
   }
 
   let fogBuildId = 0;
@@ -7105,13 +6547,6 @@
     const canvas = document.getElementById('draw-canvas');
     const page = currentPage();
     if(!canvas || !page) return;
-    if(!canPlayerDraw(page)){
-      state.drawMode = false;
-      closeDrawPanel();
-      showToast('O mestre desativou a ferramenta de desenho para você nesta cena.');
-      render();
-      return;
-    }
     const pt = canvasPointFromEvent(e, canvas);
     if(!pt.inBounds) return;
     if(state.drawPaintMode === 'move'){
@@ -7364,11 +6799,6 @@
       lastInitiativeSnapshot = raw;
       try{ state.initiative = JSON.parse(raw); render(); }catch(e){}
     });
-    watchKey(slotKey('combat-history'), (raw) => {
-      if(!raw || raw === lastCombatHistorySnapshot) return;
-      lastCombatHistorySnapshot = raw;
-      try{ state.combatHistory = JSON.parse(raw).list || []; renderCombatHistory(); }catch(e){}
-    });
 
     watchKey(slotKey('journal'), (raw) => {
       if(!raw || raw === lastJournalSnapshot) return;
@@ -7440,108 +6870,15 @@
 
 
   // ---------- init ----------
-  // ---------- keyboard shortcuts ----------
-  function keyboardShortcutTypingTarget(target){
-    if(!target) return false;
-    return !!target.closest('input, textarea, select, [contenteditable=\"true\"]');
-  }
-
-  function closeOpenToolPanels(){
-    closeAllFloatPanels();
-    closeDrawPanel();
-    closeTokensPanel();
-    closeInitiativePanel();
-    ['dice','journal','music','send','my-sheet'].forEach(name => {
-      const panel = el(name+'-panel');
-      const backdrop = el(name+'-backdrop');
-      if(panel) panel.classList.remove('open');
-      if(backdrop) backdrop.classList.remove('open');
-    });
-  }
-
-  document.addEventListener('keydown', async (e) => {
-    const key = e.key.toLowerCase();
-    const typing = keyboardShortcutTypingTarget(e.target);
-
-    if(e.key === 'Escape'){
-      if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && document.activeElement && typeof document.activeElement.blur === 'function'){
+      document.activeElement.blur();
+    }
+    if(e.key === 'Escape' && (state.drawMode || state.fogMode || state.pingArmed)){
       state.drawMode = false;
       state.fogMode = false;
       state.pingArmed = false;
-      state.measureArmed = false;
-      closeOpenToolPanels();
       render();
-      return;
-    }
-
-    // Never fire letter/Delete shortcuts while the user is typing in a field.
-    if(typing || e.ctrlKey || e.metaKey || e.altKey) return;
-    if(!state.currentSlot) return;
-
-    if(key === 'n'){
-      // Fog is a master-only tool.
-      if(!effectiveMaster()) return;
-      e.preventDefault();
-      openFloatPanel('float-fog');
-      state.fogMode = true;
-      state.drawMode = false;
-      render();
-      return;
-    }
-
-    if(key === 'd'){
-      if(!canPlayerDraw(currentPage())){
-        e.preventDefault();
-        showToast('O mestre desativou a ferramenta de desenho para você nesta cena.');
-        return;
-      }
-      e.preventDefault();
-      openDrawPanel();
-      state.drawMode = true;
-      state.fogMode = false;
-      state.drawPaintMode = 'pen';
-      render();
-      return;
-    }
-
-    if(key === 'm'){
-      if(!canPlayerDraw(currentPage())){
-        e.preventDefault();
-        showToast('O mestre desativou a ferramenta de desenho para você nesta cena.');
-        return;
-      }
-      e.preventDefault();
-      openDrawPanel();
-      state.drawMode = true;
-      state.fogMode = false;
-      state.drawPaintMode = 'move';
-      render();
-      return;
-    }
-
-    if(key === 'i'){
-      e.preventDefault();
-      openInitiativePanel();
-      return;
-    }
-
-    if(key === 't'){
-      e.preventDefault();
-      // The full token manager is master-only; players keep their own-sheet permissions.
-      if(effectiveMaster()) openTokensPanel();
-      else openMySheet();
-      return;
-    }
-
-    if(e.key === 'Delete' && state.selectedTokenId){
-      const tok = state.tokens.find(t => t.id === state.selectedTokenId);
-      if(!tok || !canInteractWithToken(tok)) return;
-      e.preventDefault();
-      const id = tok.id;
-      state.selectedTokenId = null;
-      // Delete removes the selected element from the CURRENT map. Permanent deletion
-      // remains available from the token manager, avoiding accidental data loss.
-      await removeTokenFromPage(id);
     }
   });
   document.addEventListener('click', (e) => {
