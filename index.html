@@ -571,7 +571,7 @@
   body.role-master #map-canvas{ overflow:visible; }
   body.role-master #map-viewport::before{
     content:''; position:absolute; left:50%; top:50%;
-    width:300%; height:300%; transform:translate(-50%,-50%);
+    width:580%; height:580%; transform:translate(-50%,-50%);
     background:radial-gradient(ellipse at center, rgba(200,137,46,0.035) 0%, rgba(0,0,0,0) 60%);
     pointer-events:none; z-index:-1;
   }
@@ -6154,8 +6154,8 @@
     const rect = state.dragging.canvasRect;
     let xPct = ((e.clientX - rect.left) / rect.width) * 100;
     let yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    const min = effectiveMaster() ? -80 : 0;
-    const max = effectiveMaster() ? 180 : 100;
+    const min = effectiveMaster() ? -240 : 0;
+    const max = effectiveMaster() ? 340 : 100;
     xPct = Math.max(min, Math.min(max, xPct));
     yPct = Math.max(min, Math.min(max, yPct));
     state.dragging.el.style.left = xPct + '%';
@@ -7058,8 +7058,8 @@
     const rect = state.textDragging.canvasRect;
     let xPct = ((e.clientX - rect.left) / rect.width) * 100;
     let yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    xPct = Math.max(-80, Math.min(180, xPct));
-    yPct = Math.max(-80, Math.min(180, yPct));
+    xPct = Math.max(-240, Math.min(340, xPct));
+    yPct = Math.max(-240, Math.min(340, yPct));
     state.textDragging.el.style.left = xPct + '%';
     state.textDragging.el.style.top = yPct + '%';
     state.textDragging.x = xPct;
