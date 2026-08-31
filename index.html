@@ -605,6 +605,7 @@
   .token.defeated img{ filter:grayscale(100%); }
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
   .token.selected{ box-shadow:0 0 0 2px var(--amber-bright), 0 3px 10px var(--shadow); }
+  .token.multi-selected{ box-shadow:0 0 0 3px #4fc3f7, 0 3px 10px var(--shadow); }
   .token-label{
     position:absolute; top:100%; margin-top:6px; left:50%; transform:translateX(-50%);
     font-family:'IM Fell English', serif; font-size:13px; color:var(--parchment);
@@ -2136,6 +2137,7 @@
   let openT20SavesTokens = new Set();
   let openT20SkillsTokens = new Set();
   let openSystemDrawerTokens = new Set();
+  let multiSelectedTokenIds = new Set();
 
   // ---------- sound effects ----------
   let soundMuted = false;
@@ -3968,6 +3970,7 @@
     openT20SavesTokens = new Set();
     openT20SkillsTokens = new Set();
     openSystemDrawerTokens = new Set();
+    multiSelectedTokenIds = new Set();
     openPageAccessRows = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
@@ -5000,6 +5003,7 @@
       t.style.borderColor = hpCol;
       t.classList.toggle('defeated', isDefeated);
       t.classList.toggle('selected', tok.id === state.selectedTokenId);
+      t.classList.toggle('multi-selected', multiSelectedTokenIds.has(tok.id));
       const inCombat = !!(state.initiative && state.initiative.list && state.initiative.list.length > 0);
       const activeEntry = inCombat ? state.initiative.list.find(e => e.id === state.initiative.activeId) : null;
       t.classList.toggle('token-current-turn', !!(activeEntry && activeEntry.tokenId === tok.id));
@@ -5918,6 +5922,13 @@
     e.stopPropagation();
     const target = e.currentTarget;
     const tok = state.tokens.find(t => t.id === target.dataset.id);
+    if(effectiveMaster() && (e.ctrlKey || e.metaKey) && tok){
+      // Ctrl/Cmd+clique: alterna a ficha na seleção múltipla, sem iniciar arraste.
+      if(multiSelectedTokenIds.has(tok.id)) multiSelectedTokenIds.delete(tok.id);
+      else multiSelectedTokenIds.add(tok.id);
+      render();
+      return;
+    }
     const now = Date.now();
     if(lastTokenTapId === target.dataset.id && (now - lastTokenTapTime) < 400){
       lastTokenTapId = null; lastTokenTapTime = 0;
@@ -5937,6 +5948,19 @@
       startClientX: e.clientX, startClientY: e.clientY,
       origLeft: target.style.left, origTop: target.style.top
     };
+    // Se essa ficha faz parte de uma seleção múltipla (2+), arrasta o grupo inteiro junto.
+    if(effectiveMaster() && tok && multiSelectedTokenIds.has(tok.id) && multiSelectedTokenIds.size >= 2){
+      const anchorPos = tokenPos(tok);
+      state.dragging.group = [...multiSelectedTokenIds].map(id => {
+        const t2 = state.tokens.find(t => t.id === id);
+        const el2 = document.querySelector('.token[data-id="'+id+'"]');
+        if(!t2 || !el2) return null;
+        const p2 = tokenPos(t2);
+        return { id, el: el2, startX: p2.x, startY: p2.y, liveX: p2.x, liveY: p2.y };
+      }).filter(Boolean);
+      state.dragging.anchorStartX = anchorPos.x;
+      state.dragging.anchorStartY = anchorPos.y;
+    }
     target.addEventListener('pointermove', onTokenPointerMove);
     target.addEventListener('pointerup', onTokenPointerUp);
     target.addEventListener('pointercancel', onTokenPointerUp);
@@ -5956,12 +5980,31 @@
       id, tokenEl,
       centerX: rect.left + rect.width / 2,
       centerY: rect.top + rect.height / 2,
+      startSize: tokenSize(tok),
       liveSize: null
     };
+    if(effectiveMaster() && multiSelectedTokenIds.has(id) && multiSelectedTokenIds.size >= 2){
+      state.refResizing.group = [...multiSelectedTokenIds].map(gid => {
+        const t2 = state.tokens.find(t => t.id === gid);
+        const el2 = document.querySelector('.token[data-id="'+gid+'"]');
+        if(!t2 || !el2) return null;
+        return { id:gid, el:el2, startSize:tokenSize(t2), liveSize:null };
+      }).filter(Boolean);
+    }
     handle.setPointerCapture(e.pointerId);
     handle.addEventListener('pointermove', onRefResizeMove);
     handle.addEventListener('pointerup', onRefResizeEnd);
     handle.addEventListener('pointercancel', onRefResizeEnd);
+  }
+  function applyLiveTokenSize(el, newSize){
+    el.style.width = newSize + 'px';
+    el.style.height = newSize + 'px';
+    el.style.marginLeft = (-newSize / 2) + 'px';
+    el.style.marginTop = (-newSize / 2) + 'px';
+    const label = el.querySelector('.token-label');
+    if(label){
+      label.style.fontSize = Math.max(11, Math.min(16, Math.round(newSize * 0.12))) + 'px';
+    }
   }
   function onRefResizeMove(e){
     const s = state.refResizing;
@@ -5970,15 +6013,16 @@
     const dy = e.clientY - s.centerY;
     let newSize = Math.round(Math.max(Math.abs(dx), Math.abs(dy)) * 2);
     newSize = Math.max(10, Math.min(500, newSize));
-    s.tokenEl.style.width = newSize + 'px';
-    s.tokenEl.style.height = newSize + 'px';
-    s.tokenEl.style.marginLeft = (-newSize / 2) + 'px';
-    s.tokenEl.style.marginTop = (-newSize / 2) + 'px';
-    const label = s.tokenEl.querySelector('.token-label');
-    if(label){
-      label.style.fontSize = Math.max(11, Math.min(16, Math.round(newSize * 0.12))) + 'px';
-    }
+    applyLiveTokenSize(s.tokenEl, newSize);
     s.liveSize = newSize;
+    if(s.group){
+      const ratio = newSize / (s.startSize || newSize || 1);
+      s.group.forEach(g => {
+        const gSize = Math.max(10, Math.min(500, Math.round(g.startSize * ratio)));
+        applyLiveTokenSize(g.el, gSize);
+        g.liveSize = gSize;
+      });
+    }
   }
   async function onRefResizeEnd(e){
     const s = state.refResizing;
@@ -5988,7 +6032,16 @@
     handle.removeEventListener('pointermove', onRefResizeMove);
     handle.removeEventListener('pointerup', onRefResizeEnd);
     handle.removeEventListener('pointercancel', onRefResizeEnd);
-    if(s.liveSize){
+    if(s.group && s.group.some(g => g.liveSize)){
+      s.group.forEach(g => {
+        if(!g.liveSize) return;
+        const t2 = state.tokens.find(t => t.id === g.id);
+        if(!t2) return;
+        if(!t2.sizes) t2.sizes = {};
+        t2.sizes[state.currentPageId] = g.liveSize;
+      });
+      await persistTokens();
+    } else if(s.liveSize){
       const tok = state.tokens.find(t => t.id === s.id);
       if(tok){
         if(!tok.sizes) tok.sizes = {};
@@ -6011,6 +6064,18 @@
     state.dragging.el.style.top = yPct + '%';
     state.dragging.x = xPct;
     state.dragging.y = yPct;
+    if(state.dragging.group){
+      const dx = xPct - state.dragging.anchorStartX;
+      const dy = yPct - state.dragging.anchorStartY;
+      state.dragging.group.forEach(g => {
+        const gx = Math.max(min, Math.min(max, g.startX + dx));
+        const gy = Math.max(min, Math.min(max, g.startY + dy));
+        g.el.style.left = gx + '%';
+        g.el.style.top = gy + '%';
+        g.liveX = gx;
+        g.liveY = gy;
+      });
+    }
   }
   function onTokenPointerUp(e){
     if(!state.dragging) return;
@@ -6035,11 +6100,21 @@
 
     const dist = Math.hypot((e.clientX||0) - d.startClientX, (e.clientY||0) - d.startClientY);
     if(typeof d.x === 'number' && dist >= 6){
-      const tok = state.tokens.find(t => t.id === d.id);
-      if(tok){
-        if(!tok.positions) tok.positions = {};
-        tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: nextTokenZOrder() };
+      if(d.group){
+        d.group.forEach(g => {
+          const t2 = state.tokens.find(t => t.id === g.id);
+          if(!t2) return;
+          if(!t2.positions) t2.positions = {};
+          t2.positions[state.currentPageId] = { x:g.liveX, y:g.liveY, zOrder: nextTokenZOrder() };
+        });
         persistTokens();
+      } else {
+        const tok = state.tokens.find(t => t.id === d.id);
+        if(tok){
+          if(!tok.positions) tok.positions = {};
+          tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: nextTokenZOrder() };
+          persistTokens();
+        }
       }
     } else {
       // A tap, not a drag: snap the token back to its original spot and treat as a select click.
@@ -8190,6 +8265,7 @@
       state.fogMode = false;
       state.pingArmed = false;
       state.measureArmed = false;
+      multiSelectedTokenIds = new Set();
       closeOpenToolPanels();
       render();
       return;
@@ -8266,7 +8342,7 @@
     }
   });
   document.addEventListener('click', (e) => {
-    if(!state.drawMode && !state.fogMode && !state.pingArmed) return;
+    if(!state.drawMode && !state.fogMode && !state.pingArmed && multiSelectedTokenIds.size === 0) return;
     if($mapViewport.contains(e.target)) return;
     if(e.target.closest('#icon-rail')) return;
     if(state.fogMode && e.target.closest('#float-fog')) return;
@@ -8275,6 +8351,7 @@
     state.drawMode = false;
     state.fogMode = false;
     state.pingArmed = false;
+    multiSelectedTokenIds = new Set();
     render();
   });
   (function resumeSessionOrShowPortal(){
