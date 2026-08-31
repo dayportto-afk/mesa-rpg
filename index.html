@@ -566,8 +566,15 @@
     max-width:100%;
     max-height:100%;
   }
-  body.role-master #map-canvas{ overflow:visible; width:72%; max-width:72%; max-height:72%; }
-  @media (max-width:900px){ body.role-master #map-canvas{ width:78%; max-width:78%; max-height:78%; } }
+  /* Mestre: o mapa mantém exatamente o mesmo dimensionamento dos jogadores.
+     A área de trabalho extra existe fora dos limites do mapa e só é visível ao mestre. */
+  body.role-master #map-canvas{ overflow:visible; }
+  body.role-master #map-viewport::before{
+    content:''; position:absolute; left:50%; top:50%;
+    width:300%; height:300%; transform:translate(-50%,-50%);
+    background:radial-gradient(ellipse at center, rgba(200,137,46,0.035) 0%, rgba(0,0,0,0) 60%);
+    pointer-events:none; z-index:-1;
+  }
   .token.token-reference.reference-locked{ cursor:not-allowed; }
   .token.token-reference.reference-locked .token-resize-handle{ display:none; }
   .reference-lock-badge{ position:absolute; top:4px; right:4px; z-index:8; background:#150f09; border:1px solid var(--wax); border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; pointer-events:none; }
