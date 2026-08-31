@@ -656,6 +656,20 @@
   }
   #freeze-banner button{ padding:4px 10px; font-size:10px; flex-shrink:0; }
 
+  #multi-select-bar{
+    display:none; position:absolute; bottom:16px; left:50%; transform:translateX(-50%); z-index:70;
+    align-items:center; gap:10px; flex-wrap:wrap; justify-content:center;
+    background:#0e1a22; border:1px solid #4fc3f7; border-radius:8px;
+    padding:9px 14px; box-shadow:0 4px 16px rgba(0,0,0,0.4);
+    max-width:92vw;
+  }
+  #multi-select-bar.show{ display:flex; }
+  #multi-select-count{
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:#9fdcfb;
+    letter-spacing:0.5px; white-space:nowrap;
+  }
+  #multi-select-bar button{ padding:6px 11px; font-size:11px; flex-shrink:0; }
+
   #initiative-hud{
     display:none; position:absolute; top:16px; left:16px; z-index:70; max-width:220px;
     background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
@@ -1688,6 +1702,12 @@
         <div id="freeze-banner" style="display:none;">
           <span>🔒 Jogadores congelados — eles não veem suas mudanças ainda</span>
           <button type="button" id="btn-freeze-banner-release">Liberar agora</button>
+        </div>
+        <div id="multi-select-bar">
+          <span id="multi-select-count"></span>
+          <button type="button" id="btn-multi-remove-page">Remover da página</button>
+          <button type="button" id="btn-multi-delete-perm" class="danger">Excluir fichas</button>
+          <button type="button" id="btn-multi-clear" title="Sair da seleção">✕</button>
         </div>
         <div id="initiative-hud" title="Clique para abrir a iniciativa completa — arraste para mover">
           <div id="initiative-hud-round"></div>
@@ -4076,6 +4096,9 @@
   }
   el('btn-freeze-toggle').addEventListener('click', toggleFreeze);
   el('btn-freeze-banner-release').addEventListener('click', toggleFreeze);
+  el('btn-multi-remove-page').addEventListener('click', bulkRemoveSelectedFromPage);
+  el('btn-multi-delete-perm').addEventListener('click', bulkDeleteSelectedTokens);
+  el('btn-multi-clear').addEventListener('click', () => { multiSelectedTokenIds = new Set(); render(); });
 
   function openDicePanel(){
     el('dice-panel').classList.add('open');
@@ -4465,6 +4488,7 @@
       renderTexts();
       setupFogCanvas();
     }
+    renderMultiSelectBar();
     renderTokenList();
     renderTextList();
     renderPageHistory();
@@ -6170,6 +6194,46 @@
     if(!confirm('Excluir esta ficha de todas as páginas permanentemente? Essa ação não pode ser desfeita com o botão de remover desta página.')) return;
     pushUndo();
     state.tokens = state.tokens.filter(t => t.id !== id);
+    render();
+    await persistTokens();
+  }
+
+  function renderMultiSelectBar(){
+    const bar = el('multi-select-bar');
+    if(!bar) return;
+    const n = multiSelectedTokenIds.size;
+    if(!effectiveMaster() || n === 0){
+      bar.classList.remove('show');
+      return;
+    }
+    bar.classList.add('show');
+    el('multi-select-count').textContent = n + (n === 1 ? ' ficha selecionada' : ' fichas selecionadas');
+  }
+
+  async function bulkRemoveSelectedFromPage(){
+    const ids = [...multiSelectedTokenIds];
+    if(ids.length === 0) return;
+    pushUndo();
+    ids.forEach(id => {
+      const tok = state.tokens.find(t => t.id === id);
+      if(!tok) return;
+      if(!tok.removedFromPages) tok.removedFromPages = [];
+      if(!tok.removedFromPages.includes(state.currentPageId)) tok.removedFromPages.push(state.currentPageId);
+    });
+    multiSelectedTokenIds = new Set();
+    render();
+    await persistTokens();
+  }
+
+  async function bulkDeleteSelectedTokens(){
+    const ids = [...multiSelectedTokenIds];
+    if(ids.length === 0) return;
+    const names = ids.map(id => { const t = state.tokens.find(t => t.id === id); return t ? t.name : '?'; });
+    const label = ids.length === 1 ? ('a ficha "'+names[0]+'"') : (ids.length + ' fichas ('+names.join(', ')+')');
+    if(!confirm('Excluir '+label+' de todas as páginas permanentemente? Essa ação não pode ser desfeita.')) return;
+    pushUndo();
+    state.tokens = state.tokens.filter(t => !ids.includes(t.id));
+    multiSelectedTokenIds = new Set();
     render();
     await persistTokens();
   }
@@ -8327,6 +8391,12 @@
       // O gerenciador completo de fichas é exclusivo do mestre; jogadores mantêm as permissões da própria ficha.
       if(effectiveMaster()) openTokensPanel();
       else openMySheet();
+      return;
+    }
+
+    if(e.key === 'Delete' && multiSelectedTokenIds.size > 0 && effectiveMaster()){
+      e.preventDefault();
+      await bulkRemoveSelectedFromPage();
       return;
     }
 
