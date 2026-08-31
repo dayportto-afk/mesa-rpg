@@ -5003,7 +5003,7 @@
                     (inCombat ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, displayFrac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
-                    (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
+                    (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
                     (canResizeToken(tok) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
       $canvas.appendChild(t);
