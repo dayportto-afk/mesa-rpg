@@ -606,11 +606,11 @@
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
   .token.selected{ box-shadow:0 0 0 2px var(--amber-bright), 0 3px 10px var(--shadow); }
   .token-label{
-    position:absolute; bottom:-24px; left:50%; transform:translateX(-50%);
+    position:absolute; top:100%; margin-top:6px; left:50%; transform:translateX(-50%);
     font-family:'IM Fell English', serif; font-size:13px; color:var(--parchment);
     background:#150f09; border:1px solid var(--amber); border-radius:3px;
-    padding:2px 4px; box-sizing:border-box;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    padding:2px 6px; box-sizing:border-box;
+    white-space:normal; width:max-content; max-width:180px; line-height:1.25;
     text-align:center; pointer-events:none;
     display:none;
   }
@@ -4975,7 +4975,7 @@
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.12)));
         const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
         t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                      '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
+                      '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
                       handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
         $canvas.appendChild(t);
@@ -5008,7 +5008,7 @@
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
                     (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
-                    '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
+                    '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
                     (canResizeToken(tok) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '');
@@ -5829,6 +5829,16 @@
     return (str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
+  function tokenLabelHtml(name){
+    const words = (name || '').trim().split(/\s+/).filter(Boolean);
+    if(words.length === 0) return '';
+    const lines = [];
+    for(let i = 0; i < words.length; i += 3){
+      lines.push(escapeHtml(words.slice(i, i + 3).join(' ')));
+    }
+    return lines.join('<br>');
+  }
+
   // ---------- rich text editing (bold/italic/underline applied directly, no markers/preview) ----------
   const RICH_ALLOWED_TAGS = { B:1, STRONG:1, I:1, EM:1, U:1, BR:1 };
 
@@ -5954,7 +5964,6 @@
     s.tokenEl.style.marginTop = (-newSize / 2) + 'px';
     const label = s.tokenEl.querySelector('.token-label');
     if(label){
-      label.style.width = newSize + 'px';
       label.style.fontSize = Math.max(11, Math.min(16, Math.round(newSize * 0.12))) + 'px';
     }
     s.liveSize = newSize;
