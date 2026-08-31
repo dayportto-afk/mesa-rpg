@@ -5027,6 +5027,25 @@
     }
   }
 
+  function tokenDisplayDimensions(tok, size){
+    if(!tok || !tok.isReference) return { width:size, height:size };
+    const ratio = Number(tok.aspectRatio) || 1;
+    if(ratio >= 1) return { width:size, height:size / ratio };
+    return { width:size * ratio, height:size };
+  }
+
+  function getImageAspectRatio(src){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        if(!img.naturalWidth || !img.naturalHeight){ reject(new Error('Dimensões inválidas')); return; }
+        resolve(img.naturalWidth / img.naturalHeight);
+      };
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
   function renderTokens(){
     document.querySelectorAll('.token').forEach(t => t.remove());
     if(!document.getElementById('map-img')) return;
@@ -5038,12 +5057,13 @@
       t.className = 'token' + (tok.isReference ? ' token-reference' : '') + (tok.isReference && tok.referenceLocked ? ' reference-locked' : '');
       t.dataset.id = tok.id;
       const size = tokenSize(tok);
+      const dims = tokenDisplayDimensions(tok, size);
       t.style.left = pos.x + '%';
       t.style.top = pos.y + '%';
-      t.style.width = size + 'px';
-      t.style.height = size + 'px';
-      t.style.marginLeft = (-size/2) + 'px';
-      t.style.marginTop = (-size/2) + 'px';
+      t.style.width = dims.width + 'px';
+      t.style.height = dims.height + 'px';
+      t.style.marginLeft = (-dims.width/2) + 'px';
+      t.style.marginTop = (-dims.height/2) + 'px';
       if(typeof pos.zOrder === 'number') t.style.zIndex = pos.zOrder;
       if(tok.isReference){
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.12)));
@@ -5054,6 +5074,15 @@
                       lockBadge + handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
         $canvas.appendChild(t);
+        const refImg = t.querySelector('img');
+        if(refImg && !Number(tok.aspectRatio)){
+          refImg.addEventListener('load', async () => {
+            if(!refImg.naturalWidth || !refImg.naturalHeight || Number(tok.aspectRatio)) return;
+            tok.aspectRatio = refImg.naturalWidth / refImg.naturalHeight;
+            renderTokens();
+            await persistTokens();
+          }, { once:true });
+        }
         const handle = t.querySelector('[data-resize-handle]');
         if(handle) handle.addEventListener('pointerdown', onRefResizeStart);
         return;
@@ -6062,11 +6091,12 @@
     handle.addEventListener('pointerup', onRefResizeEnd);
     handle.addEventListener('pointercancel', onRefResizeEnd);
   }
-  function applyLiveTokenSize(el, newSize){
-    el.style.width = newSize + 'px';
-    el.style.height = newSize + 'px';
-    el.style.marginLeft = (-newSize / 2) + 'px';
-    el.style.marginTop = (-newSize / 2) + 'px';
+  function applyLiveTokenSize(el, newSize, tok){
+    const dims = tokenDisplayDimensions(tok, newSize);
+    el.style.width = dims.width + 'px';
+    el.style.height = dims.height + 'px';
+    el.style.marginLeft = (-dims.width / 2) + 'px';
+    el.style.marginTop = (-dims.height / 2) + 'px';
     const label = el.querySelector('.token-label');
     if(label){
       label.style.fontSize = Math.max(11, Math.min(16, Math.round(newSize * 0.12))) + 'px';
@@ -6079,7 +6109,7 @@
     const dy = e.clientY - s.centerY;
     let newSize = Math.round(Math.max(Math.abs(dx), Math.abs(dy)) * 2);
     newSize = Math.max(10, Math.min(1200, newSize));
-    applyLiveTokenSize(s.tokenEl, newSize);
+    applyLiveTokenSize(s.tokenEl, newSize, state.tokens.find(t => t.id === s.id));
     s.liveSize = newSize;
     if(s.group){
       const ratio = newSize / (s.startSize || newSize || 1);
@@ -6087,7 +6117,7 @@
         const gTok = state.tokens.find(t => t.id === g.id);
         const gMax = gTok && gTok.isReference ? 1200 : 500;
         const gSize = Math.max(10, Math.min(gMax, Math.round(g.startSize * ratio)));
-        applyLiveTokenSize(g.el, gSize);
+        applyLiveTokenSize(g.el, gSize, gTok);
         g.liveSize = gSize;
       });
     }
@@ -7211,9 +7241,10 @@
     const tok = state.tokens.find(t => t.id === editingTokenId);
     e.target.value = '';
     if(tok && tok.isReference){
-      let dataUrl;
+      let dataUrl, aspectRatio;
       try{
-        dataUrl = await resizeImage(file, 900, 0.85);
+        dataUrl = await resizeImage(file, 1200, 0.9);
+        aspectRatio = await getImageAspectRatio(dataUrl);
       }catch(err){
         alert('Não consegui carregar essa imagem. Tente outro arquivo.');
         editingTokenId = null;
@@ -7221,6 +7252,7 @@
       }
       pushUndo();
       tok.image = dataUrl;
+      tok.aspectRatio = aspectRatio;
       editingTokenId = null;
       render();
       await persistTokens();
@@ -7317,15 +7349,18 @@
 
   // ---------- reference images ----------
   let pendingReferenceImage = null;
+  let pendingReferenceAspectRatio = 1;
   el('reference-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
     try{
       pendingReferenceImage = await resizeImage(file, 1200, 0.9);
+      pendingReferenceAspectRatio = await getImageAspectRatio(pendingReferenceImage);
       el('reference-preview-img').src = pendingReferenceImage;
       el('reference-preview').style.display = 'block';
     }catch(err){
       pendingReferenceImage = null;
+      pendingReferenceAspectRatio = 1;
       alert('Não consegui carregar essa imagem. Tente outro arquivo.');
     }
   });
@@ -7338,7 +7373,7 @@
     const pos = stagePositionByType({ isReference:true, masterLocked:true }, refCount);
     pos.zOrder = nextStageZOrder();
     const tok = {
-      id:newId('t'), name, image:pendingReferenceImage, size:180, sizes:{}, isReference:true, masterLocked:true, referenceLocked:false,
+      id:newId('t'), name, image:pendingReferenceImage, size:180, sizes:{}, isReference:true, masterLocked:true, referenceLocked:false, aspectRatio:pendingReferenceAspectRatio,
       positions: state.currentPageId ? { [state.currentPageId]: pos } : {}
     };
     state.tokens.push(tok);
@@ -7346,6 +7381,7 @@
     await persistTokens();
     el('reference-form').reset();
     pendingReferenceImage = null;
+    pendingReferenceAspectRatio = 1;
     el('reference-preview').style.display = 'none';
     el('reference-preview-img').removeAttribute('src');
   });
