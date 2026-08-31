@@ -4801,6 +4801,14 @@
     const sameType = state.tokens.filter(t => t.isReference === tok.isReference && t.masterLocked === tok.masterLocked);
     return stagePositionByType(tok, Math.max(0, sameType.indexOf(tok)));
   }
+  function nextTokenZOrder(){
+    let max = 0;
+    state.tokens.forEach(t => {
+      const p = t.positions && t.positions[state.currentPageId];
+      if(p && typeof p.zOrder === 'number' && p.zOrder > max) max = p.zOrder;
+    });
+    return max + 1;
+  }
   function tokenSize(tok){
     return (tok.sizes && tok.sizes[state.currentPageId]) || tok.size || 64;
   }
@@ -4973,6 +4981,7 @@
       t.style.height = size + 'px';
       t.style.marginLeft = (-size/2) + 'px';
       t.style.marginTop = (-size/2) + 'px';
+      if(typeof pos.zOrder === 'number') t.style.zIndex = pos.zOrder;
       if(tok.isReference){
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.12)));
         const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
@@ -5921,6 +5930,7 @@
     if(state.isMaster) pushUndo();
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
+    target.style.zIndex = 999999; // fica por cima de tudo enquanto está sendo arrastado
     const canvasRect = $canvas.getBoundingClientRect();
     state.dragging = {
       id: target.dataset.id, el: target, canvasRect,
@@ -6028,7 +6038,7 @@
       const tok = state.tokens.find(t => t.id === d.id);
       if(tok){
         if(!tok.positions) tok.positions = {};
-        tok.positions[state.currentPageId] = { x:d.x, y:d.y };
+        tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: nextTokenZOrder() };
         persistTokens();
       }
     } else {
