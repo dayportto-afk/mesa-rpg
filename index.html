@@ -1042,8 +1042,8 @@
   }
   .dice-visibility-row{ display:flex; gap:6px; }
 
-  .system-select-row{ display:flex; gap:6px; margin-top:8px; }
-  .system-select-row button{ flex:1; }
+  .system-select-row{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .system-select-row button{ flex:1 1 40%; font-size:12px; padding:6px 4px; }
   .pool-block{ border-top:1px dashed var(--line); padding-top:6px; margin-top:6px; }
   .pool-block:first-child{ border-top:none; padding-top:0; margin-top:0; }
   .pool-block-label{
@@ -1479,6 +1479,7 @@
                 <button type="button" id="new-system-hp" class="toggle-active">OUTROS</button>
                 <button type="button" id="new-system-numenera">Numenera</button>
                 <button type="button" id="new-system-dnd">D&D</button>
+                <button type="button" id="new-system-tormenta">Tormenta 20</button>
               </div>
               <div id="new-hp-fields">
                 <label for="token-maxhp" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Vida máxima (HP)</label>
@@ -2036,6 +2037,9 @@
   let openDndSavesTokens = new Set();
   let openDndSkillsTokens = new Set();
   let openDndSpellsTokens = new Set();
+  let openT20SavesTokens = new Set();
+  let openT20SkillsTokens = new Set();
+  let openSystemDrawerTokens = new Set();
 
   // ---------- sound effects ----------
   let soundMuted = false;
@@ -2975,6 +2979,7 @@
     if(!state.initiative.activeId) state.initiative.activeId = entry.id;
     renderInitiativeList();
     renderInitiativeHud();
+    renderTokens();
     await persistInitiative();
   }
 
@@ -2986,6 +2991,7 @@
     }
     renderInitiativeList();
     renderInitiativeHud();
+    renderTokens();
     await persistInitiative();
   }
 
@@ -3006,6 +3012,7 @@
     state.initiative = { list:[], activeId:null, round:1 };
     renderInitiativeList();
     renderInitiativeHud();
+    renderTokens();
     await persistInitiative();
   }
 
@@ -3179,9 +3186,10 @@
       lifeBlockMarkup(tok) +
       numeneraExtrasMarkup(tok) +
       dndExtrasMarkup(tok) +
+      tormentaExtrasMarkup(tok) +
       (tok.statSystem !== 'numenera' && tok.statSystem !== 'dnd' ? (
         '<div class="token-row-hp">' +
-          '<span class="row-label">Mana</span>' +
+          '<span class="row-label">'+(tok.statSystem === 'tormenta' ? 'PM' : 'Mana')+'</span>' +
           '<button type="button" data-mana-minus="'+tok.id+'">−</button>' +
           '<span class="hp-value">'+((tok.mana&&tok.mana.current)||0)+' / '+((tok.mana&&tok.mana.max)||0)+'</span>' +
           '<button type="button" data-mana-plus="'+tok.id+'">+</button>' +
@@ -3608,6 +3616,9 @@
     openDndSavesTokens = new Set();
     openDndSkillsTokens = new Set();
     openDndSpellsTokens = new Set();
+    openT20SavesTokens = new Set();
+    openT20SkillsTokens = new Set();
+    openSystemDrawerTokens = new Set();
     openPageAccessRows = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
@@ -4443,6 +4454,51 @@
   ];
   function abilityMod(score){ return Math.floor(((score==null?10:score) - 10) / 2); }
   function fmtMod(n){ return (n>=0?'+':'') + n; }
+
+  const TORMENTA_SAVES = [
+    { key:'fortitude', label:'Fortitude', ability:'con' },
+    { key:'reflexos', label:'Reflexos', ability:'dex' },
+    { key:'vontade', label:'Vontade', ability:'wis' }
+  ];
+  const TORMENTA_SKILLS = [
+    { key:'acrobacia', label:'Acrobacia', ability:'dex' },
+    { key:'adestramento', label:'Adestramento', ability:'cha' },
+    { key:'atletismo', label:'Atletismo', ability:'str' },
+    { key:'atuacao', label:'Atuação', ability:'cha' },
+    { key:'cavalgar', label:'Cavalgar', ability:'dex' },
+    { key:'conhecimento', label:'Conhecimento', ability:'int', trainedOnly:true },
+    { key:'cura', label:'Cura', ability:'wis' },
+    { key:'diplomacia', label:'Diplomacia', ability:'cha' },
+    { key:'enganacao', label:'Enganação', ability:'cha' },
+    { key:'furtividade', label:'Furtividade', ability:'dex' },
+    { key:'guerra', label:'Guerra', ability:'int', trainedOnly:true },
+    { key:'iniciativa', label:'Iniciativa', ability:'dex' },
+    { key:'intimidacao', label:'Intimidação', ability:'cha' },
+    { key:'intuicao', label:'Intuição', ability:'wis' },
+    { key:'investigacao', label:'Investigação', ability:'int' },
+    { key:'jogatina', label:'Jogatina', ability:'cha' },
+    { key:'ladinagem', label:'Ladinagem', ability:'dex' },
+    { key:'luta', label:'Luta', ability:'str' },
+    { key:'misticismo', label:'Misticismo', ability:'int', trainedOnly:true },
+    { key:'nobreza', label:'Nobreza', ability:'int', trainedOnly:true },
+    { key:'oficio', label:'Ofício', ability:'int', trainedOnly:true },
+    { key:'percepcao', label:'Percepção', ability:'wis' },
+    { key:'pilotagem', label:'Pilotagem', ability:'dex' },
+    { key:'pontaria', label:'Pontaria', ability:'dex' },
+    { key:'religiao', label:'Religião', ability:'wis', trainedOnly:true },
+    { key:'sobrevivencia', label:'Sobrevivência', ability:'wis' }
+  ];
+  function t20TrainingBonus(level){ return level >= 15 ? 6 : level >= 7 ? 4 : 2; }
+  function t20SkillTotal(tok, skill){
+    const level = tok.level || 1;
+    const half = Math.floor(level / 2);
+    const ab = tok.abilities || {};
+    const score = (ab[skill.ability] != null) ? ab[skill.ability] : 10;
+    const mod = abilityMod(score);
+    const trained = !!(tok.t20Trained && tok.t20Trained[skill.key]);
+    if(skill.trainedOnly && !trained) return null;
+    return half + mod + (trained ? t20TrainingBonus(level) : 0);
+  }
   function tokenLifeFraction(tok){
     if(tok.statSystem === 'numenera'){
       const pools = tok.pools || {};
@@ -4519,6 +4575,7 @@
       t.style.borderColor = hpCol;
       t.classList.toggle('defeated', isDefeated);
       t.classList.toggle('selected', tok.id === state.selectedTokenId);
+      const inCombat = !!(state.initiative && state.initiative.list && state.initiative.list.length > 0);
       const barW = Math.max(28, Math.round(size * 0.82));
       const barTop = -Math.round(size * 0.16) - 6;
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
@@ -4527,7 +4584,7 @@
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('');
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                    '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' +
+                    (inCombat ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
@@ -4612,6 +4669,27 @@
         render();
       });
     });
+    $root.querySelectorAll('[data-t20-saves-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-t20-saves-toggle');
+        if(openT20SavesTokens.has(id)) openT20SavesTokens.delete(id); else openT20SavesTokens.add(id);
+        render();
+      });
+    });
+    $root.querySelectorAll('[data-t20-skills-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-t20-skills-toggle');
+        if(openT20SkillsTokens.has(id)) openT20SkillsTokens.delete(id); else openT20SkillsTokens.add(id);
+        render();
+      });
+    });
+    $root.querySelectorAll('[data-system-drawer-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-system-drawer-toggle');
+        if(openSystemDrawerTokens.has(id)) openSystemDrawerTokens.delete(id); else openSystemDrawerTokens.add(id);
+        render();
+      });
+    });
   }
 
   async function setTokenNotes(id, value){
@@ -4685,9 +4763,10 @@
     }
     const hp = tok.hp || { current:10, max:10, temp:0 };
     const armor = tok.armor || 0;
+    const hpLabel = tok.statSystem === 'tormenta' ? 'PV' : 'HP';
     return (
       '<div class="token-row-hp">' +
-        '<span class="row-label">HP</span>' +
+        '<span class="row-label">'+hpLabel+'</span>' +
         '<button type="button" data-hp-minus="'+tok.id+'">−</button>' +
         '<span class="hp-value">'+hp.current+' / '+hp.max+(hp.temp ? ' <span class="hp-temp-tag">+'+hp.temp+'</span>' : '')+'</span>' +
         '<button type="button" data-hp-plus="'+tok.id+'">+</button>' +
@@ -4706,7 +4785,7 @@
       '</div>' +
       (tok.statSystem !== 'dnd' ? (
         '<div class="token-row-hp" title="Reduz cada dano recebido nesse valor, antes de descontar do HP">' +
-          '<span class="row-label">Armadura</span>' +
+          '<span class="row-label">'+(tok.statSystem === 'tormenta' ? 'RD' : 'Armadura')+'</span>' +
           '<input type="number" class="hp-max-input" min="0" max="99" value="'+armor+'" data-armor-input="'+tok.id+'">' +
         '</div>'
       ) : '')
@@ -4874,6 +4953,68 @@
 
   function raceClassMarkup(tok){
     return '<input type="text" class="raceclass-input" data-raceclass-input="'+tok.id+'" value="'+escapeHtml(tok.raceClass||'')+'" placeholder="Raça, classe e nível...">';
+  }
+
+  function tormentaExtrasMarkup(tok){
+    if(tok.statSystem !== 'tormenta') return '';
+    const ab = tok.abilities || {};
+    const level = tok.level || 1;
+    const ac = (tok.ac != null) ? tok.ac : 10;
+    const speed = (tok.speed != null) ? tok.speed : 9;
+    const trained = tok.t20Trained || {};
+
+    const abilitiesHtml = DND_ABILITIES.map(a => {
+      const score = (ab[a.key] != null) ? ab[a.key] : 10;
+      return (
+        '<div class="dnd-ability-box">' +
+          '<label>'+a.label.slice(0,3)+'</label>' +
+          '<input type="number" min="1" max="30" value="'+score+'" data-dnd-ability="'+tok.id+':'+a.key+'">' +
+          '<span class="dnd-ability-mod">'+fmtMod(abilityMod(score))+'</span>' +
+        '</div>'
+      );
+    }).join('');
+
+    function skillRow(skill){
+      const total = t20SkillTotal(tok, skill);
+      const isTrained = !!trained[skill.key];
+      return (
+        '<label class="dnd-save-row">' +
+          '<input type="checkbox" data-t20-train="'+tok.id+':'+skill.key+'"'+(isTrained?' checked':'')+'>' +
+          '<span class="dnd-save-label">'+skill.label+'</span>' +
+          '<span class="dnd-save-total">'+(total===null ? '—' : fmtMod(total))+'</span>' +
+        '</label>'
+      );
+    }
+
+    const savesHtml = TORMENTA_SAVES.map(skillRow).join('');
+    const skillsHtml = TORMENTA_SKILLS.map(skillRow).join('');
+
+    return (
+      '<div class="pool-block">' +
+        '<div class="pool-block-label">Atributos</div>' +
+        '<div class="dnd-abilities-grid">'+abilitiesHtml+'</div>' +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<div class="token-row-hp">' +
+          '<span class="row-label">Nível</span>' +
+          '<input type="number" class="hp-max-input" min="1" max="20" value="'+level+'" data-t20-level="'+tok.id+'">' +
+          '<span class="row-label" style="margin-left:auto;">Defesa</span>' +
+          '<input type="number" class="hp-max-input" min="0" max="60" value="'+ac+'" data-dnd-ac="'+tok.id+'">' +
+        '</div>' +
+        '<div class="token-row-hp">' +
+          '<span class="row-label">Desloc.</span>' +
+          '<input type="number" class="hp-max-input" min="0" max="999" value="'+speed+'" data-dnd-speed="'+tok.id+'">' +
+        '</div>' +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<button type="button" class="notes-toggle" data-t20-saves-toggle="'+tok.id+'">Testes de resistência <span>'+(openT20SavesTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
+        (openT20SavesTokens.has(tok.id) ? '<div class="dnd-saves-list">'+savesHtml+'</div>' : '') +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<button type="button" class="notes-toggle" data-t20-skills-toggle="'+tok.id+'">Perícias <span>'+(openT20SkillsTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
+        (openT20SkillsTokens.has(tok.id) ? '<div class="dnd-skills-list">'+skillsHtml+'</div>' : '') +
+      '</div>'
+    );
   }
 
   function phraseAndDamageMarkup(tok){
@@ -5074,6 +5215,12 @@
     $root.querySelectorAll('[data-spellslot-max]').forEach(inp=>{
       inp.addEventListener('change', () => { const [id,lvl] = inp.getAttribute('data-spellslot-max').split(':'); setSpellSlotMax(id, lvl, inp.value); });
     });
+    $root.querySelectorAll('[data-t20-level]').forEach(inp=>{
+      inp.addEventListener('change', () => setT20Level(inp.getAttribute('data-t20-level'), inp.value));
+    });
+    $root.querySelectorAll('[data-t20-train]').forEach(inp=>{
+      inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-t20-train').split(':'); toggleT20Trained(id, key, inp.checked); });
+    });
     $root.querySelectorAll('[data-condition]').forEach(btn=>{
       btn.addEventListener('click', () => {
         const [id, key] = btn.getAttribute('data-condition').split(':');
@@ -5103,17 +5250,22 @@
           (onPage ? '' : '<div class="token-off-page-tag">Fora desta página</div>') +
           raceClassMarkup(tok) +
           phraseAndDamageMarkup(tok) +
-          '<div class="system-select-row" style="margin-top:10px;">' +
-            '<button type="button" class="'+(tok.statSystem!=='numenera' && tok.statSystem!=='dnd'?'toggle-active':'')+'" data-system-hp="'+tok.id+'">OUTROS</button>' +
-            '<button type="button" class="'+(tok.statSystem==='numenera'?'toggle-active':'')+'" data-system-numenera="'+tok.id+'">Numenera</button>' +
-            '<button type="button" class="'+(tok.statSystem==='dnd'?'toggle-active':'')+'" data-system-dnd="'+tok.id+'">D&D</button>' +
-          '</div>' +
+          '<button type="button" class="notes-toggle" style="margin-top:10px;" data-system-drawer-toggle="'+tok.id+'">Selecionar sistema <span>'+(openSystemDrawerTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
+          (openSystemDrawerTokens.has(tok.id) ? (
+            '<div class="system-select-row" style="margin-top:6px;">' +
+              '<button type="button" class="'+(tok.statSystem!=='numenera' && tok.statSystem!=='dnd' && tok.statSystem!=='tormenta'?'toggle-active':'')+'" data-system-hp="'+tok.id+'">OUTROS</button>' +
+              '<button type="button" class="'+(tok.statSystem==='numenera'?'toggle-active':'')+'" data-system-numenera="'+tok.id+'">Numenera</button>' +
+              '<button type="button" class="'+(tok.statSystem==='dnd'?'toggle-active':'')+'" data-system-dnd="'+tok.id+'">D&D</button>' +
+              '<button type="button" class="'+(tok.statSystem==='tormenta'?'toggle-active':'')+'" data-system-tormenta="'+tok.id+'">Tormenta 20</button>' +
+            '</div>'
+          ) : '') +
           lifeBlockMarkup(tok) +
           numeneraExtrasMarkup(tok) +
           dndExtrasMarkup(tok) +
+          tormentaExtrasMarkup(tok) +
           (tok.statSystem !== 'numenera' && tok.statSystem !== 'dnd' ? (
             '<div class="token-row-hp">' +
-              '<span class="row-label">Mana</span>' +
+              '<span class="row-label">'+(tok.statSystem === 'tormenta' ? 'PM' : 'Mana')+'</span>' +
               '<button type="button" data-mana-minus="'+tok.id+'">−</button>' +
               '<span class="hp-value">'+((tok.mana&&tok.mana.current)||0)+' / '+((tok.mana&&tok.mana.max)||0)+'</span>' +
               '<button type="button" data-mana-plus="'+tok.id+'">+</button>' +
@@ -5210,6 +5362,9 @@
     });
     $tokenList.querySelectorAll('[data-system-dnd]').forEach(btn=>{
       btn.addEventListener('click', () => setTokenSystem(btn.getAttribute('data-system-dnd'), 'dnd'));
+    });
+    $tokenList.querySelectorAll('[data-system-tormenta]').forEach(btn=>{
+      btn.addEventListener('click', () => setTokenSystem(btn.getAttribute('data-system-tormenta'), 'tormenta'));
     });
     $tokenList.querySelectorAll('[data-name]').forEach(inp=>{
       inp.addEventListener('change', () => renameToken(inp.getAttribute('data-name'), inp.value));
@@ -5562,6 +5717,9 @@
     if(system === 'dnd' && !tok.hp){
       tok.hp = { current:10, max:10, temp:0 };
     }
+    if(system === 'tormenta' && !tok.hp){
+      tok.hp = { current:10, max:10, temp:0 };
+    }
     render();
     await persistTokens();
   }
@@ -5818,6 +5976,28 @@
     if(!tok.spellSlots[level]) tok.spellSlots[level] = { current:0, max:0 };
     tok.spellSlots[level].max = v;
     tok.spellSlots[level].current = Math.min(tok.spellSlots[level].current, v);
+    render();
+    await persistTokens();
+  }
+
+  async function setT20Level(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 1) v = 1;
+    if(v > 20) v = 20;
+    pushUndo();
+    tok.level = v;
+    render();
+    await persistTokens();
+  }
+
+  async function toggleT20Trained(id, key, checked){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.t20Trained) tok.t20Trained = {};
+    tok.t20Trained[key] = checked;
     render();
     await persistTokens();
   }
@@ -6377,12 +6557,14 @@
     el('new-system-hp').classList.toggle('toggle-active', system === 'hp');
     el('new-system-numenera').classList.toggle('toggle-active', system === 'numenera');
     el('new-system-dnd').classList.toggle('toggle-active', system === 'dnd');
+    el('new-system-tormenta').classList.toggle('toggle-active', system === 'tormenta');
     el('new-hp-fields').style.display = (system === 'numenera') ? 'none' : 'block';
     el('new-numenera-fields').style.display = (system === 'numenera') ? 'block' : 'none';
   }
   el('new-system-hp').addEventListener('click', () => selectNewTokenSystem('hp'));
   el('new-system-numenera').addEventListener('click', () => selectNewTokenSystem('numenera'));
   el('new-system-dnd').addEventListener('click', () => selectNewTokenSystem('dnd'));
+  el('new-system-tormenta').addEventListener('click', () => selectNewTokenSystem('tormenta'));
   el('token-is-reference').addEventListener('change', () => {
     const isRef = el('token-is-reference').checked;
     el('new-stats-section').style.display = isRef ? 'none' : 'block';
