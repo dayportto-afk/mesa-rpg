@@ -614,7 +614,7 @@
     text-align:center; pointer-events:none;
     display:none;
   }
-  .token.selected .token-label{ display:block; }
+  .token.selected .token-label, .token:hover .token-label{ display:block; }
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
     height:6px; border-radius:3px;
@@ -622,6 +622,18 @@
     overflow:hidden; pointer-events:none;
   }
   .token-hp-fill{ height:100%; border-radius:2px; transition:width .25s ease, background-color .25s ease; }
+  .token-hp-status{
+    position:absolute; left:50%; transform:translateX(-50%);
+    padding:2px 7px; border-radius:10px; border:1px solid var(--amber);
+    background:#150f09; color:var(--parchment);
+    font-family:'JetBrains Mono', monospace; font-size:9px; line-height:1.2;
+    white-space:nowrap; pointer-events:none; z-index:7;
+    box-shadow:0 2px 6px rgba(0,0,0,0.45);
+  }
+  .token.token-current-turn{
+    outline:3px solid var(--amber-bright);
+    outline-offset:4px;
+  }
 
   .map-text{
     position:absolute; transform:translate(-50%,-50%);
@@ -2088,7 +2100,7 @@
   // True master authority minus an active "view as player" preview.
   // Use this (not state.isMaster) for anything the player screen should hide.
   function effectiveMaster(){ return state.isMaster && !state.previewAsPlayer; }
-  function canInteractWithToken(tok){ return effectiveMaster() || !(tok && tok.masterLocked); }
+  function canInteractWithToken(tok){ return effectiveMaster() || (!(tok && tok.masterLocked) && isOwnToken(tok)); }
   function isOwnToken(tok){
     if(!tok) return false;
     return (tok.name||'').trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
@@ -4973,34 +4985,29 @@
       }
       const frac = tokenLifeFraction(tok);
       const isDefeated = tokenIsDefeated(tok);
-      const isNpc = !!tok.masterLocked;
-      const obscureHp = isNpc && !effectiveMaster();
-      let hpCol, displayFrac;
-      if(isDefeated){
-        hpCol = '#0a0a0a';
-        displayFrac = 0;
-      } else if(obscureHp){
-        // NPCs: players only see a coarse wound tier, not the exact HP fraction
-        if(frac >= 1){ hpCol = '#4caf50'; displayFrac = 1; }
-        else if(frac > 0.5){ hpCol = '#e0c62e'; displayFrac = 0.6; }
-        else { hpCol = '#c44040'; displayFrac = 0.2; }
-      } else {
-        hpCol = hpColor(frac);
-        displayFrac = frac;
-      }
+      const hpCol = isDefeated ? '#0a0a0a' : hpColor(frac);
       t.style.borderColor = hpCol;
       t.classList.toggle('defeated', isDefeated);
       t.classList.toggle('selected', tok.id === state.selectedTokenId);
       const inCombat = !!(state.initiative && state.initiative.list && state.initiative.list.length > 0);
+      const activeEntry = inCombat ? state.initiative.list.find(e => e.id === state.initiative.activeId) : null;
+      t.classList.toggle('token-current-turn', !!(activeEntry && activeEntry.tokenId === tok.id));
       const barW = Math.max(28, Math.round(size * 0.82));
       const barTop = -Math.round(size * 0.16) - 6;
+      const enemyHpPrivate = !effectiveMaster() && !!tok.masterLocked;
+      let qualitativeHp = '';
+      if(enemyHpPrivate && inCombat){
+        const pct = Math.max(0, frac) * 100;
+        qualitativeHp = pct <= 0 ? 'Derrotado' : (pct <= 15 ? 'Muito ferido' : (pct <= 60 ? 'Ferido' : 'Intacto'));
+      }
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
       const condBadges = (tok.conditions || []).map(key => {
         const c = CONDITIONS.find(c => c.key === key);
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('');
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                    (inCombat ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, displayFrac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
+                    (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
+                    (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="width:'+size+'px; font-size:'+labelFontSize+'px;">'+escapeHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
@@ -5898,7 +5905,7 @@
     }
     lastTokenTapId = target.dataset.id;
     lastTokenTapTime = now;
-    if(tok && tok.masterLocked && !effectiveMaster()) return; // NPC/inimigo travado: só o mestre move
+    if(tok && !canInteractWithToken(tok)) return; // só o mestre ou o dono da ficha pode movê-la
     if(state.isMaster) pushUndo();
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
