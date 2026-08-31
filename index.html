@@ -8133,10 +8133,18 @@
   function startPageListeners(pageId){
     stopPageListeners();
     if(!pageId || !db) return;
+    let pingListenerReady = false;
     watchPageKey(slotKey('page-'+pageId+'-ping'), (raw) => {
-      if(!raw) return;
+      if(!raw){ pingListenerReady = true; return; }
       try{
         const p = JSON.parse(raw);
+        if(!pingListenerReady){
+          // Primeira leitura ao conectar: é o último ping já salvo, não um novo — só sincroniza
+          // o timestamp em silêncio, sem mostrar o marcador de novo.
+          lastPingTs = p.ts;
+          pingListenerReady = true;
+          return;
+        }
         if(p.ts && p.ts !== lastPingTs){
           lastPingTs = p.ts;
           showPingLocally(p.x, p.y);
