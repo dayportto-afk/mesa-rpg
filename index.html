@@ -566,7 +566,11 @@
     max-width:100%;
     max-height:100%;
   }
-  body.role-master #map-canvas{ overflow:visible; }
+  body.role-master #map-canvas{ overflow:visible; width:72%; max-width:72%; max-height:72%; }
+  @media (max-width:900px){ body.role-master #map-canvas{ width:78%; max-width:78%; max-height:78%; } }
+  .token.token-reference.reference-locked{ cursor:not-allowed; }
+  .token.token-reference.reference-locked .token-resize-handle{ display:none; }
+  .reference-lock-badge{ position:absolute; top:4px; right:4px; z-index:8; background:#150f09; border:1px solid var(--wax); border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; pointer-events:none; }
   #map-canvas img{ display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
@@ -645,6 +649,7 @@
   .map-text.draggable{ cursor:grab; }
   .map-text.draggable:hover{ outline:1px dashed rgba(226,165,63,0.7); border-radius:3px; }
   .map-text.dragging{ cursor:grabbing; outline:1px dashed var(--amber-bright); border-radius:3px; }
+  .map-text.selected{ outline:2px dashed var(--amber-bright); border-radius:3px; }
 
   #freeze-banner{
     position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:70;
@@ -1428,6 +1433,10 @@
           <span class="icon-rail-label">Ficha</span>
         </div>
         <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-images" title="Imagens de referência">🖼️</button>
+          <span class="icon-rail-label">Imagens</span>
+        </div>
+        <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn" data-panel="float-fog" title="Névoa de guerra">🌫️</button>
           <span class="icon-rail-label">Névoa</span>
         </div>
@@ -1545,10 +1554,6 @@
         <div class="float-panel-body">
           <form id="token-form">
             <input type="text" id="token-name" placeholder="Nome do personagem">
-            <label class="checkbox-row" style="margin-top:6px;">
-              <input type="checkbox" id="token-is-reference">
-              <span>🖼️ Só imagem de referência (sem estatísticas)</span>
-            </label>
             <label class="file-btn" for="token-upload">Escolher imagem</label>
             <input type="file" id="token-upload" accept="image/*">
             <input type="file" id="token-edit-upload" accept="image/*" style="display:none;">
@@ -1578,8 +1583,26 @@
                 <input type="number" id="token-max-speed" min="1" max="99" value="10">
               </div>
             </div>
-            <div id="new-reference-hint" class="hint" style="display:none;">Vira só uma imagem arrastável — sem HP, sem estatísticas. Some inicialmente na área ao redor do mapa, visível só pra você.</div>
             <button type="submit" class="primary" style="margin-top:8px;">Adicionar ficha ao mapa</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="float-panel" id="float-images" style="left:200px; top:136px;">
+        <div class="float-panel-header">
+          <span>🖼️ Imagens</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-images">✕</button>
+        </div>
+        <div class="float-panel-body">
+          <form id="reference-form">
+            <input type="text" id="reference-name" placeholder="Nome da imagem (opcional)">
+            <label class="file-btn" for="reference-upload">Escolher imagem de referência</label>
+            <input type="file" id="reference-upload" accept="image/*">
+            <div id="reference-preview" style="display:none; margin-top:8px;">
+              <img id="reference-preview-img" alt="Pré-visualização" style="display:block; width:100%; max-height:220px; object-fit:contain; border:1px solid var(--line); border-radius:4px; background:#0a0704;">
+            </div>
+            <div class="hint">A imagem não é recortada, aparece primeiro na área do mestre ao redor do mapa e pode ser redimensionada até 1200 px. Depois, você pode travá-la para impedir movimentos acidentais.</div>
+            <button type="submit" class="primary" style="width:100%; margin-top:8px;">Adicionar imagem</button>
           </form>
         </div>
       </div>
@@ -2077,6 +2100,7 @@
     drawOpacity:100,
     drawStroke:null,
     selectedTokenId:null,
+    selectedTextId:null,
     previewAsPlayer:false,
     diceQty:{4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0},
     diceVisibility:'public',
@@ -4828,14 +4852,19 @@
     const sameType = state.tokens.filter(t => t.isReference === tok.isReference && t.masterLocked === tok.masterLocked);
     return stagePositionByType(tok, Math.max(0, sameType.indexOf(tok)));
   }
-  function nextTokenZOrder(){
+  function nextStageZOrder(){
     let max = 0;
     state.tokens.forEach(t => {
       const p = t.positions && t.positions[state.currentPageId];
       if(p && typeof p.zOrder === 'number' && p.zOrder > max) max = p.zOrder;
     });
+    const page = currentPage();
+    if(page && Array.isArray(page.texts)){
+      page.texts.forEach(txt => { if(typeof txt.zOrder === 'number' && txt.zOrder > max) max = txt.zOrder; });
+    }
     return max + 1;
   }
+  function nextTokenZOrder(){ return nextStageZOrder(); }
   function tokenSize(tok){
     return (tok.sizes && tok.sizes[state.currentPageId]) || tok.size || 64;
   }
@@ -4999,7 +5028,7 @@
       if(tok.isReference && !effectiveMaster()) return;
       const pos = tokenPos(tok);
       const t = document.createElement('div');
-      t.className = 'token' + (tok.isReference ? ' token-reference' : '');
+      t.className = 'token' + (tok.isReference ? ' token-reference' : '') + (tok.isReference && tok.referenceLocked ? ' reference-locked' : '');
       t.dataset.id = tok.id;
       const size = tokenSize(tok);
       t.style.left = pos.x + '%';
@@ -5011,10 +5040,11 @@
       if(typeof pos.zOrder === 'number') t.style.zIndex = pos.zOrder;
       if(tok.isReference){
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.12)));
-        const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
+        const handleHtml = (effectiveMaster() && !tok.referenceLocked) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
+        const lockBadge = (effectiveMaster() && tok.referenceLocked) ? '<div class="reference-lock-badge" title="Imagem travada">🔒</div>' : '';
         t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
                       '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
-                      handleHtml;
+                      lockBadge + handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
         $canvas.appendChild(t);
         const handle = t.querySelector('[data-resize-handle]');
@@ -5775,11 +5805,12 @@
         '<div class="token-row-size" style="margin-top:6px;">' +
           '<span class="row-label">Tam.</span>' +
           '<button type="button" data-size-minus="'+tok.id+'">−</button>' +
-          '<input type="number" class="size-input" min="10" max="500" value="'+size+'" data-size-input="'+tok.id+'">' +
+          '<input type="number" class="size-input" min="10" max="1200" value="'+size+'" data-size-input="'+tok.id+'">' +
           '<span class="size-unit">px</span>' +
           '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
         '</div>' +
         '<div class="token-row-actions" style="margin-top:6px;">' +
+          '<button type="button" data-reference-lock="'+tok.id+'">'+(tok.referenceLocked?'🔒 Destravar':'🔓 Travar')+'</button>' +
           '<button type="button" data-edit-image="'+tok.id+'">Trocar imagem</button>' +
         '</div>' +
       '</div>'
@@ -5809,6 +5840,9 @@
     wireNotesControls($tokenList);
     $tokenList.querySelectorAll('[data-lock-toggle]').forEach(btn=>{
       btn.addEventListener('click', () => toggleMasterLock(btn.getAttribute('data-lock-toggle')));
+    });
+    $tokenList.querySelectorAll('[data-reference-lock]').forEach(btn=>{
+      btn.addEventListener('click', () => toggleReferenceLock(btn.getAttribute('data-reference-lock')));
     });
     $tokenList.querySelectorAll('[data-card-toggle]').forEach(btn=>{
       btn.addEventListener('click', () => {
@@ -5962,6 +5996,7 @@
     lastTokenTapId = target.dataset.id;
     lastTokenTapTime = now;
     if(tok && !canInteractWithToken(tok)) return; // só o mestre ou o dono da ficha pode movê-la
+    if(tok && tok.isReference && tok.referenceLocked){ state.selectedTokenId = tok.id; state.selectedTextId = null; render(); return; }
     if(state.isMaster) pushUndo();
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
@@ -5997,7 +6032,7 @@
     const id = handle.getAttribute('data-resize-handle');
     if(!tokenEl) return;
     const tok = state.tokens.find(t => t.id === id);
-    if(!tok || !canResizeToken(tok)) return;
+    if(!tok || !canResizeToken(tok) || (tok.isReference && tok.referenceLocked)) return;
     pushUndo();
     const rect = tokenEl.getBoundingClientRect();
     state.refResizing = {
@@ -6036,13 +6071,15 @@
     const dx = e.clientX - s.centerX;
     const dy = e.clientY - s.centerY;
     let newSize = Math.round(Math.max(Math.abs(dx), Math.abs(dy)) * 2);
-    newSize = Math.max(10, Math.min(500, newSize));
+    newSize = Math.max(10, Math.min(1200, newSize));
     applyLiveTokenSize(s.tokenEl, newSize);
     s.liveSize = newSize;
     if(s.group){
       const ratio = newSize / (s.startSize || newSize || 1);
       s.group.forEach(g => {
-        const gSize = Math.max(10, Math.min(500, Math.round(g.startSize * ratio)));
+        const gTok = state.tokens.find(t => t.id === g.id);
+        const gMax = gTok && gTok.isReference ? 1200 : 500;
+        const gSize = Math.max(10, Math.min(gMax, Math.round(g.startSize * ratio)));
         applyLiveTokenSize(g.el, gSize);
         g.liveSize = gSize;
       });
@@ -6147,6 +6184,7 @@
       const tappedTok = state.tokens.find(t => t.id === d.id);
       if(canInteractWithToken(tappedTok)){
         state.selectedTokenId = state.selectedTokenId === d.id ? null : d.id;
+        state.selectedTextId = null;
       }
     }
     state.dragging = null;
@@ -6785,6 +6823,15 @@
     await persistTokens();
   }
 
+  async function toggleReferenceLock(id){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok || !tok.isReference) return;
+    pushUndo();
+    tok.referenceLocked = !tok.referenceLocked;
+    render();
+    await persistTokens();
+  }
+
   async function setMaxHp(id, value){
     const tok = state.tokens.find(t => t.id === id);
     if(!tok) return;
@@ -6804,7 +6851,7 @@
     pushUndo();
     const current = tokenSize(tok);
     if(!tok.sizes) tok.sizes = {};
-    tok.sizes[state.currentPageId] = Math.max(10, Math.min(500, current + delta));
+    tok.sizes[state.currentPageId] = Math.max(10, Math.min(tok.isReference ? 1200 : 500, current + delta));
     render();
     await persistTokens();
   }
@@ -6816,7 +6863,7 @@
     if(!document.getElementById('map-img') || !page) return;
     page.texts.forEach(txt => {
       const t = document.createElement('div');
-      t.className = 'map-text' + (effectiveMaster() ? ' draggable' : '');
+      t.className = 'map-text' + (effectiveMaster() ? ' draggable' : '') + (txt.id === state.selectedTextId ? ' selected' : '');
       t.dataset.id = txt.id;
       t.style.left = txt.x + '%';
       t.style.top = txt.y + '%';
@@ -6826,6 +6873,7 @@
       t.style.fontWeight = txt.bold ? '700' : '400';
       t.style.fontStyle = txt.italic ? 'italic' : 'normal';
       t.style.pointerEvents = effectiveMaster() ? 'auto' : 'none';
+      if(typeof txt.zOrder === 'number') t.style.zIndex = txt.zOrder;
       t.textContent = txt.content;
       if(effectiveMaster()) t.addEventListener('pointerdown', onTextPointerDown);
       $canvas.appendChild(t);
@@ -6957,8 +7005,11 @@
     lastTextTapId = id;
     lastTextTapTime = now;
     pushUndo();
+    state.selectedTextId = id;
+    state.selectedTokenId = null;
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
+    target.style.zIndex = 999999;
     const canvasRect = $canvas.getBoundingClientRect();
     state.textDragging = { id: target.dataset.id, el: target, canvasRect };
     target.addEventListener('pointermove', onTextPointerMove);
@@ -6987,7 +7038,7 @@
     if(typeof d.x === 'number'){
       const page = currentPage();
       const txt = page ? page.texts.find(t => t.id === d.id) : null;
-      if(txt){ txt.x = d.x; txt.y = d.y; await persistPageTexts(page); }
+      if(txt){ txt.x = d.x; txt.y = d.y; txt.zOrder = nextStageZOrder(); await persistPageTexts(page); }
     }
     state.textDragging = null;
     flushPendingPageUpdates('texts');
@@ -7014,7 +7065,8 @@
     let size = parseInt(el('text-size-input').value, 10);
     if(isNaN(size) || size < 10) size = 24;
     pushUndo();
-    page.texts.push({ id:newId('x'), content, color, size, font, bold:newTextBold, italic:newTextItalic, x:50, y:50 });
+    const textCount = page.texts.length;
+    page.texts.push({ id:newId('x'), content, color, size, font, bold:newTextBold, italic:newTextItalic, x:-22, y:12 + (textCount % 7) * 12, zOrder:nextStageZOrder() });
     render();
     await persistPageTexts(page);
     el('text-content-input').value = '';
@@ -7186,7 +7238,7 @@
     if(!tok) return;
     let size = parseInt(value, 10);
     if(isNaN(size)) size = tokenSize(tok);
-    size = Math.max(10, Math.min(500, size));
+    size = Math.max(10, Math.min(tok.isReference ? 1200 : 500, size));
     pushUndo();
     if(!tok.sizes) tok.sizes = {};
     tok.sizes[state.currentPageId] = size;
@@ -7197,21 +7249,6 @@
   el('token-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
-    if(el('token-is-reference').checked){
-      let dataUrl;
-      try{
-        dataUrl = await resizeImage(file, 900, 0.85);
-      }catch(err){
-        alert('Não consegui carregar essa imagem. Tente outro arquivo.');
-        return;
-      }
-      croppedTokenImage = dataUrl;
-      el('token-preview-img').src = croppedTokenImage;
-      el('token-preview-label').textContent = 'Imagem carregada';
-      el('token-preview-edit').style.display = 'none';
-      el('token-preview').style.display = 'flex';
-      return;
-    }
     openCropModal(file);
   });
   el('token-preview-edit').addEventListener('click', () => {
@@ -7233,51 +7270,29 @@
   el('new-system-numenera').addEventListener('click', () => selectNewTokenSystem('numenera'));
   el('new-system-dnd').addEventListener('click', () => selectNewTokenSystem('dnd'));
   el('new-system-tormenta').addEventListener('click', () => selectNewTokenSystem('tormenta'));
-  el('token-is-reference').addEventListener('change', () => {
-    const isRef = el('token-is-reference').checked;
-    el('new-stats-section').style.display = isRef ? 'none' : 'block';
-    el('new-reference-hint').style.display = isRef ? 'block' : 'none';
-    el('token-name').placeholder = isRef ? 'Nome (opcional)' : 'Nome do personagem';
-  });
-
   el('token-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const isReference = el('token-is-reference').checked;
     let name = el('token-name').value.trim();
-    if(!name) name = isReference ? ('Imagem ' + (state.tokens.filter(t => t.isReference).length + 1)) : '';
     if(!name){ el('token-name').focus(); return; }
     if(!croppedTokenImage){
       el('token-upload').focus();
       return;
     }
     pushUndo();
-    let tok;
-    if(isReference){
-      const refCount = state.tokens.filter(t => t.isReference).length;
-      tok = {
-        id:newId('t'), name, image:croppedTokenImage, size:120, sizes:{}, isReference:true, masterLocked:true,
-        positions: state.currentPageId ? { [state.currentPageId]: stagePositionByType({ isReference:true, masterLocked:true }, refCount) } : {}
-      };
+    let tok = { id:newId('t'), name, image:croppedTokenImage, size:64, sizes:{}, statSystem:newTokenSystem, xp:0, notes:'', positions:{} };
+    if(newTokenSystem === 'numenera'){
+      const readMax = (fieldId) => { const v = parseInt(el(fieldId).value, 10); return (isNaN(v) || v < 1) ? 10 : v; };
+      const iMax = readMax('token-max-intellect'), mMax = readMax('token-max-might'), sMax = readMax('token-max-speed');
+      tok.pools = { intellect:{ current:iMax, max:iMax }, might:{ current:mMax, max:mMax }, speed:{ current:sMax, max:sMax } };
+      tok.cyphers = { current:0, max:2 };
     } else {
-      tok = { id:newId('t'), name, image:croppedTokenImage, size:64, sizes:{}, statSystem:newTokenSystem, xp:0, notes:'', positions:{} };
-      if(newTokenSystem === 'numenera'){
-        const readMax = (fieldId) => { const v = parseInt(el(fieldId).value, 10); return (isNaN(v) || v < 1) ? 10 : v; };
-        const iMax = readMax('token-max-intellect'), mMax = readMax('token-max-might'), sMax = readMax('token-max-speed');
-        tok.pools = {
-          intellect:{ current:iMax, max:iMax },
-          might:{ current:mMax, max:mMax },
-          speed:{ current:sMax, max:sMax }
-        };
-        tok.cyphers = { current:0, max:2 };
-      } else {
-        let maxHp = parseInt(el('token-maxhp').value, 10);
-        if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
-        tok.hp = { current: maxHp, max: maxHp, temp: 0 };
-      }
-      if(state.currentPageId){
-        const staged = state.tokens.filter(t => !t.isReference && !t.masterLocked).length;
-        tok.positions[state.currentPageId] = stagePositionByType({ isReference:false, masterLocked:false }, staged);
-      }
+      let maxHp = parseInt(el('token-maxhp').value, 10);
+      if(isNaN(maxHp) || maxHp < 1) maxHp = 10;
+      tok.hp = { current:maxHp, max:maxHp, temp:0 };
+    }
+    if(state.currentPageId){
+      const staged = state.tokens.filter(t => !t.isReference && !t.masterLocked).length;
+      tok.positions[state.currentPageId] = stagePositionByType({ isReference:false, masterLocked:false }, staged);
     }
     state.tokens.push(tok);
     render();
@@ -7290,8 +7305,42 @@
     newTokenSystem = 'hp';
     selectNewTokenSystem('hp');
     el('new-stats-section').style.display = 'block';
-    el('new-reference-hint').style.display = 'none';
     el('token-name').placeholder = 'Nome do personagem';
+  });
+
+  // ---------- reference images ----------
+  let pendingReferenceImage = null;
+  el('reference-upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    try{
+      pendingReferenceImage = await resizeImage(file, 1200, 0.9);
+      el('reference-preview-img').src = pendingReferenceImage;
+      el('reference-preview').style.display = 'block';
+    }catch(err){
+      pendingReferenceImage = null;
+      alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+    }
+  });
+  el('reference-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if(!pendingReferenceImage){ el('reference-upload').click(); return; }
+    pushUndo();
+    const refCount = state.tokens.filter(t => t.isReference).length;
+    const name = el('reference-name').value.trim() || ('Imagem ' + (refCount + 1));
+    const pos = stagePositionByType({ isReference:true, masterLocked:true }, refCount);
+    pos.zOrder = nextStageZOrder();
+    const tok = {
+      id:newId('t'), name, image:pendingReferenceImage, size:180, sizes:{}, isReference:true, masterLocked:true, referenceLocked:false,
+      positions: state.currentPageId ? { [state.currentPageId]: pos } : {}
+    };
+    state.tokens.push(tok);
+    render();
+    await persistTokens();
+    el('reference-form').reset();
+    pendingReferenceImage = null;
+    el('reference-preview').style.display = 'none';
+    el('reference-preview-img').removeAttribute('src');
   });
 
   // ---------- image crop modal ----------
@@ -8338,6 +8387,7 @@
       state.pingArmed = false;
       state.measureArmed = false;
       multiSelectedTokenIds = new Set();
+      state.selectedTextId = null;
       closeOpenToolPanels();
       render();
       return;
@@ -8399,6 +8449,14 @@
       // O gerenciador completo de fichas é exclusivo do mestre; jogadores mantêm as permissões da própria ficha.
       if(effectiveMaster()) openTokensPanel();
       else openMySheet();
+      return;
+    }
+
+    if(e.key === 'Delete' && state.selectedTextId && effectiveMaster()){
+      e.preventDefault();
+      const id = state.selectedTextId;
+      state.selectedTextId = null;
+      await removeText(id);
       return;
     }
 
