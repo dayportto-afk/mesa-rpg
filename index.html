@@ -4916,11 +4916,13 @@
   function tokenLifeFraction(tok){
     if(tok.statSystem === 'numenera'){
       const pools = tok.pools || {};
-      const fracs = NUMENERA_POOLS.map(p => {
+      let sumCurrent = 0, sumMax = 0;
+      NUMENERA_POOLS.forEach(p => {
         const pool = pools[p.key] || { current:10, max:10 };
-        return pool.max > 0 ? pool.current / pool.max : 0;
+        sumCurrent += pool.current;
+        sumMax += pool.max;
       });
-      return Math.min.apply(null, fracs);
+      return sumMax > 0 ? sumCurrent / sumMax : 0;
     }
     const hp = tok.hp || { current:10, max:10 };
     return hp.max > 0 ? hp.current / hp.max : 0;
