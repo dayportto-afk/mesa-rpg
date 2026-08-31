@@ -5000,7 +5000,7 @@
       let qualitativeHp = '';
       if(enemyHpPrivate && inCombat){
         const pct = Math.max(0, frac) * 100;
-        qualitativeHp = pct <= 0 ? 'Morto' : (pct <= 25 ? 'Muito ferido' : (pct <= 75 ? 'Ferido' : 'Intacto'));
+        qualitativeHp = pct <= 0 ? '' : (pct <= 25 ? 'Muito ferido' : (pct <= 75 ? 'Ferido' : 'Intacto'));
       }
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
       const condBadges = (tok.conditions || []).map(key => {
