@@ -332,6 +332,13 @@
     outline:none;
   }
   .phrase-input:focus{ border-color:var(--amber); color:var(--parchment); }
+  .raceclass-input{
+    width:100%; margin-top:2px; margin-bottom:6px; background:transparent; border:none; border-bottom:1px dashed var(--line);
+    color:var(--parchment-dim); padding:2px 2px 4px; font-family:'JetBrains Mono', monospace; font-size:11px;
+    letter-spacing:0.3px; outline:none;
+  }
+  .raceclass-input:focus{ border-color:var(--amber); color:var(--parchment); }
+  .raceclass-input::placeholder{ color:var(--parchment-dim); opacity:0.6; }
   .damage-track-row{ display:flex; gap:4px; margin-top:10px; }
   .damage-track-chip{
     flex:1; padding:6px 2px; font-size:9px; text-align:center; cursor:help;
@@ -349,6 +356,54 @@
   .checkbox-row{ display:flex; align-items:center; gap:7px; margin-top:10px; cursor:pointer; }
   .checkbox-row input[type=checkbox]{ width:16px; height:16px; accent-color:var(--amber); cursor:pointer; }
   .checkbox-row span{ font-family:'EB Garamond', serif; font-size:13px; color:var(--parchment); }
+
+  .dnd-abilities-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:4px; }
+  .dnd-ability-box{
+    display:flex; flex-direction:column; align-items:center; gap:3px; background:#0c0906;
+    border:1px solid var(--line); border-radius:4px; padding:6px 4px;
+  }
+  .dnd-ability-box label{
+    font-family:'JetBrains Mono', monospace; font-size:9px; letter-spacing:0.5px;
+    text-transform:uppercase; color:var(--parchment-dim);
+  }
+  .dnd-ability-box input{
+    width:40px; text-align:center; background:#120e08; border:1px solid var(--line); border-radius:3px;
+    color:var(--parchment); padding:2px 0; font-family:'JetBrains Mono', monospace; font-size:13px; outline:none;
+  }
+  .dnd-ability-box input:focus{ border-color:var(--amber); }
+  .dnd-ability-mod{ font-family:'Cinzel', serif; font-size:13px; color:var(--amber-bright); font-weight:600; }
+
+  .dnd-saves-list, .dnd-skills-list{ display:flex; flex-direction:column; gap:2px; margin-top:4px; }
+  .dnd-save-row{
+    display:flex; align-items:center; gap:7px; padding:3px 2px; cursor:pointer;
+  }
+  .dnd-save-row input[type=checkbox]{ width:15px; height:15px; accent-color:var(--amber); cursor:pointer; flex-shrink:0; }
+  .dnd-save-label{ font-family:'EB Garamond', serif; font-size:13px; color:var(--parchment); flex:1; }
+  .dnd-save-total{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--parchment-dim); min-width:28px; text-align:right; }
+
+  .dnd-skill-row{
+    display:flex; align-items:center; gap:7px; padding:5px 6px; text-align:left; width:100%;
+    background:#0c0906; border:1px solid var(--line); border-radius:3px;
+  }
+  .dnd-skill-label{ font-family:'EB Garamond', serif; font-size:13px; color:var(--parchment); flex:1; }
+  .dnd-skill-total{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--parchment-dim); }
+  .dnd-skill-row.dnd-skill-prof{ border-color:var(--amber); }
+  .dnd-skill-row.dnd-skill-prof .dnd-skill-total{ color:var(--amber-bright); }
+  .dnd-skill-row.dnd-skill-expertise{ border-color:var(--amber); background:rgba(226,165,63,0.18); }
+  .dnd-skill-row.dnd-skill-expertise .dnd-skill-total{ color:var(--amber-bright); font-weight:700; }
+
+  .dnd-death-row{ display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .dnd-death-row .row-label{ width:60px; flex-shrink:0; }
+  .dnd-death-pip{
+    width:18px; height:18px; padding:0; border-radius:50%; flex-shrink:0;
+    border:1px solid var(--line); background:#0c0906;
+  }
+  .dnd-death-pip.filled{ background:var(--amber); border-color:var(--amber); }
+  .dnd-death-pip.dnd-death-fail.filled{ background:var(--wax); border-color:var(--wax); }
+  .dnd-hitdice-die{
+    background:#120e08; border:1px solid var(--line); border-radius:3px; color:var(--parchment);
+    font-family:'JetBrains Mono', monospace; font-size:12px; padding:3px 2px; outline:none;
+  }
 
   .notes-block{ margin-top:2px; }
   .notes-toggle{
@@ -1421,8 +1476,9 @@
             <div id="new-stats-section">
               <label style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Sistema de vida</label>
               <div class="system-select-row">
-                <button type="button" id="new-system-hp" class="toggle-active">HP</button>
+                <button type="button" id="new-system-hp" class="toggle-active">OUTROS</button>
                 <button type="button" id="new-system-numenera">Numenera</button>
+                <button type="button" id="new-system-dnd">D&D</button>
               </div>
               <div id="new-hp-fields">
                 <label for="token-maxhp" style="display:block; font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin:8px 0 5px;">Vida máxima (HP)</label>
@@ -1977,6 +2033,9 @@
   let openRecoveriesTokens = new Set();
   let openAdvancementTokens = new Set();
   let collapsedStatsTokens = new Set();
+  let openDndSavesTokens = new Set();
+  let openDndSkillsTokens = new Set();
+  let openDndSpellsTokens = new Set();
 
   // ---------- sound effects ----------
   let soundMuted = false;
@@ -3115,10 +3174,12 @@
         '<img src="'+tok.image+'" alt="" data-center-on-token="'+tok.id+'" title="Clique para centralizar o mapa na sua ficha" style="cursor:pointer;">' +
         '<span class="my-sheet-name">'+escapeHtml(tok.name)+'</span>' +
       '</div>' +
+      raceClassMarkup(tok) +
       phraseAndDamageMarkup(tok) +
       lifeBlockMarkup(tok) +
       numeneraExtrasMarkup(tok) +
-      (tok.statSystem !== 'numenera' ? (
+      dndExtrasMarkup(tok) +
+      (tok.statSystem !== 'numenera' && tok.statSystem !== 'dnd' ? (
         '<div class="token-row-hp">' +
           '<span class="row-label">Mana</span>' +
           '<button type="button" data-mana-minus="'+tok.id+'">−</button>' +
@@ -3544,6 +3605,9 @@
     openRecoveriesTokens = new Set();
     openAdvancementTokens = new Set();
     collapsedStatsTokens = new Set();
+    openDndSavesTokens = new Set();
+    openDndSkillsTokens = new Set();
+    openDndSpellsTokens = new Set();
     openPageAccessRows = new Set();
     lastPingTs = null;
     lastInitiativeSnapshot = '';
@@ -4349,6 +4413,36 @@
     { key:'skill', label:'Perícia', hint:'Jogador escolhe uma perícia que não seja de ataque nem defesa, como escalar, saltar, persuadir, furtividade, história ou entender numenera. Ele se torna treinado naquela perícia. O Jogador pode escolher uma perícia baseada nas habilidades especiais do seu personagem. Se escolher uma perícia na qual já seja treinado o Jogador se torna especializado naquela perícia. Se optar por uma perícia na qual tiver uma inaptidão, o treinamento e a inaptidão se cancelam (Personagem deixa de ser inapto).' },
     { key:'other', label:'Outro', hint:'Escolha uma das opções abaixo:\n1. Reduzir o custo para vestir armaduras (-1 ponto de custo de Esforço de Velocidade)\n2. Somar 2 aos seus Testes de Recuperação\n3. Escolher outra habilidade de foco disponível no grau 3 (precisa ter grau 3 ou maior)\n4. Glaive: escolhe uma nova manobra de combate (do seu grau ou menor)\n5. Nano: escolhe um novo esoterismo (do seu grau ou menor)\n6. Jack: escolhe um novo truque do ofício (do seu grau ou menor)' }
   ];
+  const DND_ABILITIES = [
+    { key:'str', label:'Força' },
+    { key:'dex', label:'Destreza' },
+    { key:'con', label:'Constituição' },
+    { key:'int', label:'Inteligência' },
+    { key:'wis', label:'Sabedoria' },
+    { key:'cha', label:'Carisma' }
+  ];
+  const DND_SKILLS = [
+    { key:'acrobatics', label:'Acrobacia', ability:'dex' },
+    { key:'arcana', label:'Arcanismo', ability:'int' },
+    { key:'athletics', label:'Atletismo', ability:'str' },
+    { key:'performance', label:'Atuação', ability:'cha' },
+    { key:'deception', label:'Enganação', ability:'cha' },
+    { key:'stealth', label:'Furtividade', ability:'dex' },
+    { key:'history', label:'História', ability:'int' },
+    { key:'intimidation', label:'Intimidação', ability:'cha' },
+    { key:'insight', label:'Intuição', ability:'wis' },
+    { key:'investigation', label:'Investigação', ability:'int' },
+    { key:'animalHandling', label:'Lidar c/ Animais', ability:'wis' },
+    { key:'medicine', label:'Medicina', ability:'wis' },
+    { key:'nature', label:'Natureza', ability:'int' },
+    { key:'perception', label:'Percepção', ability:'wis' },
+    { key:'persuasion', label:'Persuasão', ability:'cha' },
+    { key:'sleightOfHand', label:'Prestidigitação', ability:'dex' },
+    { key:'religion', label:'Religião', ability:'int' },
+    { key:'survival', label:'Sobrevivência', ability:'wis' }
+  ];
+  function abilityMod(score){ return Math.floor(((score==null?10:score) - 10) / 2); }
+  function fmtMod(n){ return (n>=0?'+':'') + n; }
   function tokenLifeFraction(tok){
     if(tok.statSystem === 'numenera'){
       const pools = tok.pools || {};
@@ -4497,6 +4591,27 @@
         render();
       });
     });
+    $root.querySelectorAll('[data-dnd-saves-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-dnd-saves-toggle');
+        if(openDndSavesTokens.has(id)) openDndSavesTokens.delete(id); else openDndSavesTokens.add(id);
+        render();
+      });
+    });
+    $root.querySelectorAll('[data-dnd-skills-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-dnd-skills-toggle');
+        if(openDndSkillsTokens.has(id)) openDndSkillsTokens.delete(id); else openDndSkillsTokens.add(id);
+        render();
+      });
+    });
+    $root.querySelectorAll('[data-dnd-spells-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-dnd-spells-toggle');
+        if(openDndSpellsTokens.has(id)) openDndSpellsTokens.delete(id); else openDndSpellsTokens.add(id);
+        render();
+      });
+    });
   }
 
   async function setTokenNotes(id, value){
@@ -4569,6 +4684,7 @@
       })();
     }
     const hp = tok.hp || { current:10, max:10, temp:0 };
+    const armor = tok.armor || 0;
     return (
       '<div class="token-row-hp">' +
         '<span class="row-label">HP</span>' +
@@ -4587,7 +4703,13 @@
       '<div class="token-row-hp">' +
         '<span class="row-label">PV temp.</span>' +
         '<input type="number" class="hp-max-input" min="0" max="999" value="'+(hp.temp||0)+'" data-hp-temp="'+tok.id+'">' +
-      '</div>'
+      '</div>' +
+      (tok.statSystem !== 'dnd' ? (
+        '<div class="token-row-hp" title="Reduz cada dano recebido nesse valor, antes de descontar do HP">' +
+          '<span class="row-label">Armadura</span>' +
+          '<input type="number" class="hp-max-input" min="0" max="99" value="'+armor+'" data-armor-input="'+tok.id+'">' +
+        '</div>'
+      ) : '')
     );
   }
 
@@ -4622,6 +4744,136 @@
         ).join('') : '') +
       '</div>'
     );
+  }
+
+  function dndExtrasMarkup(tok){
+    if(tok.statSystem !== 'dnd') return '';
+    const ab = tok.abilities || {};
+    const prof = (tok.profBonus != null) ? tok.profBonus : 2;
+    const saves = tok.savingProfs || {};
+    const skills = tok.skillProfs || {};
+    const ac = (tok.ac != null) ? tok.ac : 10;
+    const speed = (tok.speed != null) ? tok.speed : 30;
+    const hitDice = tok.hitDice || { total:1, used:0, die:'d8' };
+    const deathSaves = tok.deathSaves || { success:0, fail:0 };
+    const spellSlots = tok.spellSlots || {};
+    const hp = tok.hp || { current:10, max:10 };
+    const dexScore = (ab.dex != null) ? ab.dex : 10;
+    const initiative = abilityMod(dexScore);
+
+    const abilitiesHtml = DND_ABILITIES.map(a => {
+      const score = (ab[a.key] != null) ? ab[a.key] : 10;
+      return (
+        '<div class="dnd-ability-box">' +
+          '<label>'+a.label.slice(0,3)+'</label>' +
+          '<input type="number" min="1" max="30" value="'+score+'" data-dnd-ability="'+tok.id+':'+a.key+'">' +
+          '<span class="dnd-ability-mod">'+fmtMod(abilityMod(score))+'</span>' +
+        '</div>'
+      );
+    }).join('');
+
+    const savesHtml = DND_ABILITIES.map(a => {
+      const score = (ab[a.key] != null) ? ab[a.key] : 10;
+      const isProf = !!saves[a.key];
+      const total = abilityMod(score) + (isProf ? prof : 0);
+      return (
+        '<label class="dnd-save-row">' +
+          '<input type="checkbox" data-dnd-save="'+tok.id+':'+a.key+'"'+(isProf?' checked':'')+'>' +
+          '<span class="dnd-save-label">'+a.label+'</span>' +
+          '<span class="dnd-save-total">'+fmtMod(total)+'</span>' +
+        '</label>'
+      );
+    }).join('');
+
+    const skillsHtml = DND_SKILLS.map(s => {
+      const score = (ab[s.ability] != null) ? ab[s.ability] : 10;
+      const st = skills[s.key] || 0;
+      const total = abilityMod(score) + (st===1 ? prof : st===2 ? prof*2 : 0);
+      const stateClass = st===2 ? ' dnd-skill-expertise' : st===1 ? ' dnd-skill-prof' : '';
+      return (
+        '<button type="button" class="dnd-skill-row'+stateClass+'" data-dnd-skill="'+tok.id+':'+s.key+'" title="Clique pra alternar: nenhuma → treinada → especialista">' +
+          '<span class="dnd-skill-label">'+s.label+'</span>' +
+          '<span class="dnd-skill-total">'+fmtMod(total)+'</span>' +
+        '</button>'
+      );
+    }).join('');
+
+    const spellLevelsHtml = [1,2,3,4,5,6,7,8,9].map(lvl => {
+      const slot = spellSlots[lvl] || { current:0, max:0 };
+      return (
+        '<div class="token-row-hp">' +
+          '<span class="row-label">Nv. '+lvl+'</span>' +
+          '<button type="button" data-spellslot-minus="'+tok.id+':'+lvl+'">−</button>' +
+          '<span class="hp-value">'+slot.current+' / '+slot.max+'</span>' +
+          '<button type="button" data-spellslot-plus="'+tok.id+':'+lvl+'">+</button>' +
+          '<span class="hp-max-label">Máx.</span>' +
+          '<input type="number" class="hp-max-input" min="0" max="9" value="'+slot.max+'" data-spellslot-max="'+tok.id+':'+lvl+'">' +
+        '</div>'
+      );
+    }).join('');
+
+    return (
+      '<div class="pool-block">' +
+        '<div class="pool-block-label">Atributos</div>' +
+        '<div class="dnd-abilities-grid">'+abilitiesHtml+'</div>' +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<div class="token-row-hp">' +
+          '<span class="row-label">CA</span>' +
+          '<input type="number" class="hp-max-input" min="0" max="40" value="'+ac+'" data-dnd-ac="'+tok.id+'">' +
+          '<span class="row-label" style="margin-left:auto;">Desloc.</span>' +
+          '<input type="number" class="hp-max-input" min="0" max="999" value="'+speed+'" data-dnd-speed="'+tok.id+'">' +
+        '</div>' +
+        '<div class="token-row-hp">' +
+          '<span class="row-label">Bônus prof.</span>' +
+          '<input type="number" class="hp-max-input" min="0" max="10" value="'+prof+'" data-dnd-profbonus="'+tok.id+'">' +
+          '<span class="row-label" style="margin-left:auto;">Iniciativa</span>' +
+          '<span class="hp-value" style="min-width:32px;">'+fmtMod(initiative)+'</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<div class="pool-block-label">Dados de vida</div>' +
+        '<div class="token-row-hp">' +
+          '<button type="button" data-dnd-hitdice-minus="'+tok.id+'">−</button>' +
+          '<span class="hp-value">'+Math.max(0, hitDice.total - hitDice.used)+' / '+hitDice.total+'</span>' +
+          '<button type="button" data-dnd-hitdice-plus="'+tok.id+'">+</button>' +
+          '<select class="dnd-hitdice-die" data-dnd-hitdice-die="'+tok.id+'">' +
+            ['d6','d8','d10','d12'].map(d => '<option value="'+d+'"'+(hitDice.die===d?' selected':'')+'>'+d+'</option>').join('') +
+          '</select>' +
+          '<span class="hp-max-label">Total</span>' +
+          '<input type="number" class="hp-max-input" min="1" max="30" value="'+hitDice.total+'" data-dnd-hitdice-total="'+tok.id+'">' +
+        '</div>' +
+      '</div>' +
+      (hp.current <= 0 ? (
+        '<div class="pool-block">' +
+          '<div class="pool-block-label">Testes de morte</div>' +
+          '<div class="dnd-death-row">' +
+            '<span class="row-label">Sucessos</span>' +
+            [0,1,2].map(i => '<button type="button" class="dnd-death-pip'+(i<deathSaves.success?' filled':'')+'" data-dnd-death="'+tok.id+':success:'+i+'"></button>').join('') +
+          '</div>' +
+          '<div class="dnd-death-row">' +
+            '<span class="row-label">Falhas</span>' +
+            [0,1,2].map(i => '<button type="button" class="dnd-death-pip dnd-death-fail'+(i<deathSaves.fail?' filled':'')+'" data-dnd-death="'+tok.id+':fail:'+i+'"></button>').join('') +
+          '</div>' +
+        '</div>'
+      ) : '') +
+      '<div class="pool-block">' +
+        '<button type="button" class="notes-toggle" data-dnd-saves-toggle="'+tok.id+'">Testes de resistência <span>'+(openDndSavesTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
+        (openDndSavesTokens.has(tok.id) ? '<div class="dnd-saves-list">'+savesHtml+'</div>' : '') +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<button type="button" class="notes-toggle" data-dnd-skills-toggle="'+tok.id+'">Perícias <span>'+(openDndSkillsTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
+        (openDndSkillsTokens.has(tok.id) ? '<div class="dnd-skills-list">'+skillsHtml+'</div>' : '') +
+      '</div>' +
+      '<div class="pool-block">' +
+        '<button type="button" class="notes-toggle" data-dnd-spells-toggle="'+tok.id+'">Espaços de magia <span>'+(openDndSpellsTokens.has(tok.id) ? '▲' : '▼')+'</span></button>' +
+        (openDndSpellsTokens.has(tok.id) ? spellLevelsHtml : '') +
+      '</div>'
+    );
+  }
+
+  function raceClassMarkup(tok){
+    return '<input type="text" class="raceclass-input" data-raceclass-input="'+tok.id+'" value="'+escapeHtml(tok.raceClass||'')+'" placeholder="Raça, classe e nível...">';
   }
 
   function phraseAndDamageMarkup(tok){
@@ -4661,6 +4913,9 @@
     });
     $root.querySelectorAll('[data-phrase-input]').forEach(inp=>{
       inp.addEventListener('change', () => setTokenPhrase(inp.getAttribute('data-phrase-input'), inp.value));
+    });
+    $root.querySelectorAll('[data-raceclass-input]').forEach(inp=>{
+      inp.addEventListener('change', () => setTokenRaceClass(inp.getAttribute('data-raceclass-input'), inp.value));
     });
     $root.querySelectorAll('[data-damage-track]').forEach(btn=>{
       btn.addEventListener('click', () => {
@@ -4774,6 +5029,51 @@
     $root.querySelectorAll('[data-mana-max]').forEach(inp=>{
       inp.addEventListener('change', () => setManaMax(inp.getAttribute('data-mana-max'), inp.value));
     });
+    $root.querySelectorAll('[data-dnd-ability]').forEach(inp=>{
+      inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-dnd-ability').split(':'); setDndAbility(id, key, inp.value); });
+    });
+    $root.querySelectorAll('[data-dnd-save]').forEach(inp=>{
+      inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-dnd-save').split(':'); setDndSaveProf(id, key, inp.checked); });
+    });
+    $root.querySelectorAll('[data-dnd-skill]').forEach(btn=>{
+      btn.addEventListener('click', () => { const [id,key] = btn.getAttribute('data-dnd-skill').split(':'); cycleDndSkill(id, key); });
+    });
+    $root.querySelectorAll('[data-dnd-ac]').forEach(inp=>{
+      inp.addEventListener('change', () => setDndAc(inp.getAttribute('data-dnd-ac'), inp.value));
+    });
+    $root.querySelectorAll('[data-dnd-speed]').forEach(inp=>{
+      inp.addEventListener('change', () => setDndSpeed(inp.getAttribute('data-dnd-speed'), inp.value));
+    });
+    $root.querySelectorAll('[data-dnd-profbonus]').forEach(inp=>{
+      inp.addEventListener('change', () => setDndProfBonus(inp.getAttribute('data-dnd-profbonus'), inp.value));
+    });
+    $root.querySelectorAll('[data-dnd-hitdice-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustDndHitDiceUsed(btn.getAttribute('data-dnd-hitdice-minus'), 1));
+    });
+    $root.querySelectorAll('[data-dnd-hitdice-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => adjustDndHitDiceUsed(btn.getAttribute('data-dnd-hitdice-plus'), -1));
+    });
+    $root.querySelectorAll('[data-dnd-hitdice-die]').forEach(sel=>{
+      sel.addEventListener('change', () => setDndHitDiceDie(sel.getAttribute('data-dnd-hitdice-die'), sel.value));
+    });
+    $root.querySelectorAll('[data-dnd-hitdice-total]').forEach(inp=>{
+      inp.addEventListener('change', () => setDndHitDiceTotal(inp.getAttribute('data-dnd-hitdice-total'), inp.value));
+    });
+    $root.querySelectorAll('[data-dnd-death]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const [id, track, idx] = btn.getAttribute('data-dnd-death').split(':');
+        toggleDndDeathSave(id, track, parseInt(idx, 10));
+      });
+    });
+    $root.querySelectorAll('[data-spellslot-minus]').forEach(btn=>{
+      btn.addEventListener('click', () => { const [id,lvl] = btn.getAttribute('data-spellslot-minus').split(':'); applySpellSlotDelta(id, lvl, -1); });
+    });
+    $root.querySelectorAll('[data-spellslot-plus]').forEach(btn=>{
+      btn.addEventListener('click', () => { const [id,lvl] = btn.getAttribute('data-spellslot-plus').split(':'); applySpellSlotDelta(id, lvl, 1); });
+    });
+    $root.querySelectorAll('[data-spellslot-max]').forEach(inp=>{
+      inp.addEventListener('change', () => { const [id,lvl] = inp.getAttribute('data-spellslot-max').split(':'); setSpellSlotMax(id, lvl, inp.value); });
+    });
     $root.querySelectorAll('[data-condition]').forEach(btn=>{
       btn.addEventListener('click', () => {
         const [id, key] = btn.getAttribute('data-condition').split(':');
@@ -4801,14 +5101,17 @@
               : '<button data-add-page="'+tok.id+'">+ Página</button>') +
           '</div>' +
           (onPage ? '' : '<div class="token-off-page-tag">Fora desta página</div>') +
+          raceClassMarkup(tok) +
           phraseAndDamageMarkup(tok) +
           '<div class="system-select-row" style="margin-top:10px;">' +
-            '<button type="button" class="'+(tok.statSystem!=='numenera'?'toggle-active':'')+'" data-system-hp="'+tok.id+'">HP</button>' +
+            '<button type="button" class="'+(tok.statSystem!=='numenera' && tok.statSystem!=='dnd'?'toggle-active':'')+'" data-system-hp="'+tok.id+'">OUTROS</button>' +
             '<button type="button" class="'+(tok.statSystem==='numenera'?'toggle-active':'')+'" data-system-numenera="'+tok.id+'">Numenera</button>' +
+            '<button type="button" class="'+(tok.statSystem==='dnd'?'toggle-active':'')+'" data-system-dnd="'+tok.id+'">D&D</button>' +
           '</div>' +
           lifeBlockMarkup(tok) +
           numeneraExtrasMarkup(tok) +
-          (tok.statSystem !== 'numenera' ? (
+          dndExtrasMarkup(tok) +
+          (tok.statSystem !== 'numenera' && tok.statSystem !== 'dnd' ? (
             '<div class="token-row-hp">' +
               '<span class="row-label">Mana</span>' +
               '<button type="button" data-mana-minus="'+tok.id+'">−</button>' +
@@ -4904,6 +5207,9 @@
     });
     $tokenList.querySelectorAll('[data-system-numenera]').forEach(btn=>{
       btn.addEventListener('click', () => setTokenSystem(btn.getAttribute('data-system-numenera'), 'numenera'));
+    });
+    $tokenList.querySelectorAll('[data-system-dnd]').forEach(btn=>{
+      btn.addEventListener('click', () => setTokenSystem(btn.getAttribute('data-system-dnd'), 'dnd'));
     });
     $tokenList.querySelectorAll('[data-name]').forEach(inp=>{
       inp.addEventListener('change', () => renameToken(inp.getAttribute('data-name'), inp.value));
@@ -5202,6 +5508,8 @@
     const beforePct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
     if(delta < 0){
       let dmg = -delta;
+      const armor = (tok.statSystem !== 'dnd') ? (tok.armor || 0) : 0;
+      if(armor > 0) dmg = Math.max(0, dmg - armor);
       if(tok.hp.temp > 0){
         const absorbed = Math.min(tok.hp.temp, dmg);
         tok.hp.temp -= absorbed;
@@ -5210,6 +5518,9 @@
       tok.hp.current = Math.max(-999, tok.hp.current - dmg);
     } else {
       tok.hp.current = Math.min(tok.hp.max, tok.hp.current + delta);
+    }
+    if(tok.statSystem === 'dnd' && tok.hp.current > 0 && tok.deathSaves){
+      tok.deathSaves = { success:0, fail:0 };
     }
     const afterPct = tok.hp.max > 0 ? tok.hp.current / tok.hp.max : 0;
     if([0.2, 0.1, 0].some(threshold => beforePct > threshold && afterPct <= threshold)){
@@ -5246,6 +5557,9 @@
       if(!tok.cyphers) tok.cyphers = { current:0, max:2 };
     }
     if(system === 'hp' && !tok.hp){
+      tok.hp = { current:10, max:10, temp:0 };
+    }
+    if(system === 'dnd' && !tok.hp){
       tok.hp = { current:10, max:10, temp:0 };
     }
     render();
@@ -5369,11 +5683,159 @@
     await persistTokens();
   }
 
+  async function setDndAbility(id, key, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 1) v = 1;
+    if(v > 30) v = 30;
+    pushUndo();
+    if(!tok.abilities) tok.abilities = {};
+    tok.abilities[key] = v;
+    render();
+    await persistTokens();
+  }
+
+  async function setDndSaveProf(id, key, checked){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.savingProfs) tok.savingProfs = {};
+    tok.savingProfs[key] = checked;
+    render();
+    await persistTokens();
+  }
+
+  async function cycleDndSkill(id, key){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.skillProfs) tok.skillProfs = {};
+    const current = tok.skillProfs[key] || 0;
+    tok.skillProfs[key] = (current + 1) % 3;
+    render();
+    await persistTokens();
+  }
+
+  async function setDndAc(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    pushUndo();
+    tok.ac = v;
+    render();
+    await persistTokens();
+  }
+
+  async function setDndSpeed(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    pushUndo();
+    tok.speed = v;
+    render();
+    await persistTokens();
+  }
+
+  async function setDndProfBonus(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    pushUndo();
+    tok.profBonus = v;
+    render();
+    await persistTokens();
+  }
+
+  async function adjustDndHitDiceUsed(id, delta){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.hitDice) tok.hitDice = { total:1, used:0, die:'d8' };
+    const total = tok.hitDice.total || 1;
+    tok.hitDice.used = Math.max(0, Math.min(total, (tok.hitDice.used || 0) + delta));
+    render();
+    await persistTokens();
+  }
+
+  async function setDndHitDiceDie(id, die){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.hitDice) tok.hitDice = { total:1, used:0, die:'d8' };
+    tok.hitDice.die = die;
+    render();
+    await persistTokens();
+  }
+
+  async function setDndHitDiceTotal(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 1) v = 1;
+    pushUndo();
+    if(!tok.hitDice) tok.hitDice = { total:1, used:0, die:'d8' };
+    tok.hitDice.total = v;
+    tok.hitDice.used = Math.min(tok.hitDice.used || 0, v);
+    render();
+    await persistTokens();
+  }
+
+  async function toggleDndDeathSave(id, track, idx){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!tok.deathSaves) tok.deathSaves = { success:0, fail:0 };
+    const cur = tok.deathSaves[track] || 0;
+    // clicking a filled pip that's the current count clears back to that point; otherwise fills up to it
+    tok.deathSaves[track] = (cur === idx + 1) ? idx : idx + 1;
+    render();
+    await persistTokens();
+  }
+
+  async function applySpellSlotDelta(id, level, delta){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok || !delta) return;
+    pushUndo();
+    if(!tok.spellSlots) tok.spellSlots = {};
+    if(!tok.spellSlots[level]) tok.spellSlots[level] = { current:0, max:0 };
+    const slot = tok.spellSlots[level];
+    slot.current = Math.max(0, Math.min(slot.max, slot.current + delta));
+    render();
+    await persistTokens();
+  }
+
+  async function setSpellSlotMax(id, level, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    let v = parseInt(value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    pushUndo();
+    if(!tok.spellSlots) tok.spellSlots = {};
+    if(!tok.spellSlots[level]) tok.spellSlots[level] = { current:0, max:0 };
+    tok.spellSlots[level].max = v;
+    tok.spellSlots[level].current = Math.min(tok.spellSlots[level].current, v);
+    render();
+    await persistTokens();
+  }
+
   async function setTokenPhrase(id, value){
     const tok = state.tokens.find(t => t.id === id);
     if(!tok) return;
     pushUndo();
     tok.phrase = value;
+    render();
+    await persistTokens();
+  }
+
+  async function setTokenRaceClass(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    tok.raceClass = value;
     render();
     await persistTokens();
   }
@@ -5910,20 +6372,17 @@
   });
 
   let newTokenSystem = 'hp';
-  el('new-system-hp').addEventListener('click', () => {
-    newTokenSystem = 'hp';
-    el('new-system-hp').classList.add('toggle-active');
-    el('new-system-numenera').classList.remove('toggle-active');
-    el('new-hp-fields').style.display = 'block';
-    el('new-numenera-fields').style.display = 'none';
-  });
-  el('new-system-numenera').addEventListener('click', () => {
-    newTokenSystem = 'numenera';
-    el('new-system-numenera').classList.add('toggle-active');
-    el('new-system-hp').classList.remove('toggle-active');
-    el('new-hp-fields').style.display = 'none';
-    el('new-numenera-fields').style.display = 'block';
-  });
+  function selectNewTokenSystem(system){
+    newTokenSystem = system;
+    el('new-system-hp').classList.toggle('toggle-active', system === 'hp');
+    el('new-system-numenera').classList.toggle('toggle-active', system === 'numenera');
+    el('new-system-dnd').classList.toggle('toggle-active', system === 'dnd');
+    el('new-hp-fields').style.display = (system === 'numenera') ? 'none' : 'block';
+    el('new-numenera-fields').style.display = (system === 'numenera') ? 'block' : 'none';
+  }
+  el('new-system-hp').addEventListener('click', () => selectNewTokenSystem('hp'));
+  el('new-system-numenera').addEventListener('click', () => selectNewTokenSystem('numenera'));
+  el('new-system-dnd').addEventListener('click', () => selectNewTokenSystem('dnd'));
   el('token-is-reference').addEventListener('change', () => {
     const isRef = el('token-is-reference').checked;
     el('new-stats-section').style.display = isRef ? 'none' : 'block';
@@ -5979,10 +6438,7 @@
     el('token-preview-label').textContent = 'Recortada';
     el('token-preview-edit').style.display = 'inline-block';
     newTokenSystem = 'hp';
-    el('new-system-hp').classList.add('toggle-active');
-    el('new-system-numenera').classList.remove('toggle-active');
-    el('new-hp-fields').style.display = 'block';
-    el('new-numenera-fields').style.display = 'none';
+    selectNewTokenSystem('hp');
     el('new-stats-section').style.display = 'block';
     el('new-reference-hint').style.display = 'none';
     el('token-name').placeholder = 'Nome do personagem';
