@@ -4952,6 +4952,7 @@
   }
 
   function raceClassMarkup(tok){
+    if(tok.statSystem === 'numenera') return '';
     return '<input type="text" class="raceclass-input" data-raceclass-input="'+tok.id+'" value="'+escapeHtml(tok.raceClass||'')+'" placeholder="Raça, classe e nível...">';
   }
 
