@@ -1693,6 +1693,10 @@
             <label for="grid-color-input">Cor</label>
             <input type="color" id="grid-color-input" value="#e2a53f">
           </div>
+          <div class="theme-row">
+            <label for="grid-opacity-input">Opacidade <span id="grid-opacity-value">100%</span></label>
+            <input type="range" id="grid-opacity-input" min="0" max="100" step="1" value="100" style="flex:1; accent-color:var(--amber);">
+          </div>
           <div class="hint">A grade é própria de cada página do histórico e aparece para todos.</div>
         </div>
       </div>
@@ -4385,7 +4389,7 @@
         safeGet(slotKey('page-'+stub.id+'-texts')),
         safeGet(slotKey('page-'+stub.id+'-grid'))
       ]);
-      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'square' };
+      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' };
       if(mapRaw){ try{ map = JSON.parse(mapRaw); }catch(e){} }
       if(fogRaw){ try{ fog = JSON.parse(fogRaw); }catch(e){} }
       if(drawRaw){ try{ draw = JSON.parse(drawRaw); }catch(e){} }
@@ -4708,12 +4712,15 @@
     el('draw-move-hint').style.display = state.drawPaintMode === 'move' ? 'block' : 'none';
     el('btn-draw-clear-all').style.display = effectiveMaster() ? 'block' : 'none';
 
-    const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'square' };
+    const gridSettings = (page && page.grid) || { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' };
     el('btn-grid-toggle').textContent = gridSettings.enabled ? 'Desativar grade' : 'Ativar grade';
     el('btn-grid-toggle').classList.toggle('toggle-active', gridSettings.enabled);
     el('grid-size-input').value = gridSettings.size;
     el('grid-thickness-input').value = gridSettings.thickness;
     el('grid-color-input').value = gridSettings.color;
+    const gridOpacity = Math.max(0, Math.min(1, Number(gridSettings.opacity ?? 1)));
+    el('grid-opacity-input').value = Math.round(gridOpacity * 100);
+    el('grid-opacity-value').textContent = Math.round(gridOpacity * 100) + '%';
     el('grid-type-square').classList.toggle('toggle-active', gridSettings.type !== 'hex');
     el('grid-type-hex').classList.toggle('toggle-active', gridSettings.type === 'hex');
 
@@ -7648,7 +7655,7 @@
   el('btn-open-new-map').addEventListener('click', async () => {
     if(!pendingNewMapDataUrl) return;
     pushUndo();
-    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers: pendingNewMapAllowedPlayers.slice(), map:{ image:pendingNewMapDataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f', type:'square' } };
+    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers: pendingNewMapAllowedPlayers.slice(), map:{ image:pendingNewMapDataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' } };
     state.pages.push(page);
     state.currentPageId = page.id;
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
@@ -8106,7 +8113,7 @@
   el('btn-grid-toggle').addEventListener('click', async () => {
     const page = currentPage();
     if(!page) return;
-    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'square' };
+    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' };
     page.grid.enabled = !page.grid.enabled;
     render();
     await persistPageGrid(page);
@@ -8115,7 +8122,7 @@
     return async (e) => {
       const page = currentPage();
       if(!page) return;
-      if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'square' };
+      if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' };
       page.grid[field] = parse ? parse(e.target.value) : e.target.value;
       setupGridOverlay();
       await persistPageGrid(page);
@@ -8124,10 +8131,19 @@
   el('grid-size-input').addEventListener('change', gridSettingHandler('size', v => Math.max(10, Math.min(300, parseInt(v,10) || 50))));
   el('grid-thickness-input').addEventListener('change', gridSettingHandler('thickness', v => Math.max(1, Math.min(10, parseInt(v,10) || 1))));
   el('grid-color-input').addEventListener('input', gridSettingHandler('color'));
+  el('grid-opacity-input').addEventListener('input', async (e) => {
+    const page = currentPage();
+    if(!page || !effectiveMaster()) return;
+    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' };
+    page.grid.opacity = Math.max(0, Math.min(1, (parseInt(e.target.value, 10) || 0) / 100));
+    el('grid-opacity-value').textContent = Math.round(page.grid.opacity * 100) + '%';
+    setupGridOverlay();
+    await persistPageGrid(page);
+  });
   el('grid-type-square').addEventListener('click', async () => {
     const page = currentPage();
     if(!page) return;
-    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'square' };
+    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' };
     page.grid.type = 'square';
     el('grid-type-square').classList.add('toggle-active');
     el('grid-type-hex').classList.remove('toggle-active');
@@ -8137,7 +8153,7 @@
   el('grid-type-hex').addEventListener('click', async () => {
     const page = currentPage();
     if(!page) return;
-    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', type:'square' };
+    if(!page.grid) page.grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' };
     page.grid.type = 'hex';
     el('grid-type-hex').classList.add('toggle-active');
     el('grid-type-square').classList.remove('toggle-active');
@@ -8158,6 +8174,7 @@
     }
     const div = document.createElement('div');
     div.id = 'grid-overlay';
+    div.style.opacity = String(Math.max(0, Math.min(1, Number(g.opacity ?? 1))));
     div.style.backgroundImage =
       'repeating-linear-gradient(0deg, '+g.color+' 0, '+g.color+' '+g.thickness+'px, transparent '+g.thickness+'px, transparent '+g.size+'px),' +
       'repeating-linear-gradient(90deg, '+g.color+' 0, '+g.color+' '+g.thickness+'px, transparent '+g.thickness+'px, transparent '+g.size+'px)';
@@ -8188,6 +8205,7 @@
     svg.style.height = '100%';
     svg.style.pointerEvents = 'none';
     svg.style.overflow = 'visible';
+    svg.style.opacity = String(Math.max(0, Math.min(1, Number(g.opacity ?? 1))));
 
     const defs = document.createElementNS(svgNS, 'defs');
     const pattern = document.createElementNS(svgNS, 'pattern');
@@ -8701,7 +8719,7 @@
       if(!raw || (!state.isMaster && state.meta.playersFrozen)) return;
       const page = currentPage();
       if(!page || page.id !== pageId) return;
-      try{ page.grid = Object.assign({ enabled:false, size:50, thickness:1, color:'#e2a53f', type:'square' }, JSON.parse(raw)); render(); }catch(e){}
+      try{ page.grid = Object.assign({ enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' }, JSON.parse(raw)); render(); }catch(e){}
     });
   }
 
