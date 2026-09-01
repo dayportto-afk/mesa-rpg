@@ -951,6 +951,11 @@
   #tokens-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
   #tokens-panel-close{ padding:4px 9px; font-size:12px; }
   #tokens-panel-body{ flex:1; min-height:0; overflow-y:auto; padding:14px 16px; }
+  #tokens-bulk-map-actions{
+    display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; padding-bottom:12px;
+    border-bottom:1px solid var(--line);
+  }
+  #tokens-bulk-map-actions button{ flex:1 1 180px; min-height:38px; }
   #tokens-panel-body #token-list{
     display:flex; flex-direction:row; align-items:flex-start; gap:22px; max-height:none; overflow-y:visible; margin-top:0;
   }
@@ -1824,6 +1829,10 @@
         <button id="tokens-panel-close">✕</button>
       </div>
       <div id="tokens-panel-body">
+        <div id="tokens-bulk-map-actions">
+          <button type="button" id="btn-tokens-put-all-map" class="primary" title="Move todas as fichas desta página para dentro do mapa">⬇ Colocar todos no mapa</button>
+          <button type="button" id="btn-tokens-take-all-map" title="Move todas as fichas desta página para a área externa exclusiva do mestre">⬆ Retirar todos do mapa</button>
+        </div>
         <div id="token-list"></div>
       </div>
     </div>
@@ -2869,6 +2878,8 @@
     }
   }
   el('tokens-panel-toggle').addEventListener('click', openTokensPanel);
+  el('btn-tokens-put-all-map').addEventListener('click', putAllTokensOnMap);
+  el('btn-tokens-take-all-map').addEventListener('click', takeAllTokensOffMap);
 
   // ---------- floating panels (icon rail): open/close, bring-to-front, drag to reposition ----------
   let floatZCounter = 500;
@@ -6293,6 +6304,56 @@
       }
     }
     state.dragging = null;
+    render();
+  }
+
+  function tokensOnCurrentPageForBulkMove(){
+    if(!state.currentPageId) return [];
+    return state.tokens.filter(tok => !tok.isReference && isTokenOnPage(tok, state.currentPageId));
+  }
+
+  async function putAllTokensOnMap(){
+    if(!effectiveMaster()) return;
+    const tokens = tokensOnCurrentPageForBulkMove();
+    if(tokens.length === 0) return;
+    pushUndo();
+
+    // Distribui as fichas de forma organizada dentro dos limites do mapa,
+    // sem tocar no tamanho individual de nenhuma delas.
+    const count = tokens.length;
+    const cols = Math.min(8, Math.max(1, Math.ceil(Math.sqrt(count))));
+    const rows = Math.ceil(count / cols);
+    const xMin = 10, xMax = 90, yMin = 10, yMax = 90;
+    tokens.forEach((tok, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = cols === 1 ? 50 : xMin + (xMax - xMin) * (col / (cols - 1));
+      const y = rows === 1 ? 50 : yMin + (yMax - yMin) * (row / (rows - 1));
+      if(!tok.positions) tok.positions = {};
+      tok.positions[state.currentPageId] = { x, y, zOrder: nextTokenZOrder() };
+    });
+    await persistTokens();
+    render();
+  }
+
+  async function takeAllTokensOffMap(){
+    if(!effectiveMaster()) return;
+    const tokens = tokensOnCurrentPageForBulkMove();
+    if(tokens.length === 0) return;
+    pushUndo();
+
+    // Mantém as fichas na página, mas estacionadas na área externa invisível
+    // aos jogadores. Tamanhos e demais dados permanecem intactos.
+    const cols = Math.min(8, Math.max(1, Math.ceil(Math.sqrt(tokens.length))));
+    tokens.forEach((tok, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = 8 + col * 14;
+      const y = 116 + row * 14;
+      if(!tok.positions) tok.positions = {};
+      tok.positions[state.currentPageId] = { x, y, zOrder: nextTokenZOrder() };
+    });
+    await persistTokens();
     render();
   }
 
