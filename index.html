@@ -845,6 +845,33 @@
   .combat-history-change:first-child{ border-top:none; }
   .combat-history-time{ float:right; color:var(--parchment-dim); font-family:'JetBrains Mono',monospace; font-size:9px; margin-left:8px; }
 
+
+  /* Advanced organization / context menu / movement distance */
+  .token-tools-box{ border:1px solid var(--line); border-radius:5px; background:#120e08; padding:9px; margin-bottom:10px; }
+  .token-tools-title{ font-family:'Cinzel',serif; font-size:11px; color:var(--amber-bright); margin-bottom:7px; letter-spacing:.5px; }
+  .token-tools-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .token-tools-row input[type=text], .token-tools-row select{ flex:1; min-width:110px; }
+  .token-folder-label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:.5px; text-transform:uppercase; margin-top:7px; }
+  .custom-status-manager{ margin-top:8px; display:flex; flex-direction:column; gap:6px; }
+  .custom-status-item{ display:flex; align-items:center; gap:6px; padding:5px 6px; border:1px solid var(--line); border-radius:4px; }
+  .custom-status-preview{ width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#150f09; flex-shrink:0; }
+  .custom-status-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  .custom-status-chip{ width:auto !important; min-width:26px; padding:0 6px !important; border-radius:12px !important; }
+  .custom-status-chip.toggle-active{ background:var(--amber); color:#1a1206; }
+  .token-condition.custom-condition{ min-width:18px; width:auto; padding:0 3px; border-color:var(--status-color,var(--amber-bright)); }
+  .page-thumb{ width:54px; height:36px; object-fit:cover; border-radius:3px; border:1px solid var(--line); flex-shrink:0; background:#0c0906; }
+  .page-row .page-thumb + input[type=text]{ flex-basis:45%; }
+  .page-scale-box{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:7px 8px; background:#120e08; border:1px solid var(--line); border-top:none; }
+  .page-scale-box label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
+  .page-scale-box input{ margin-top:3px; }
+  .page-scale-hint{ grid-column:1/-1; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); line-height:1.4; }
+  #context-menu{ display:none; position:fixed; z-index:99999; min-width:190px; max-width:260px; background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:5px; }
+  #context-menu.open{ display:block; }
+  #context-menu button{ display:block; width:100%; text-align:left; border:none; background:transparent; padding:7px 9px; text-transform:none; letter-spacing:0; font-size:11px; }
+  #context-menu button:hover{ background:#2a2116; }
+  #context-menu .context-danger{ color:#e9a0a0; }
+  .move-distance-label{ position:absolute; pointer-events:none; z-index:1000000; transform:translate(-50%,-115%); background:#150f09; border:1px solid var(--amber-bright); color:var(--amber-bright); border-radius:4px; padding:3px 7px; font-family:'JetBrains Mono',monospace; font-size:10px; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.45); }
+
   /* Campaign journal (same drawer pattern; open to master AND players) */
   #journal-backdrop{
     display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
@@ -1713,6 +1740,14 @@
             <label for="grid-opacity-input">Opacidade <span id="grid-opacity-value">100%</span></label>
             <input type="range" id="grid-opacity-input" min="0" max="100" step="1" value="100" style="flex:1; accent-color:var(--amber);">
           </div>
+          <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px;">
+            <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--amber-bright);margin-bottom:7px;">📏 Escala física do mapa (opcional)</div>
+            <div style="display:flex; gap:7px;">
+              <label style="flex:1;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--parchment-dim);">Largura (m)<input type="number" id="map-real-width" min="0" step="0.1" placeholder="Não definida"></label>
+              <label style="flex:1;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--parchment-dim);">Comprimento (m)<input type="number" id="map-real-height" min="0" step="0.1" placeholder="Não definido"></label>
+            </div>
+            <div class="hint">Durante combate: usa metros se ambos forem informados; caso contrário usa quadrados/hexágonos se a grade estiver ativa; sem grade, usa pixels da imagem.</div>
+          </div>
           <div class="hint">A grade é própria de cada página do histórico e aparece para todos.</div>
         </div>
       </div>
@@ -1885,6 +1920,24 @@
         <button id="tokens-panel-close">✕</button>
       </div>
       <div id="tokens-panel-body">
+        <div class="token-tools-box" id="token-folder-tools">
+          <div class="token-tools-title">📁 Pastas de fichas</div>
+          <div class="token-tools-row">
+            <select id="token-folder-filter"><option value="">Todas as pastas</option></select>
+            <input type="text" id="token-folder-new" placeholder="Nova pasta">
+            <button type="button" id="btn-token-folder-add">Criar</button>
+          </div>
+        </div>
+        <div class="token-tools-box" id="custom-status-tools">
+          <div class="token-tools-title">✨ Status visuais personalizados</div>
+          <div class="token-tools-row">
+            <input type="text" id="custom-status-icon" maxlength="4" placeholder="Ícone ex.: 🔥" style="max-width:82px;">
+            <input type="text" id="custom-status-name" maxlength="24" placeholder="Nome do status">
+            <input type="color" id="custom-status-color" value="#e2a53f" title="Cor">
+            <button type="button" id="btn-custom-status-add">Criar</button>
+          </div>
+          <div id="custom-status-list" class="custom-status-manager"></div>
+        </div>
         <div id="tokens-bulk-map-actions">
           <button type="button" id="btn-tokens-put-all-map" class="primary" title="Ativa nesta página todas as fichas que estão fora dela e as coloca na área externa do mestre">＋ Colocar todos na mesa</button>
           <button type="button" id="btn-tokens-take-all-map" title="Remove desta página todas as fichas ativas, como o botão Remover de cada ficha">− Retirar todos da mesa</button>
@@ -1892,6 +1945,8 @@
         <div id="token-list"></div>
       </div>
     </div>
+
+    <div id="context-menu" role="menu"></div>
 
     <div id="dice-backdrop"></div>
     <div id="dice-panel">
@@ -2157,7 +2212,7 @@
     tutorialRole:null,
     tutorialStep:0,
     isMaster:false,
-    meta:{ title:"Campanha sem nome", masterPass:"", playerCode:"" },
+    meta:{ title:"Campanha sem nome", masterPass:"", playerCode:"", tokenFolders:[], customStatuses:[] },
     pages:[],           // [{id, name, map:{image}, fog:{image}, texts:[...]}]
     currentPageId:null,
     tokens:[],          // [{id,name,image,size,hp,positions:{pageId:{x,y}}}]
@@ -2940,6 +2995,11 @@
     }
   }
   el('tokens-panel-toggle').addEventListener('click', openTokensPanel);
+  el('btn-token-folder-add').addEventListener('click', createTokenFolder);
+  el('token-folder-new').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();createTokenFolder();} });
+  el('token-folder-filter').addEventListener('change',renderTokenList);
+  el('btn-custom-status-add').addEventListener('click',createCustomStatus);
+  el('custom-status-name').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();createCustomStatus();} });
   el('btn-tokens-put-all-map').addEventListener('click', putAllTokensOnMap);
   el('btn-tokens-take-all-map').addEventListener('click', takeAllTokensOffMap);
 
@@ -3003,6 +3063,9 @@
   });
 
   el('tokens-panel-close').addEventListener('click', closeTokensPanel);
+  el('context-menu').addEventListener('click',e=>{ const b=e.target.closest('[data-context-action]'); if(b)executeContextAction(b.getAttribute('data-context-action')); });
+  document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#context-menu'))closeContextMenu(); });
+  window.addEventListener('blur',closeContextMenu);
   el('tokens-backdrop').addEventListener('click', closeTokensPanel);
   el('send-panel-close').addEventListener('click', closeSendPanel);
   el('send-backdrop').addEventListener('click', closeSendPanel);
@@ -4125,7 +4188,7 @@
     state.tokens = [];
     state.pages = [];
     state.currentPageId = null;
-    state.meta = { title:'Campanha sem nome', masterPass:'', playerCode:'' };
+    state.meta = { title:'Campanha sem nome', masterPass:'', playerCode:'', tokenFolders:[], customStatuses:[] };
 
     $portalScreen.classList.add('hidden');
     $appScreen.classList.remove('hidden');
@@ -4380,6 +4443,8 @@
       safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
+    if(!Array.isArray(state.meta.tokenFolders)) state.meta.tokenFolders = [];
+    if(!Array.isArray(state.meta.customStatuses)) state.meta.customStatuses = [];
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; lastSeenRollId = state.diceRolls[0] ? state.diceRolls[0].id : 'NONE'; }catch(e){} }
     if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
@@ -4755,6 +4820,8 @@
     const gridOpacity = Math.max(0, Math.min(1, Number(gridSettings.opacity ?? 1)));
     el('grid-opacity-input').value = Math.round(gridOpacity * 100);
     el('grid-opacity-value').textContent = Math.round(gridOpacity * 100) + '%';
+    if(el('map-real-width')) el('map-real-width').value = gridSettings.realWidthM || '';
+    if(el('map-real-height')) el('map-real-height').value = gridSettings.realHeightM || '';
     el('grid-type-square').classList.toggle('toggle-active', gridSettings.type !== 'hex');
     el('grid-type-hex').classList.toggle('toggle-active', gridSettings.type === 'hex');
 
@@ -4765,6 +4832,59 @@
     renderJournalList();
 
     updateHistoryButtons();
+  }
+
+
+  function folderList(){
+    if(!Array.isArray(state.meta.tokenFolders)) state.meta.tokenFolders = [];
+    return state.meta.tokenFolders;
+  }
+  function customStatusList(){
+    if(!Array.isArray(state.meta.customStatuses)) state.meta.customStatuses = [];
+    return state.meta.customStatuses;
+  }
+  async function persistMetaOnly(){ await safeSet(slotKey('meta'), state.meta); }
+  function renderTokenOrganizationTools(){
+    const filter = el('token-folder-filter');
+    if(filter){
+      const current = filter.value || '';
+      filter.innerHTML = '<option value="">Todas as pastas</option><option value="__none">Sem pasta</option>' + folderList().map(f=>'<option value="'+f.id+'">'+escapeHtml(f.name)+'</option>').join('');
+      if([...filter.options].some(o=>o.value===current)) filter.value=current;
+    }
+    const sl = el('custom-status-list');
+    if(sl){
+      sl.innerHTML = customStatusList().length ? customStatusList().map(st => '<div class="custom-status-item"><span class="custom-status-preview" style="border:1px solid '+escapeHtml(st.color||'#e2a53f')+'">'+escapeHtml(st.icon||'●')+'</span><span class="custom-status-name">'+escapeHtml(st.name)+'</span><button type="button" class="danger" data-custom-status-delete="'+st.id+'">✕</button></div>').join('') : '<div class="hint">Nenhum status personalizado.</div>';
+      sl.querySelectorAll('[data-custom-status-delete]').forEach(btn=>btn.addEventListener('click', async()=>{
+        const id=btn.getAttribute('data-custom-status-delete');
+        state.meta.customStatuses=customStatusList().filter(x=>x.id!==id);
+        state.tokens.forEach(t=>{ if(Array.isArray(t.customStatuses)) t.customStatuses=t.customStatuses.filter(x=>x!==id); });
+        await Promise.all([persistMetaOnly(),persistTokens()]); render();
+      }));
+    }
+  }
+  async function createTokenFolder(){
+    const inp=el('token-folder-new'); const name=(inp&&inp.value||'').trim(); if(!name) return;
+    if(folderList().some(f=>f.name.toLowerCase()===name.toLowerCase())){ showToast('Já existe uma pasta com esse nome.'); return; }
+    state.meta.tokenFolders.push({id:newId('fld'),name}); inp.value=''; await persistMetaOnly(); renderTokenOrganizationTools(); renderTokenList();
+  }
+  async function createCustomStatus(){
+    const name=(el('custom-status-name').value||'').trim(); if(!name) return;
+    const icon=(el('custom-status-icon').value||'●').trim()||'●'; const color=el('custom-status-color').value||'#e2a53f';
+    state.meta.customStatuses.push({id:newId('cs'),name,icon,color}); el('custom-status-name').value=''; el('custom-status-icon').value=''; await persistMetaOnly(); render();
+  }
+  async function setTokenFolder(id, folderId){ const tok=state.tokens.find(t=>t.id===id); if(!tok)return; tok.folderId=folderId||''; await persistTokens(); renderTokenList(); }
+  async function toggleCustomStatus(tokenId,statusId){ const tok=state.tokens.find(t=>t.id===tokenId); if(!tok)return; if(!Array.isArray(tok.customStatuses))tok.customStatuses=[]; const i=tok.customStatuses.indexOf(statusId); if(i>=0)tok.customStatuses.splice(i,1);else tok.customStatuses.push(statusId); await persistTokens(); render(); }
+  function customStatusBadgesMarkup(tok){
+    const active=Array.isArray(tok.customStatuses)?tok.customStatuses:[];
+    return active.map(id=>{ const st=customStatusList().find(s=>s.id===id); return st?'<div class="token-condition custom-condition" style="--status-color:'+escapeHtml(st.color||'#e2a53f')+'" title="'+escapeHtml(st.name)+'">'+escapeHtml(st.icon||'●')+'</div>':''; }).join('');
+  }
+  function customStatusControlsMarkup(tok){
+    if(!customStatusList().length) return '';
+    const active=Array.isArray(tok.customStatuses)?tok.customStatuses:[];
+    return '<div class="token-folder-label">Status personalizados</div><div class="condition-chip-row">'+customStatusList().map(st=>'<button type="button" class="condition-chip custom-status-chip'+(active.includes(st.id)?' toggle-active':'')+'" data-custom-status-toggle="'+tok.id+':'+st.id+'" title="'+escapeHtml(st.name)+'" style="border-color:'+escapeHtml(st.color||'#e2a53f')+'">'+escapeHtml(st.icon||'●')+'</button>').join('')+'</div>';
+  }
+  function tokenFolderControlMarkup(tok){
+    return '<div class="token-folder-label">Pasta</div><select data-token-folder="'+tok.id+'"><option value="">Sem pasta</option>'+folderList().map(f=>'<option value="'+f.id+'"'+(tok.folderId===f.id?' selected':'')+'>'+escapeHtml(f.name)+'</option>').join('')+'</select>';
   }
 
   // ---------- page history ----------
@@ -4785,9 +4905,15 @@
       return (
         '<div class="page-row-wrap">' +
           '<div class="page-row' + (active ? ' active' : '') + '" data-page-select="'+p.id+'">' +
+            (p.map&&p.map.image?'<img class="page-thumb" src="'+p.map.image+'" alt="">':'<div class="page-thumb"></div>') +
             '<input type="text" value="'+escapeHtml(p.name)+'" data-page-rename="'+p.id+'">' +
             (active ? '<span class="page-active-tag">Atual</span>' : '') +
             '<button class="danger" data-page-delete="'+p.id+'">Excluir</button>' +
+          '</div>' +
+          '<div class="page-scale-box">' +
+            '<label>Largura real (m)<input type="number" min="0" step="0.1" value="'+((p.grid&&p.grid.realWidthM)||'')+'" data-page-real-width="'+p.id+'" placeholder="opcional"></label>' +
+            '<label>Comprimento real (m)<input type="number" min="0" step="0.1" value="'+((p.grid&&p.grid.realHeightM)||'')+'" data-page-real-height="'+p.id+'" placeholder="opcional"></label>' +
+            '<div class="page-scale-hint">Sem ambos os valores: a distância usa a grade; sem grade, pixels.</div>' +
           '</div>' +
           '<button type="button" class="notes-toggle" data-page-access-toggle="'+p.id+'">👥 Quem vê'+(restricted ? ' ('+p.allowedPlayers.length+')' : '')+' <span>'+(isOpen ? '▲' : '▼')+'</span></button>' +
           (isOpen ? (
@@ -4828,6 +4954,15 @@
     });
     $list.querySelectorAll('[data-page-delete]').forEach(btn => {
       btn.addEventListener('click', (e) => { e.stopPropagation(); deletePage(btn.getAttribute('data-page-delete')); });
+    });
+    $list.querySelectorAll('[data-page-real-width],[data-page-real-height]').forEach(inp=>{
+      inp.addEventListener('click',e=>e.stopPropagation());
+      inp.addEventListener('change', async()=>{
+        const id=inp.getAttribute('data-page-real-width')||inp.getAttribute('data-page-real-height'); const pg=state.pages.find(x=>x.id===id); if(!pg)return;
+        if(!pg.grid)pg.grid={enabled:false,size:50,thickness:1,color:'#e2a53f',opacity:1,type:'square'};
+        const v=Math.max(0,parseFloat(inp.value)||0); if(inp.hasAttribute('data-page-real-width'))pg.grid.realWidthM=v||null;else pg.grid.realHeightM=v||null;
+        await persistPageGrid(pg); if(id===state.currentPageId)render();
+      });
     });
     $list.querySelectorAll('[data-page-access-toggle]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -5206,6 +5341,37 @@
     });
   }
 
+
+  let contextTarget=null;
+  function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
+  function openContextMenu(e,type,id){
+    if(!effectiveMaster()) return; e.preventDefault(); e.stopPropagation();
+    const menu=el('context-menu'); contextTarget={type,id}; let actions=[];
+    if(type==='token'){
+      const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
+      actions=[['Abrir ficha','open'],['Duplicar','duplicate'],['Trazer para frente','front'],['Enviar para trás','back'],[isTokenOnPage(tok,state.currentPageId)?'Remover desta página':'+ Página','page'],['Excluir permanentemente','delete','context-danger']];
+    }else if(type==='reference') actions=[['Trazer para frente','front'],['Enviar para trás','back'],['Travar / destravar','lock'],['Remover desta página','page'],['Excluir permanentemente','delete','context-danger']];
+    else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
+    menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
+    menu.style.left=Math.min(e.clientX,window.innerWidth-230)+'px'; menu.style.top=Math.min(e.clientY,window.innerHeight-260)+'px'; menu.classList.add('open');
+  }
+  async function executeContextAction(action){
+    const c=contextTarget; closeContextMenu(); if(!c)return;
+    if(c.type==='text'){
+      const page=currentPage(),txt=page&&page.texts.find(t=>t.id===c.id); if(!txt)return;
+      if(action==='edit'){ const node=document.querySelector('.map-text[data-id="'+c.id+'"]'); if(node)beginInlineTextEdit(node,c.id); return; }
+      if(action==='front'||action==='back'){ pushUndo(); txt.zOrder=action==='front'?nextStageZOrder():-99999; await persistPageTexts(page); renderTexts(); return; }
+      if(action==='delete'){ await deleteText(c.id); return; }
+    }
+    const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
+    if(action==='open'&&!tok.isReference){openTokenSheet(tok);return;}
+    if(action==='duplicate'){await duplicateToken(tok.id);return;}
+    if(action==='front'||action==='back'){ pushUndo(); if(!tok.positions)tok.positions={}; const pos=tokenPos(tok); tok.positions[state.currentPageId]={x:pos.x,y:pos.y,zOrder:action==='front'?nextStageZOrder():-99999}; await persistTokens();render();return; }
+    if(action==='lock'&&tok.isReference){await toggleReferenceLock(tok.id);return;}
+    if(action==='page'){ if(isTokenOnPage(tok,state.currentPageId))await removeTokenFromPage(tok.id);else await addTokenToPage(tok.id);return; }
+    if(action==='delete'){await deleteTokenPermanently(tok.id);return;}
+  }
+
   function renderTokens(){
     document.querySelectorAll('.token').forEach(t => t.remove());
     if(!document.getElementById('map-img')) return;
@@ -5233,6 +5399,7 @@
                       '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
                       lockBadge + handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
+        t.addEventListener('contextmenu', e=>openContextMenu(e,'reference',tok.id));
         $canvas.appendChild(t);
         const refImg = t.querySelector('img');
         if(refImg && !Number(tok.aspectRatio)){
@@ -5269,7 +5436,7 @@
       const condBadges = (tok.conditions || []).map(key => {
         const c = CONDITIONS.find(c => c.key === key);
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
-      }).join('');
+      }).join('') + customStatusBadgesMarkup(tok);
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
                     (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
@@ -5278,6 +5445,7 @@
                     (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '') +
                     (canResizeToken(tok) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
+      t.addEventListener('contextmenu', e=>openContextMenu(e,'token',tok.id));
       $canvas.appendChild(t);
       const resizeHandle = t.querySelector('[data-resize-handle]');
       if(resizeHandle) resizeHandle.addEventListener('pointerdown', onRefResizeStart);
@@ -5972,6 +6140,8 @@
           '<div class="condition-chip-row">' +
             CONDITIONS.map(c => '<button type="button" class="condition-chip'+((tok.conditions||[]).includes(c.key)?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+'">'+c.icon+'</button>').join('') +
           '</div>' +
+          customStatusControlsMarkup(tok) +
+          tokenFolderControlMarkup(tok) +
           notesBlockMarkup(tok) +
           '<div class="token-row-size">' +
             '<span class="row-label">Tam.</span>' +
@@ -6020,9 +6190,12 @@
       $tokenList.innerHTML = '<div class="hint">Nenhuma ficha criada ainda.</div>';
       return;
     }
-    const references = state.tokens.filter(t => t.isReference);
-    const characters = state.tokens.filter(t => !t.isReference && !t.masterLocked);
-    const npcs = state.tokens.filter(t => !t.isReference && t.masterLocked);
+    renderTokenOrganizationTools();
+    const folderFilter = el('token-folder-filter') ? el('token-folder-filter').value : '';
+    const folderOk = t => !folderFilter || (folderFilter==='__none' ? !t.folderId : t.folderId===folderFilter);
+    const references = state.tokens.filter(t => t.isReference && folderOk(t));
+    const characters = state.tokens.filter(t => !t.isReference && !t.masterLocked && folderOk(t));
+    const npcs = state.tokens.filter(t => !t.isReference && t.masterLocked && folderOk(t));
     function section(title, list, markupFn){
       if(list.length === 0) return '';
       return (
@@ -6090,6 +6263,8 @@
     $tokenList.querySelectorAll('[data-duplicate]').forEach(btn=>{
       btn.addEventListener('click', () => duplicateToken(btn.getAttribute('data-duplicate')));
     });
+    $tokenList.querySelectorAll('[data-token-folder]').forEach(sel=>sel.addEventListener('change',()=>setTokenFolder(sel.getAttribute('data-token-folder'),sel.value)));
+    $tokenList.querySelectorAll('[data-custom-status-toggle]').forEach(btn=>btn.addEventListener('click',()=>{ const raw=btn.getAttribute('data-custom-status-toggle'); const cut=raw.indexOf(':'); toggleCustomStatus(raw.slice(0,cut),raw.slice(cut+1)); }));
     $tokenList.querySelectorAll('[data-edit-image]').forEach(btn=>{
       btn.addEventListener('click', () => {
         editingTokenId = btn.getAttribute('data-edit-image');
@@ -6175,6 +6350,35 @@
   // ---------- token drag / select ----------
   let lastTokenTapId = null;
   let lastTokenTapTime = 0;
+
+  function movementDistanceText(startPos, endPos){
+    const page=currentPage(); const img=document.getElementById('map-img');
+    if(!page || !startPos || !endPos) return '';
+    const dxPct=(endPos.x-startPos.x)/100, dyPct=(endPos.y-startPos.y)/100;
+    const g=page.grid||{};
+    const rw=Number(g.realWidthM), rh=Number(g.realHeightM);
+    if(rw>0 && rh>0){
+      const meters=Math.hypot(dxPct*rw,dyPct*rh);
+      return (meters<10?meters.toFixed(1):meters.toFixed(0))+' m';
+    }
+    const nw=(img&&img.naturalWidth)||($canvas&&$canvas.clientWidth)||1;
+    const nh=(img&&img.naturalHeight)||($canvas&&$canvas.clientHeight)||1;
+    const px=Math.hypot(dxPct*nw,dyPct*nh);
+    if(g.enabled && Number(g.size)>0){
+      const units=px/Number(g.size); const label=g.type==='hex'?'hexágonos':'quadrados';
+      return (units<10?units.toFixed(1):units.toFixed(0))+' '+label;
+    }
+    return Math.round(px)+' px';
+  }
+  function updateMoveDistanceLabel(d,xPct,yPct){
+    const inCombat=!!(state.initiative&&state.initiative.list&&state.initiative.list.length);
+    if(!inCombat || !d || !d.startPos) return;
+    let lab=document.getElementById('token-move-distance');
+    if(!lab){ lab=document.createElement('div');lab.id='token-move-distance';lab.className='move-distance-label';$canvas.appendChild(lab); }
+    lab.style.left=xPct+'%';lab.style.top=yPct+'%'; lab.textContent=movementDistanceText(d.startPos,{x:xPct,y:yPct});
+  }
+  function clearMoveDistanceLabel(){ const x=document.getElementById('token-move-distance'); if(x)x.remove(); }
+
   function onTokenPointerDown(e){
     e.preventDefault();
     e.stopPropagation();
@@ -6206,7 +6410,7 @@
     state.dragging = {
       id: target.dataset.id, el: target, canvasRect,
       startClientX: e.clientX, startClientY: e.clientY,
-      origLeft: target.style.left, origTop: target.style.top
+      origLeft: target.style.left, origTop: target.style.top, startPos: tok ? {x:tokenPos(tok).x,y:tokenPos(tok).y} : null
     };
     // Se essa ficha faz parte de uma seleção múltipla (2+), arrasta o grupo inteiro junto.
     if(effectiveMaster() && tok && multiSelectedTokenIds.has(tok.id) && multiSelectedTokenIds.size >= 2){
@@ -6329,6 +6533,7 @@
     state.dragging.el.style.top = yPct + '%';
     state.dragging.x = xPct;
     state.dragging.y = yPct;
+    updateMoveDistanceLabel(state.dragging,xPct,yPct);
     if(state.dragging.group){
       const dx = xPct - state.dragging.anchorStartX;
       const dy = yPct - state.dragging.anchorStartY;
@@ -6345,6 +6550,7 @@
   function onTokenPointerUp(e){
     if(!state.dragging) return;
     const d = state.dragging;
+    clearMoveDistanceLabel();
     d.el.classList.remove('dragging');
     d.el.removeEventListener('pointermove', onTokenPointerMove);
     d.el.removeEventListener('pointerup', onTokenPointerUp);
@@ -7222,6 +7428,7 @@
         t.appendChild(resizeHandle);
         t.addEventListener('pointerdown', onTextPointerDown);
         t.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); beginInlineTextEdit(t, txt.id); });
+        t.addEventListener('contextmenu', e=>openContextMenu(e,'text',txt.id));
       }
       $canvas.appendChild(t);
       applyTextMarkerRects(contentWrap, contentSpan, txt);
@@ -8228,6 +8435,10 @@
   el('grid-size-input').addEventListener('change', gridSettingHandler('size', v => Math.max(10, Math.min(300, parseInt(v,10) || 50))));
   el('grid-thickness-input').addEventListener('change', gridSettingHandler('thickness', v => Math.max(1, Math.min(10, parseInt(v,10) || 1))));
   el('grid-color-input').addEventListener('input', gridSettingHandler('color'));
+  ['map-real-width','map-real-height'].forEach((id,idx)=>el(id).addEventListener('change',async e=>{
+    const page=currentPage(); if(!page)return; if(!page.grid)page.grid={enabled:false,size:50,thickness:1,color:'#e2a53f',opacity:1,type:'square'};
+    const v=Math.max(0,parseFloat(e.target.value)||0); if(idx===0)page.grid.realWidthM=v||null;else page.grid.realHeightM=v||null; await persistPageGrid(page); renderPageHistory();
+  }));
   el('grid-opacity-input').addEventListener('input', async (e) => {
     const page = currentPage();
     if(!page || !effectiveMaster()) return;
