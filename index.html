@@ -4364,6 +4364,35 @@
   async function persistPageGrid(page){ await safeSet(slotKey('page-'+page.id+'-grid'), page.grid); }
   async function persistTokens(){ await safeSet(slotKey('tokens'), { list: state.tokens }); }
 
+  // Mescla uma atualização remota sem perder tamanhos já definidos localmente.
+  // Isso evita que um eco atrasado do Firebase restaure o tamanho padrão de
+  // outros tokens quando uma ficha é movida ou redimensionada.
+  function mergeIncomingTokensPreservingLocalSizes(incoming, protectedIds){
+    const localById = new Map(state.tokens.map(t => [t.id, t]));
+    const protectedSet = new Set(protectedIds || []);
+    return (incoming || []).map(remoteTok => {
+      const localTok = localById.get(remoteTok.id);
+      if(!localTok) return remoteTok;
+      if(protectedSet.has(remoteTok.id)) return localTok;
+      const merged = Object.assign({}, remoteTok);
+      if(localTok.sizes && Object.keys(localTok.sizes).length){
+        merged.sizes = Object.assign({}, remoteTok.sizes || {}, localTok.sizes);
+      }
+      if(localTok.size != null) merged.size = localTok.size;
+      return merged;
+    });
+  }
+
+  function adoptPendingTokensPreservingSizes(protectedIds){
+    if(!pendingTokensRaw || pendingTokensRaw === lastTokensSnapshot) return;
+    try{
+      const incoming = JSON.parse(pendingTokensRaw).list || [];
+      state.tokens = mergeIncomingTokensPreservingLocalSizes(incoming, protectedIds);
+      lastTokensSnapshot = pendingTokensRaw;
+    }catch(e){}
+    pendingTokensRaw = null;
+  }
+
   // ---------- image helpers ----------
   function resizeImage(file, maxDim, quality){
     return new Promise((resolve, reject)=>{
@@ -6133,6 +6162,8 @@
     handle.removeEventListener('pointermove', onRefResizeMove);
     handle.removeEventListener('pointerup', onRefResizeEnd);
     handle.removeEventListener('pointercancel', onRefResizeEnd);
+    const resizedIds = s.group ? s.group.filter(g => g.liveSize).map(g => g.id) : (s.liveSize ? [s.id] : []);
+    adoptPendingTokensPreservingSizes(resizedIds);
     if(s.group && s.group.some(g => g.liveSize)){
       s.group.forEach(g => {
         if(!g.liveSize) return;
@@ -6189,15 +6220,10 @@
     // A remote token update may have arrived mid-drag and been buffered (to avoid
     // yanking the token out from under the cursor). Adopt it now for every OTHER
     // token before I persist, so my write doesn't overwrite a concurrent change.
-    if(pendingTokensRaw && pendingTokensRaw !== lastTokensSnapshot){
-      try{
-        const incoming = JSON.parse(pendingTokensRaw).list || [];
-        const mine = state.tokens.find(t => t.id === d.id);
-        state.tokens = incoming.map(t => t.id === d.id ? (mine || t) : t);
-        lastTokensSnapshot = pendingTokensRaw;
-      }catch(e){}
-    }
-    pendingTokensRaw = null;
+    // Preserva tanto o token arrastado quanto os tamanhos locais dos demais.
+    // Assim, mover uma ficha para o mapa não desfaz redimensionamentos anteriores.
+    const protectedMoveIds = d.group ? d.group.map(g => g.id) : [d.id];
+    adoptPendingTokensPreservingSizes(protectedMoveIds);
 
     const dist = Math.hypot((e.clientX||0) - d.startClientX, (e.clientY||0) - d.startClientY);
     if(typeof d.x === 'number' && dist >= 6){
@@ -8444,7 +8470,7 @@
     watchKey(slotKey('tokens'), (raw) => {
       if(!raw || raw === lastTokensSnapshot) return;
       if(!state.isMaster && state.meta.playersFrozen) return;
-      if(state.dragging){ pendingTokensRaw = raw; return; }
+      if(state.dragging || state.refResizing){ pendingTokensRaw = raw; return; }
       applyTokensUpdate(raw);
     });
 
