@@ -315,9 +315,11 @@
     display:flex; flex-direction:column; gap:2px; z-index:5;
   }
   .token-condition{
-    width:18px; height:18px; border-radius:50%; background:#150f09; border:1px solid var(--amber-bright);
-    display:flex; align-items:center; justify-content:center; font-size:11px; line-height:1;
-    cursor:help;
+    width:var(--token-status-size,18px); height:var(--token-status-size,18px); border-radius:50%;
+    background:#150f09; border:max(1px, calc(var(--token-status-size,18px) * .06)) solid var(--amber-bright);
+    display:flex; align-items:center; justify-content:center;
+    font-size:var(--token-status-font,11px); line-height:1; cursor:help;
+    flex-shrink:0;
   }
   .condition-chip-row{ display:flex; flex-wrap:wrap; gap:5px; padding-left:2px; margin-top:2px; }
   .condition-chip{
@@ -581,10 +583,10 @@
   .token.token-reference.reference-locked{ cursor:not-allowed; }
   .token.token-reference.reference-locked .token-resize-handle{ display:none; }
   .reference-lock-badge{ position:absolute; top:4px; right:4px; z-index:8; background:#150f09; border:1px solid var(--wax); border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; pointer-events:none; }
-  #map-canvas img{ display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  #map-canvas img{ position:relative; z-index:0; display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
-  #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
-  #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:11; }
+  #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:9; }
 
   #empty-map{
     color:var(--parchment-dim); font-family:'Cinzel', serif; font-size:16px;
@@ -856,9 +858,34 @@
   .custom-status-item{ display:flex; align-items:center; gap:6px; padding:5px 6px; border:1px solid var(--line); border-radius:4px; }
   .custom-status-preview{ width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#150f09; flex-shrink:0; }
   .custom-status-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  .emoji-picker-wrap{ position:relative; flex:0 0 auto; }
+  #custom-status-icon{ width:82px; min-width:82px; max-width:82px; text-align:center; cursor:pointer; font-size:18px; }
+  #emoji-picker{
+    display:none; position:fixed; z-index:100000; width:336px; max-width:92vw;
+    background:var(--bg-panel); border:1px solid var(--amber); border-radius:7px;
+    box-shadow:0 10px 28px rgba(0,0,0,.65); padding:9px;
+  }
+  #emoji-picker.open{ display:block; }
+  #emoji-picker-search{ width:100%; margin-bottom:7px; }
+  .emoji-picker-categories{ display:flex; gap:4px; flex-wrap:wrap; margin-bottom:7px; }
+  .emoji-picker-categories button{ padding:4px 6px; font-size:14px; min-width:31px; text-transform:none; }
+  .emoji-picker-categories button.toggle-active{ background:var(--amber); color:#1a1206; }
+  #emoji-picker-grid{ display:grid; grid-template-columns:repeat(8,1fr); gap:4px; max-height:225px; overflow-y:auto; padding-right:2px; }
+  #emoji-picker-grid button{ width:34px; height:34px; padding:0; font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center; text-transform:none; }
+  #emoji-picker-empty{ display:none; padding:12px 4px; text-align:center; color:var(--parchment-dim); font-size:12px; }
   .custom-status-chip{ width:auto !important; min-width:26px; padding:0 6px !important; border-radius:12px !important; }
   .custom-status-chip.toggle-active{ background:var(--amber); color:#1a1206; }
-  .token-condition.custom-condition{ min-width:18px; width:auto; padding:0 3px; border-color:var(--status-color,var(--amber-bright)); }
+  .token-condition.custom-condition{
+    width:var(--token-custom-status-size,9px); min-width:var(--token-custom-status-size,9px);
+    height:var(--token-custom-status-size,9px); padding:0;
+    border-width:max(1px, calc(var(--token-custom-status-size,9px) * .07));
+    border-color:var(--status-color,var(--amber-bright));
+    font-size:var(--token-custom-status-font,6px); line-height:1;
+    overflow:hidden; flex-shrink:0;
+  }
+  .token-conditions .token-condition.custom-condition + .token-condition.custom-condition{
+    margin-top:calc(var(--token-custom-status-size,9px) * -.08);
+  }
   .page-thumb{ width:54px; height:36px; object-fit:cover; border-radius:3px; border:1px solid var(--line); flex-shrink:0; background:#0c0906; }
   .page-row .page-thumb + input[type=text]{ flex-basis:45%; }
   .page-scale-box{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:7px 8px; background:#120e08; border:1px solid var(--line); border-top:none; }
@@ -1931,7 +1958,7 @@
         <div class="token-tools-box" id="custom-status-tools">
           <div class="token-tools-title">✨ Status visuais personalizados</div>
           <div class="token-tools-row">
-            <input type="text" id="custom-status-icon" maxlength="4" placeholder="Ícone ex.: 🔥" style="max-width:82px;">
+            <div class="emoji-picker-wrap"><input type="text" id="custom-status-icon" maxlength="8" placeholder="Ícone" title="Clique para abrir o catálogo de emojis ou cole um emoji"></div>
             <input type="text" id="custom-status-name" maxlength="24" placeholder="Nome do status">
             <input type="color" id="custom-status-color" value="#e2a53f" title="Cor">
             <button type="button" id="btn-custom-status-add">Criar</button>
@@ -1947,6 +1974,12 @@
     </div>
 
     <div id="context-menu" role="menu"></div>
+    <div id="emoji-picker" aria-label="Catálogo de emojis">
+      <input type="text" id="emoji-picker-search" placeholder="Buscar emoji ou categoria...">
+      <div class="emoji-picker-categories" id="emoji-picker-categories"></div>
+      <div id="emoji-picker-grid"></div>
+      <div id="emoji-picker-empty">Nenhum emoji encontrado.</div>
+    </div>
 
     <div id="dice-backdrop"></div>
     <div id="dice-panel">
@@ -2994,12 +3027,57 @@
       openMySheet();
     }
   }
+  const EMOJI_CATALOG = [
+    {key:'recentes',label:'★',name:'Favoritos',items:['🔥','✨','⚡','💀','❤️','💔','🩸','🛡️','⚔️','🎯','👁️','⭐','❗','❓','💤','☠️']},
+    {key:'rostos',label:'😀',name:'Rostos',items:['😀','😃','😄','😁','😆','😅','😂','🙂','🙃','😉','😊','😎','🤓','🤔','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','🤒','🤕','🤢','🤮','🥵','🥶','😵','🤯','🥳','🥸','😈','👿','👻','💀','☠️','👽','🤖']},
+    {key:'combate',label:'⚔️',name:'Combate',items:['⚔️','🗡️','🛡️','🏹','🪓','🔨','⛏️','🔱','🎯','💥','💣','🧨','🔥','🩸','💀','☠️','🪦','⛓️','🪤','🚩','🏴','🧱','🪨','🦴','🦷','👊','✊','🤜','🤛','🦾']},
+    {key:'magia',label:'✨',name:'Magia',items:['✨','⭐','🌟','💫','⚡','🔥','❄️','🌊','💧','🌪️','☀️','🌙','🌑','🌕','🌈','☁️','🌩️','🔮','🪄','🧿','🕯️','💎','💠','♾️','☯️','✡️','🔯','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']},
+    {key:'status',label:'❤️',name:'Status',items:['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','💖','💗','💓','💞','💤','💢','💦','💨','🌀','✅','❌','⭕','🚫','⚠️','❗','❓','‼️','⁉️','🔒','🔓','🔗','📌','📍','👁️','🫥','🩹','💊','🧪']},
+    {key:'criaturas',label:'🐉',name:'Criaturas',items:['🐉','🐲','🦖','🦕','🐺','🦊','🐻','🐗','🦁','🐯','🐍','🦂','🕷️','🦇','🦉','🦅','🐦‍⬛','🐀','🐁','🐸','🐊','🐙','🦑','🦈','🐋','🦄','🐎','🐐','🐏','🐂','🐃','🐘','🦏','🦛','🐒','🦍','🧌']},
+    {key:'natureza',label:'🌿',name:'Natureza',items:['🌿','🍃','☘️','🍀','🌱','🌲','🌳','🌴','🌵','🌾','🌺','🌸','🌼','🌻','🍄','🪵','🪨','⛰️','🏔️','🌋','🏜️','🏝️','🌊','💧','🔥','❄️','🌨️','🌩️','🌪️','🌫️','☀️','🌙']},
+    {key:'objetos',label:'🎒',name:'Objetos',items:['🎒','🧳','🗝️','🔑','🔐','📜','📖','📕','📚','🗺️','🧭','⌛','⏳','⏰','🔔','🕯️','💡','🔦','🏮','🪔','🧰','🪛','🔧','⚙️','⛓️','🪝','🧲','🧪','⚗️','🔬','🩺','💰','🪙','💎','🏆','🎲','♟️']},
+    {key:'lugares',label:'🏰',name:'Lugares',items:['🏰','🏯','🏛️','⛪','🕌','🛕','⛩️','🏚️','🏠','🏘️','🏕️','⛺','🗼','🗿','🪦','⚰️','🚪','🪜','🧱','🌉','🌁','⛲','🗻','⛰️','🏔️','🌋','🏜️','🏝️','🌲','🌳','🌴']}
+  ];
+  let emojiPickerCategory='recentes';
+  function normalizeEmojiSearch(s){ return String(s||'').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function renderEmojiPicker(){
+    const cats=el('emoji-picker-categories'), grid=el('emoji-picker-grid'), empty=el('emoji-picker-empty'), search=el('emoji-picker-search');
+    if(!cats||!grid) return;
+    cats.innerHTML=EMOJI_CATALOG.map(c=>'<button type="button" data-emoji-cat="'+c.key+'" class="'+(emojiPickerCategory===c.key?'toggle-active':'')+'" title="'+c.name+'">'+c.label+'</button>').join('');
+    cats.querySelectorAll('[data-emoji-cat]').forEach(b=>b.addEventListener('click',()=>{ emojiPickerCategory=b.getAttribute('data-emoji-cat'); if(search)search.value=''; renderEmojiPicker(); }));
+    const q=normalizeEmojiSearch(search&&search.value);
+    let list=[];
+    if(q){
+      EMOJI_CATALOG.forEach(c=>{ if(normalizeEmojiSearch(c.name+' '+c.key).includes(q)) list.push(...c.items); });
+      if(!list.length) list=EMOJI_CATALOG.flatMap(c=>c.items);
+    }else{
+      const cat=EMOJI_CATALOG.find(c=>c.key===emojiPickerCategory)||EMOJI_CATALOG[0]; list=cat.items.slice();
+    }
+    list=[...new Set(list)];
+    grid.innerHTML=list.map(em=>'<button type="button" data-emoji-pick="'+em+'" title="'+em+'">'+em+'</button>').join('');
+    if(empty) empty.style.display=list.length?'none':'block';
+    grid.querySelectorAll('[data-emoji-pick]').forEach(b=>b.addEventListener('click',()=>{ el('custom-status-icon').value=b.getAttribute('data-emoji-pick'); closeEmojiPicker(); el('custom-status-name').focus(); }));
+  }
+  function positionEmojiPicker(){
+    const picker=el('emoji-picker'), input=el('custom-status-icon'); if(!picker||!input)return;
+    const r=input.getBoundingClientRect(); picker.classList.add('open');
+    const pr=picker.getBoundingClientRect(); let left=Math.min(window.innerWidth-pr.width-8,Math.max(8,r.left));
+    let top=r.bottom+6; if(top+pr.height>window.innerHeight-8) top=Math.max(8,r.top-pr.height-6);
+    picker.style.left=left+'px'; picker.style.top=top+'px';
+  }
+  function openEmojiPicker(){ renderEmojiPicker(); positionEmojiPicker(); const s=el('emoji-picker-search'); if(s){s.value=''; setTimeout(()=>s.focus(),0);} }
+  function closeEmojiPicker(){ const p=el('emoji-picker'); if(p)p.classList.remove('open'); }
   el('tokens-panel-toggle').addEventListener('click', openTokensPanel);
   el('btn-token-folder-add').addEventListener('click', createTokenFolder);
   el('token-folder-new').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();createTokenFolder();} });
   el('token-folder-filter').addEventListener('change',renderTokenList);
   el('btn-custom-status-add').addEventListener('click',createCustomStatus);
   el('custom-status-name').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();createCustomStatus();} });
+  el('custom-status-icon').addEventListener('click', openEmojiPicker);
+  el('custom-status-icon').addEventListener('focus', openEmojiPicker);
+  el('emoji-picker-search').addEventListener('input', renderEmojiPicker);
+  document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#emoji-picker') && !e.target.closest('#custom-status-icon')) closeEmojiPicker(); });
+  window.addEventListener('resize',()=>{ if(el('emoji-picker')&&el('emoji-picker').classList.contains('open')) positionEmojiPicker(); });
   el('btn-tokens-put-all-map').addEventListener('click', putAllTokensOnMap);
   el('btn-tokens-take-all-map').addEventListener('click', takeAllTokensOffMap);
 
@@ -5154,8 +5232,12 @@
     const sameType = state.tokens.filter(t => t.isReference === tok.isReference && t.masterLocked === tok.masterLocked);
     return stagePositionByType(tok, Math.max(0, sameType.indexOf(tok)));
   }
+  const MAP_LAYER_FLOOR_Z = 1;
+  function clampStageZOrder(z){
+    return Math.max(MAP_LAYER_FLOOR_Z, Number.isFinite(Number(z)) ? Number(z) : MAP_LAYER_FLOOR_Z);
+  }
   function nextStageZOrder(){
-    let max = 0;
+    let max = MAP_LAYER_FLOOR_Z - 1;
     state.tokens.forEach(t => {
       const p = t.positions && t.positions[state.currentPageId];
       if(p && typeof p.zOrder === 'number' && p.zOrder > max) max = p.zOrder;
@@ -5360,13 +5442,13 @@
     if(c.type==='text'){
       const page=currentPage(),txt=page&&page.texts.find(t=>t.id===c.id); if(!txt)return;
       if(action==='edit'){ const node=document.querySelector('.map-text[data-id="'+c.id+'"]'); if(node)beginInlineTextEdit(node,c.id); return; }
-      if(action==='front'||action==='back'){ pushUndo(); txt.zOrder=action==='front'?nextStageZOrder():-99999; await persistPageTexts(page); renderTexts(); return; }
+      if(action==='front'||action==='back'){ pushUndo(); txt.zOrder = action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z; await persistPageTexts(page); renderTexts(); return; }
       if(action==='delete'){ await deleteText(c.id); return; }
     }
     const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
     if(action==='open'&&!tok.isReference){openTokenSheet(tok);return;}
     if(action==='duplicate'){await duplicateToken(tok.id);return;}
-    if(action==='front'||action==='back'){ pushUndo(); if(!tok.positions)tok.positions={}; const pos=tokenPos(tok); tok.positions[state.currentPageId]={x:pos.x,y:pos.y,zOrder:action==='front'?nextStageZOrder():-99999}; await persistTokens();render();return; }
+    if(action==='front'||action==='back'){ pushUndo(); if(!tok.positions)tok.positions={}; const pos=tokenPos(tok); tok.positions[state.currentPageId] = { x:pos.x, y:pos.y, zOrder: action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z }; await persistTokens();render();return; }
     if(action==='lock'&&tok.isReference){await toggleReferenceLock(tok.id);return;}
     if(action==='page'){ if(isTokenOnPage(tok,state.currentPageId))await removeTokenFromPage(tok.id);else await addTokenToPage(tok.id);return; }
     if(action==='delete'){await deleteTokenPermanently(tok.id);return;}
@@ -5390,7 +5472,17 @@
       t.style.height = dims.height + 'px';
       t.style.marginLeft = (-dims.width/2) + 'px';
       t.style.marginTop = (-dims.height/2) + 'px';
-      if(typeof pos.zOrder === 'number') t.style.zIndex = pos.zOrder;
+      if(!tok.isReference){
+        const statusSize = Math.max(8, Math.min(30, Math.round(size * 0.28)));
+        const statusFont = Math.max(5, Math.min(19, Math.round(statusSize * 0.62)));
+        const customStatusSize = Math.max(5, Math.min(20, Math.round(size * 0.14)));
+        const customStatusFont = Math.max(4, Math.min(13, Math.round(customStatusSize * 0.64)));
+        t.style.setProperty('--token-status-size', statusSize + 'px');
+        t.style.setProperty('--token-status-font', statusFont + 'px');
+        t.style.setProperty('--token-custom-status-size', customStatusSize + 'px');
+        t.style.setProperty('--token-custom-status-font', customStatusFont + 'px');
+      }
+      t.style.zIndex = String(clampStageZOrder(typeof pos.zOrder === 'number' ? pos.zOrder : MAP_LAYER_FLOOR_Z));
       if(tok.isReference){
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.12)));
         const handleHtml = (effectiveMaster() && !tok.referenceLocked) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
@@ -6470,6 +6562,16 @@
     if(label){
       label.style.fontSize = Math.max(11, Math.min(16, Math.round(newSize * 0.12))) + 'px';
     }
+    if(tok && !tok.isReference){
+      const statusSize = Math.max(8, Math.min(30, Math.round(newSize * 0.28)));
+      const statusFont = Math.max(5, Math.min(19, Math.round(statusSize * 0.62)));
+      const customStatusSize = Math.max(5, Math.min(20, Math.round(newSize * 0.14)));
+      const customStatusFont = Math.max(4, Math.min(13, Math.round(customStatusSize * 0.64)));
+      el.style.setProperty('--token-status-size', statusSize + 'px');
+      el.style.setProperty('--token-status-font', statusFont + 'px');
+      el.style.setProperty('--token-custom-status-size', customStatusSize + 'px');
+      el.style.setProperty('--token-custom-status-font', customStatusFont + 'px');
+    }
   }
   function onRefResizeMove(e){
     const s = state.refResizing;
@@ -7407,7 +7509,7 @@
       t.style.width = (typeof txt.boxWidth === 'number' ? txt.boxWidth : 28) + '%';
       t.style.height = (typeof txt.boxHeight === 'number' ? txt.boxHeight : 12) + '%';
       t.style.pointerEvents = effectiveMaster() ? 'auto' : 'none';
-      if(typeof txt.zOrder === 'number') t.style.zIndex = txt.zOrder;
+      t.style.zIndex = String(clampStageZOrder(typeof txt.zOrder === 'number' ? txt.zOrder : MAP_LAYER_FLOOR_Z));
 
       const contentWrap = document.createElement('div');
       contentWrap.className = 'map-text-content-wrap';
@@ -9270,6 +9372,22 @@
     // Nunca dispara atalhos de letra/Delete enquanto a pessoa está digitando em um campo.
     if(typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if(!state.currentSlot) return;
+
+    if(key === 'a'){
+      // Atalho rápido para começar a escrever um texto no mapa.
+      if(!effectiveMaster()) return;
+      e.preventDefault();
+      openFloatPanel('float-text');
+      requestAnimationFrame(() => {
+        const input = el('text-content-input');
+        if(input){
+          input.focus();
+          const len = input.value.length;
+          if(typeof input.setSelectionRange === 'function') input.setSelectionRange(len, len);
+        }
+      });
+      return;
+    }
 
     if(key === 'n'){
       // Névoa é uma ferramenta exclusiva do mestre.
