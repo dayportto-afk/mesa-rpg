@@ -519,6 +519,9 @@
   .text-row-controls input[type=color]{ width:26px; height:22px; padding:0; border:2px solid var(--line); border-radius:5px; background:none; cursor:pointer; flex-shrink:0;}
   .text-row-controls label{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase;}
   .text-row-controls input[type=number]{ width:56px; padding:5px 6px; font-size:12px; }
+  .text-row-controls input[type=range]{ flex:1; min-width:70px; accent-color:var(--amber); }
+  .text-align-btn{ width:34px; height:30px; padding:0; font-size:14px; flex-shrink:0; }
+  .text-opacity-value{ min-width:34px; font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); text-align:right; }
 
   /* Map area */
   #map-area{
@@ -651,14 +654,26 @@
     position:absolute; transform:translate(-50%,-50%);
     font-family:'Cinzel', serif; white-space:pre-wrap; user-select:none;
     cursor:grab; touch-action:none; text-shadow:0 1px 3px rgba(0,0,0,0.8);
-    padding:2px 6px;
+    padding:8px 12px;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center; line-height:1.2; overflow-wrap:anywhere; word-break:normal;
+    box-sizing:border-box; overflow:visible;
   }
   .map-text.draggable{ cursor:grab; }
   .map-text.draggable:hover{ outline:1px dashed rgba(226,165,63,0.7); border-radius:3px; }
   .map-text.dragging{ cursor:grabbing; outline:1px dashed var(--amber-bright); border-radius:3px; }
   .map-text.selected{ outline:2px dashed var(--amber-bright); border-radius:3px; }
-  .map-text.editing{ cursor:text !important; outline:2px solid var(--amber-bright); border-radius:3px; background:rgba(21,15,9,.72); white-space:pre-wrap; min-width:24px; }
+  .map-text.editing{ cursor:text !important; outline:2px solid var(--amber-bright); border-radius:3px; white-space:pre-wrap; }
+  .map-text.editing:not(.has-marker){ background:rgba(21,15,9,.72); }
+  .map-text.has-marker{ border-radius:5px; }
   .map-text.editing:focus{ outline:2px solid var(--amber-bright); }
+  .map-text-resize-handle{
+    position:absolute; right:-7px; bottom:-7px; width:14px; height:14px;
+    border:2px solid #0a0704; border-radius:3px; background:var(--amber-bright);
+    cursor:nwse-resize; touch-action:none; z-index:12; box-shadow:0 1px 4px rgba(0,0,0,.65);
+  }
+  .map-text-resize-handle:hover{ background:#fff; }
+  .map-text.editing .map-text-resize-handle{ display:none; }
 
 
   #freeze-banner{
@@ -1705,6 +1720,27 @@
             <label for="text-size-input" style="margin-left:auto;">Tam.</label>
             <input type="number" id="text-size-input" min="10" max="96" value="24">
           </div>
+          <div class="text-row-controls" style="margin-top:8px;">
+            <button type="button" id="text-marker-toggle" class="style-toggle" style="width:auto;padding:0 9px;" title="Ativar ou desativar marcador de fundo">Marcador</button>
+            <label for="text-marker-color-input">Cor do marcador</label>
+            <input type="color" id="text-marker-color-input" value="#fff176">
+          </div>
+          <div class="text-row-controls" style="margin-top:8px;">
+            <label>Alinhar</label>
+            <button type="button" id="text-align-left" class="text-align-btn" title="Alinhar à esquerda">☰</button>
+            <button type="button" id="text-align-center" class="text-align-btn toggle-active" title="Centralizar">≡</button>
+            <button type="button" id="text-align-right" class="text-align-btn" title="Alinhar à direita">☷</button>
+          </div>
+          <div class="text-row-controls" style="margin-top:8px;">
+            <label for="text-marker-opacity-input">Opacidade fundo</label>
+            <input type="range" id="text-marker-opacity-input" min="0" max="100" step="5" value="100">
+            <span id="text-marker-opacity-value" class="text-opacity-value">100%</span>
+          </div>
+          <div class="text-row-controls" style="margin-top:8px;">
+            <label for="text-line-height-input">Entrelinhas</label>
+            <input type="range" id="text-line-height-input" min="0.7" max="3" step="0.1" value="1.2">
+            <span id="text-line-height-value" class="text-opacity-value">1.2×</span>
+          </div>
           <button id="btn-add-text" class="primary" style="width:100%; margin-top:8px;">Adicionar texto ao mapa</button>
           <div id="text-list" style="margin-top:10px;"></div>
           <div class="hint">Arraste o texto no mapa para posicioná-lo. O texto é próprio de cada página do histórico.</div>
@@ -2136,6 +2172,7 @@
     pan:{x:0,y:0},
     dragging:null,
     textDragging:null,
+    textResizing:null,
     panning:null
   };
 
@@ -7039,6 +7076,15 @@
   }
 
   // ---------- map text ----------
+  function hexToRgba(hex, alpha){
+    let h = String(hex || '#fff176').replace('#','');
+    if(h.length === 3) h = h.split('').map(c => c+c).join('');
+    const n = parseInt(h, 16);
+    if(Number.isNaN(n)) return `rgba(255,241,118,${alpha})`;
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
   function renderTexts(){
     document.querySelectorAll('.map-text').forEach(t => t.remove());
     const page = currentPage();
@@ -7054,10 +7100,33 @@
       t.style.fontFamily = txt.font || "'Cinzel', serif";
       t.style.fontWeight = txt.bold ? '700' : '400';
       t.style.fontStyle = txt.italic ? 'italic' : 'normal';
+      if(txt.marker){
+        t.classList.add('has-marker');
+        const markerOpacity = Math.max(0, Math.min(100, typeof txt.markerOpacity === 'number' ? txt.markerOpacity : 100)) / 100;
+        t.style.backgroundColor = hexToRgba(txt.markerColor || '#fff176', markerOpacity);
+      } else {
+        t.style.backgroundColor = 'transparent';
+      }
+      t.style.width = (typeof txt.boxWidth === 'number' ? txt.boxWidth : 28) + '%';
+      t.style.height = (typeof txt.boxHeight === 'number' ? txt.boxHeight : 12) + '%';
       t.style.pointerEvents = effectiveMaster() ? 'auto' : 'none';
       if(typeof txt.zOrder === 'number') t.style.zIndex = txt.zOrder;
-      t.textContent = txt.content;
+      const contentSpan = document.createElement('span');
+      contentSpan.className = 'map-text-content';
+      contentSpan.style.width = '100%';
+      contentSpan.style.textAlign = txt.align || 'center';
+      contentSpan.style.lineHeight = String(typeof txt.lineHeight === 'number' ? txt.lineHeight : 1.2);
+      contentSpan.style.maxHeight = '100%';
+      contentSpan.style.overflow = 'hidden';
+      contentSpan.style.whiteSpace = 'pre-wrap';
+      contentSpan.textContent = txt.content;
+      t.appendChild(contentSpan);
       if(effectiveMaster()){
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'map-text-resize-handle';
+        resizeHandle.title = 'Redimensionar caixa de texto';
+        resizeHandle.addEventListener('pointerdown', onTextResizePointerDown);
+        t.appendChild(resizeHandle);
         t.addEventListener('pointerdown', onTextPointerDown);
         t.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); beginInlineTextEdit(t, txt.id); });
       }
@@ -7095,6 +7164,27 @@
           '<label style="margin-left:auto;">Tam.</label>' +
           '<input type="number" min="10" max="96" value="'+(txt.size||24)+'" data-text-size="'+txt.id+'">' +
         '</div>' +
+        '<div class="text-row-controls">' +
+          '<button type="button" class="style-toggle'+(txt.marker?' toggle-active':'')+'" style="width:auto;padding:0 8px;" data-text-marker="'+txt.id+'" title="Ativar ou desativar marcador">Marcador</button>' +
+          '<label>Cor marcador</label>' +
+          '<input type="color" value="'+(txt.markerColor||'#fff176')+'" data-text-marker-color="'+txt.id+'">' +
+        '</div>' +
+        '<div class="text-row-controls">' +
+          '<label>Alinhar</label>' +
+          '<button type="button" class="text-align-btn'+((txt.align||'center')==='left'?' toggle-active':'')+'" data-text-align="left" data-text-align-id="'+txt.id+'" title="Alinhar à esquerda">☰</button>' +
+          '<button type="button" class="text-align-btn'+((txt.align||'center')==='center'?' toggle-active':'')+'" data-text-align="center" data-text-align-id="'+txt.id+'" title="Centralizar">≡</button>' +
+          '<button type="button" class="text-align-btn'+((txt.align||'center')==='right'?' toggle-active':'')+'" data-text-align="right" data-text-align-id="'+txt.id+'" title="Alinhar à direita">☷</button>' +
+        '</div>' +
+        '<div class="text-row-controls">' +
+          '<label>Opacidade</label>' +
+          '<input type="range" min="0" max="100" step="5" value="'+(typeof txt.markerOpacity==='number'?txt.markerOpacity:100)+'" data-text-marker-opacity="'+txt.id+'">' +
+          '<span class="text-opacity-value" data-text-marker-opacity-value="'+txt.id+'">'+(typeof txt.markerOpacity==='number'?txt.markerOpacity:100)+'%</span>' +
+        '</div>' +
+        '<div class="text-row-controls">' +
+          '<label>Entrelinhas</label>' +
+          '<input type="range" min="0.7" max="3" step="0.1" value="'+(typeof txt.lineHeight==='number'?txt.lineHeight:1.2)+'" data-text-line-height="'+txt.id+'">' +
+          '<span class="text-opacity-value" data-text-line-height-value="'+txt.id+'">'+(typeof txt.lineHeight==='number'?txt.lineHeight:1.2).toFixed(1)+'×</span>' +
+        '</div>' +
       '</div>'
     ).join('');
     $list.querySelectorAll('[data-text-content]').forEach(inp=>{
@@ -7131,6 +7221,66 @@
         if(isNaN(size) || size < 10) size = 10;
         if(size > 96) size = 96;
         updateText(inp.getAttribute('data-text-size'), { size });
+      });
+    });
+    $list.querySelectorAll('[data-text-marker]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const page2 = currentPage();
+        const txt = page2 && page2.texts.find(t => t.id === btn.getAttribute('data-text-marker'));
+        updateText(btn.getAttribute('data-text-marker'), { marker: !(txt && txt.marker) });
+      });
+    });
+    $list.querySelectorAll('[data-text-marker-color]').forEach(inp=>{
+      inp.addEventListener('input', () => {
+        const page2 = currentPage();
+        const txt = page2 ? page2.texts.find(t => t.id === inp.getAttribute('data-text-marker-color')) : null;
+        if(txt){ txt.markerColor = inp.value; renderTexts(); }
+      });
+      inp.addEventListener('change', () => updateText(inp.getAttribute('data-text-marker-color'), { markerColor: inp.value }, true));
+    });
+    $list.querySelectorAll('[data-text-align-id]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        updateText(btn.getAttribute('data-text-align-id'), { align: btn.getAttribute('data-text-align') });
+      });
+    });
+    $list.querySelectorAll('[data-text-marker-opacity]').forEach(inp=>{
+      inp.addEventListener('input', () => {
+        const id = inp.getAttribute('data-text-marker-opacity');
+        const opacity = Math.max(0, Math.min(100, parseInt(inp.value, 10) || 0));
+        const page2 = currentPage();
+        const txt = page2 ? page2.texts.find(t => t.id === id) : null;
+        if(txt){
+          txt.markerOpacity = opacity;
+          const val = $list.querySelector('[data-text-marker-opacity-value="'+id+'"]');
+          if(val) val.textContent = opacity + '%';
+          renderTexts();
+        }
+      });
+      inp.addEventListener('change', () => {
+        const opacity = Math.max(0, Math.min(100, parseInt(inp.value, 10) || 0));
+        updateText(inp.getAttribute('data-text-marker-opacity'), { markerOpacity: opacity }, true);
+      });
+    });
+    $list.querySelectorAll('[data-text-line-height]').forEach(inp=>{
+      inp.addEventListener('input', () => {
+        const id = inp.getAttribute('data-text-line-height');
+        let lineHeight = parseFloat(inp.value);
+        if(!Number.isFinite(lineHeight)) lineHeight = 1.2;
+        lineHeight = Math.max(0.7, Math.min(3, lineHeight));
+        const page2 = currentPage();
+        const txt = page2 ? page2.texts.find(t => t.id === id) : null;
+        if(txt){
+          txt.lineHeight = lineHeight;
+          const val = $list.querySelector('[data-text-line-height-value="'+id+'"]');
+          if(val) val.textContent = lineHeight.toFixed(1) + '×';
+          renderTexts();
+        }
+      });
+      inp.addEventListener('change', () => {
+        let lineHeight = parseFloat(inp.value);
+        if(!Number.isFinite(lineHeight)) lineHeight = 1.2;
+        lineHeight = Math.max(0.7, Math.min(3, lineHeight));
+        updateText(inp.getAttribute('data-text-line-height'), { lineHeight }, true);
       });
     });
     $list.querySelectorAll('[data-text-remove]').forEach(btn=>{
@@ -7177,14 +7327,16 @@
     });
   }
   async function finishInlineTextEdit(target, id, cancel=false){
-    if(!target || !target.isContentEditable) return;
+    if(!target) return;
+    const contentEl = target.querySelector('.map-text-content');
+    if(!contentEl || !contentEl.isContentEditable) return;
     const page = currentPage();
     const txt = page ? page.texts.find(t => t.id === id) : null;
     if(!txt) return;
     const original = target.dataset.originalContent || txt.content || 'Texto';
-    const rawContent = target.innerText.replace(/\r/g,'');
+    const rawContent = contentEl.innerText.replace(/\r/g,'');
     const content = cancel ? original : (rawContent.trim().length ? rawContent : 'Texto');
-    target.contentEditable = 'false';
+    contentEl.contentEditable = 'false';
     target.classList.remove('editing');
     target.removeAttribute('data-original-content');
     if(content !== txt.content){
@@ -7207,25 +7359,79 @@
     state.selectedTokenId = null;
     target.classList.remove('dragging');
     target.classList.add('editing');
-    target.contentEditable = 'true';
+    const contentEl = target.querySelector('.map-text-content');
+    if(!contentEl) return;
+    contentEl.contentEditable = 'true';
     target.dataset.originalContent = txt.content || 'Texto';
-    target.focus();
+    contentEl.focus();
     const range = document.createRange();
-    range.selectNodeContents(target);
+    range.selectNodeContents(contentEl);
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
-    target.addEventListener('blur', () => finishInlineTextEdit(target, id), { once:true });
-    target.addEventListener('keydown', (e) => {
+    contentEl.addEventListener('blur', () => finishInlineTextEdit(target, id), { once:true });
+    contentEl.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if(e.key === 'Escape'){ e.preventDefault(); finishInlineTextEdit(target, id, true); }
-      else if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); target.blur(); }
+      else if (e.key === 'Enter') { return; }
     });
+  }
+
+  function onTextResizePointerDown(e){
+    if(!effectiveMaster()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    const target = handle.closest('.map-text');
+    if(!target) return;
+    const page = currentPage();
+    const txt = page ? page.texts.find(t => t.id === target.dataset.id) : null;
+    if(!txt) return;
+    pushUndo();
+    state.selectedTextId = txt.id;
+    state.selectedTokenId = null;
+    const canvasRect = $canvas.getBoundingClientRect();
+    const startW = typeof txt.boxWidth === 'number' ? txt.boxWidth : 28;
+    const startH = typeof txt.boxHeight === 'number' ? txt.boxHeight : 12;
+    state.textResizing = { id:txt.id, el:target, handle, canvasRect, startX:e.clientX, startY:e.clientY, startW, startH, w:startW, h:startH };
+    handle.setPointerCapture(e.pointerId);
+    handle.addEventListener('pointermove', onTextResizePointerMove);
+    handle.addEventListener('pointerup', onTextResizePointerUp);
+    handle.addEventListener('pointercancel', onTextResizePointerUp);
+  }
+  function onTextResizePointerMove(e){
+    const d = state.textResizing;
+    if(!d) return;
+    const dxPct = ((e.clientX - d.startX) / d.canvasRect.width) * 200;
+    const dyPct = ((e.clientY - d.startY) / d.canvasRect.height) * 200;
+    const w = Math.max(4, Math.min(580, d.startW + dxPct));
+    const h = Math.max(4, Math.min(580, d.startH + dyPct));
+    d.w = w; d.h = h;
+    d.el.style.width = w + '%';
+    d.el.style.height = h + '%';
+  }
+  async function onTextResizePointerUp(e){
+    const d = state.textResizing;
+    if(!d) return;
+    d.handle.removeEventListener('pointermove', onTextResizePointerMove);
+    d.handle.removeEventListener('pointerup', onTextResizePointerUp);
+    d.handle.removeEventListener('pointercancel', onTextResizePointerUp);
+    const page = currentPage();
+    const txt = page ? page.texts.find(t => t.id === d.id) : null;
+    if(txt){
+      txt.boxWidth = d.w;
+      txt.boxHeight = d.h;
+      txt.zOrder = nextStageZOrder();
+      await persistPageTexts(page);
+    }
+    state.textResizing = null;
+    flushPendingPageUpdates('texts');
   }
 
   function onTextPointerDown(e){
     const target = e.currentTarget;
-    if(target.isContentEditable || target.classList.contains('editing')){ e.stopPropagation(); return; }
+    if(e.target.closest('.map-text-resize-handle')) return;
+    if(target.classList.contains('editing') || e.target.isContentEditable){ e.stopPropagation(); return; }
     e.preventDefault();
     e.stopPropagation();
     const id = target.dataset.id;
@@ -7279,6 +7485,8 @@
 
   let newTextBold = false;
   let newTextItalic = false;
+  let newTextMarker = false;
+  let newTextAlign = 'center';
   el('text-bold-toggle').addEventListener('click', () => {
     newTextBold = !newTextBold;
     el('text-bold-toggle').classList.toggle('toggle-active', newTextBold);
@@ -7287,6 +7495,23 @@
     newTextItalic = !newTextItalic;
     el('text-italic-toggle').classList.toggle('toggle-active', newTextItalic);
   });
+  el('text-marker-toggle').addEventListener('click', () => {
+    newTextMarker = !newTextMarker;
+    el('text-marker-toggle').classList.toggle('toggle-active', newTextMarker);
+  });
+  ['left','center','right'].forEach(align => {
+    el('text-align-'+align).addEventListener('click', () => {
+      newTextAlign = align;
+      ['left','center','right'].forEach(a => el('text-align-'+a).classList.toggle('toggle-active', a === align));
+    });
+  });
+  el('text-marker-opacity-input').addEventListener('input', () => {
+    el('text-marker-opacity-value').textContent = el('text-marker-opacity-input').value + '%';
+  });
+  el('text-line-height-input').addEventListener('input', () => {
+    const v = Math.max(0.7, Math.min(3, parseFloat(el('text-line-height-input').value) || 1.2));
+    el('text-line-height-value').textContent = v.toFixed(1) + '×';
+  });
 
   el('btn-add-text').addEventListener('click', async () => {
     const page = currentPage();
@@ -7294,18 +7519,23 @@
     const content = el('text-content-input').value.trim();
     if(!content) return;
     const color = el('text-color-input').value;
+    const markerColor = el('text-marker-color-input').value;
+    const markerOpacity = Math.max(0, Math.min(100, parseInt(el('text-marker-opacity-input').value, 10) || 0));
+    const lineHeight = Math.max(0.7, Math.min(3, parseFloat(el('text-line-height-input').value) || 1.2));
     const font = el('text-font-input').value;
     let size = parseInt(el('text-size-input').value, 10);
     if(isNaN(size) || size < 10) size = 24;
     pushUndo();
     const textCount = page.texts.length;
-    page.texts.push({ id:newId('x'), content, color, size, font, bold:newTextBold, italic:newTextItalic, x:-22, y:12 + (textCount % 7) * 12, zOrder:nextStageZOrder() });
+    page.texts.push({ id:newId('x'), content, color, size, font, bold:newTextBold, italic:newTextItalic, marker:newTextMarker, markerColor, markerOpacity, align:newTextAlign, lineHeight, x:-22, y:12 + (textCount % 7) * 12, boxWidth:28, boxHeight:12, zOrder:nextStageZOrder() });
     render();
     await persistPageTexts(page);
     el('text-content-input').value = '';
-    newTextBold = false; newTextItalic = false;
+    newTextBold = false; newTextItalic = false; newTextMarker = false; newTextAlign = 'center';
     el('text-bold-toggle').classList.remove('toggle-active');
     el('text-italic-toggle').classList.remove('toggle-active');
+    el('text-marker-toggle').classList.remove('toggle-active');
+    ['left','center','right'].forEach(a => el('text-align-'+a).classList.toggle('toggle-active', a === 'center'));
   });
 
   // ---------- master actions ----------
@@ -8464,7 +8694,7 @@
       if(!raw || (!state.isMaster && state.meta.playersFrozen)) return;
       const page = currentPage();
       if(!page || page.id !== pageId) return;
-      if(state.textDragging){ pendingPageUpdates.texts = raw; return; }
+      if(state.textDragging || state.textResizing){ pendingPageUpdates.texts = raw; return; }
       try{ page.texts = JSON.parse(raw).list || []; render(); }catch(e){}
     });
     watchPageKey(slotKey('page-'+pageId+'-grid'), (raw) => {
