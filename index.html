@@ -1113,6 +1113,20 @@
   .toast.show{ opacity:1; transform:translateY(0); }
   .toast.whisper{ border-color:var(--wax); background:#2a1414; color:#f4dede; }
   .toast.diceroll{ font-size:18px; padding:12px 22px; max-width:360px; font-family:'Cinzel', serif; }
+  #dice-roll-notification-host{
+    position:absolute; top:18px; left:50%; transform:translateX(-50%); z-index:95;
+    width:min(420px, calc(100% - 32px)); pointer-events:none; display:flex; justify-content:center;
+  }
+  .dice-roll-notification{
+    min-width:210px; max-width:100%; background:rgba(20,15,9,.94); border:1px solid var(--amber);
+    border-radius:8px; padding:9px 14px; box-shadow:0 6px 18px rgba(0,0,0,.48);
+    text-align:center; opacity:0; transform:translateY(-8px) scale(.98);
+    transition:opacity .16s ease, transform .16s ease;
+  }
+  .dice-roll-notification.show{ opacity:1; transform:translateY(0) scale(1); }
+  .dice-roll-notification .roll-who{ font-family:'Cinzel',serif; font-size:12px; color:var(--amber-bright); }
+  .dice-roll-notification .roll-breakdown{ margin-top:2px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment-dim); }
+  .dice-roll-notification .roll-total{ margin-top:3px; font-family:'Cinzel',serif; font-size:21px; color:var(--parchment); line-height:1; }
   .toast.usage-warning{ border-color:var(--amber); background:#241a0c; color:var(--parchment); max-width:340px; }
 
   /* Send panel (master only: whisper text and/or image handouts) */
@@ -1876,6 +1890,7 @@
             </div>
           </div>
         </div>
+        <div id="dice-roll-notification-host" aria-live="polite" aria-atomic="true"></div>
         <div id="freeze-banner" style="display:none;">
           <span>🔒 Jogadores congelados — eles não veem suas mudanças ainda</span>
           <button type="button" id="btn-freeze-banner-release">Liberar agora</button>
@@ -2044,6 +2059,7 @@
             <button type="button" id="btn-initiative-d20" title="Rolar 1d20 para a iniciativa">🎲 d20</button>
           </div>
           <button id="btn-initiative-add" class="primary" style="width:100%; margin-top:6px;">Adicionar ao combate</button>
+          <button type="button" id="btn-initiative-roll-all-npcs" style="width:100%; margin-top:6px;">🎲 Rolar iniciativa de todos os NPCs</button>
           <div class="dice-visibility-row" style="margin-top:8px;">
             <button type="button" id="btn-initiative-next">Próximo turno →</button>
             <button type="button" id="btn-initiative-clear" class="danger">Encerrar combate</button>
@@ -2697,6 +2713,46 @@
   // ---------- send system: threaded conversations, public or with any set of recipients ----------
   let lastSendsSnapshot = '';
   let lastSeenRollId = null;
+  const diceNotificationQueue = [];
+  let diceNotificationShowing = false;
+  const diceNotificationQueuedIds = new Set();
+
+  function diceBreakdownCompact(entry){
+    return (entry.breakdown || []).map(b => {
+      const vals = Array.isArray(b.results) ? b.results.join(', ') : '';
+      return (b.results && b.results.length > 1 ? b.results.length : 1) + 'd' + b.sides + (vals ? ' [' + vals + ']' : '');
+    }).join(' + ');
+  }
+
+  function enqueueDiceNotification(entry){
+    if(!entry || entry.private || !entry.id || diceNotificationQueuedIds.has(entry.id)) return;
+    diceNotificationQueuedIds.add(entry.id);
+    diceNotificationQueue.push(entry);
+    processDiceNotificationQueue();
+  }
+
+  async function processDiceNotificationQueue(){
+    if(diceNotificationShowing || diceNotificationQueue.length === 0) return;
+    const host = document.getElementById('dice-roll-notification-host');
+    if(!host){ diceNotificationQueue.length = 0; diceNotificationQueuedIds.clear(); return; }
+    diceNotificationShowing = true;
+    const entry = diceNotificationQueue.shift();
+    const card = document.createElement('div');
+    card.className = 'dice-roll-notification';
+    card.innerHTML =
+      '<div class="roll-who" style="color:' + escapeHtml(entry.color || '#e2a53f') + ';">🎲 ' + escapeHtml(entry.roller || 'Jogador') + '</div>' +
+      '<div class="roll-breakdown">' + escapeHtml(diceBreakdownCompact(entry)) + '</div>' +
+      '<div class="roll-total">' + escapeHtml(String(entry.total)) + '</div>';
+    host.replaceChildren(card);
+    requestAnimationFrame(() => card.classList.add('show'));
+    await new Promise(r => setTimeout(r, 1550));
+    card.classList.remove('show');
+    await new Promise(r => setTimeout(r, 190));
+    if(card.parentNode) card.remove();
+    diceNotificationQueuedIds.delete(entry.id);
+    diceNotificationShowing = false;
+    processDiceNotificationQueue();
+  }
   let composeTargets = [];
   let activeThreadKey = null;
 
@@ -3289,6 +3345,8 @@
     lastDiceLogSnapshot = JSON.stringify({ list });
     renderDiceLog();
     playSound('diceRoll');
+    if(!entry.private) enqueueDiceNotification(entry);
+    lastSeenRollId = entry.id;
     await safeSet(slotKey('dice-log'), { list });
   }
 
@@ -3332,6 +3390,11 @@
     state.diceRolls = [];
     lastDiceLogSnapshot = JSON.stringify({ list: [] });
     lastSeenRollId = 'NONE';
+    diceNotificationQueue.length = 0;
+    diceNotificationQueuedIds.clear();
+    const notificationHost = document.getElementById('dice-roll-notification-host');
+    if(notificationHost) notificationHost.replaceChildren();
+    diceNotificationShowing = false;
     renderDiceLog();
     await safeSet(slotKey('dice-log'), { list: [] });
     showToast('Histórico de rolagens apagado.');
@@ -3666,6 +3729,54 @@
     addToInitiative(tokenId, score);
     el('initiative-score-input').value = '';
   });
+  el('btn-initiative-roll-all-npcs').addEventListener('click', async () => {
+    if(!effectiveMaster()) return;
+    const pageId = state.currentPageId;
+    const npcs = state.tokens.filter(tok =>
+      !tok.isReference && !!tok.masterLocked && isTokenOnPage(tok, pageId)
+    );
+    if(!npcs.length){
+      showToast('Não há NPCs ativos nesta página.');
+      return;
+    }
+
+    pushUndo();
+    const npcIds = new Set(npcs.map(tok => tok.id));
+    const previousActive = state.initiative.activeId;
+    const previousActiveEntry = state.initiative.list.find(entry => entry.id === previousActive);
+    const wasEmpty = state.initiative.list.length === 0;
+
+    // Mantém jogadores e outros combatentes; substitui a iniciativa dos NPCs desta página.
+    state.initiative.list = state.initiative.list.filter(entry => !npcIds.has(entry.tokenId));
+    const rolls = npcs.map(tok => ({ tok, score: rollOneDie(20) }));
+    rolls.forEach(({tok, score}) => {
+      state.initiative.list.push({
+        id:newId('i'), tokenId:tok.id, name:tok.name, image:tok.image, score
+      });
+    });
+
+    if(wasEmpty || !state.initiative.combatId) state.initiative.combatId = newId('combat');
+    if(!state.initiative.round) state.initiative.round = 1;
+
+    // Preserva o turno atual se ele pertencer a um combatente não substituído.
+    const activeStillExists = previousActiveEntry && !npcIds.has(previousActiveEntry.tokenId) &&
+      state.initiative.list.some(entry => entry.id === previousActiveEntry.id);
+    if(activeStillExists){
+      state.initiative.activeId = previousActiveEntry.id;
+    } else {
+      const ordered = sortedInitiative();
+      state.initiative.activeId = ordered.length ? ordered[0].id : null;
+      state.initiative.turnSeq = state.initiative.activeId ? Math.max(1, state.initiative.turnSeq || 1) : 0;
+    }
+
+    await persistInitiative();
+    renderInitiativeList();
+    renderInitiativeHud();
+    renderTokens();
+    const summary = rolls.sort((a,b)=>b.score-a.score).map(r => r.tok.name+' '+r.score).join(' · ');
+    showToast('Iniciativa dos NPCs: ' + summary);
+  });
+
   el('btn-initiative-next').addEventListener('click', nextInitiativeTurn);
   el('btn-initiative-clear').addEventListener('click', clearInitiative);
   el('btn-pass-turn').addEventListener('click', passCurrentTurn);
@@ -9340,12 +9451,16 @@
         const myName = state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
         const newest = newRolls[0];
         if(newest && newest.id !== lastSeenRollId){
-          const visible = !newest.private || effectiveMaster() || newest.roller === myName;
-          const isMine = newest.roller === myName;
-          if(visible && !isMine){
-            showToast('🎲 ' + newest.roller + ' rolou ' + formatRollNotation(newest.breakdown) + (newest.private ? ' (privado)' : ''), { type:'diceroll' });
-            playSound('diceRoll');
-          }
+          let incoming = [];
+          const oldIndex = lastSeenRollId ? newRolls.findIndex(r => r.id === lastSeenRollId) : -1;
+          if(oldIndex > 0) incoming = newRolls.slice(0, oldIndex).reverse();
+          else if(lastSeenRollId && lastSeenRollId !== 'NONE') incoming = [newest];
+          else incoming = [newest];
+          incoming.forEach(entry => {
+            const isMine = entry.roller === myName;
+            if(!entry.private && !isMine) enqueueDiceNotification(entry);
+          });
+          if(incoming.some(entry => !entry.private && entry.roller !== myName)) playSound('diceRoll');
         }
         if(newest) lastSeenRollId = newest.id;
         state.diceRolls = newRolls;
