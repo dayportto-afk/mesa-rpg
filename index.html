@@ -159,6 +159,18 @@
     max-width:30vw; text-overflow:ellipsis;
   }
   #campaign-title:disabled{ color:var(--amber-bright); opacity:1; cursor:default;}
+  #campaign-title{ transition:color .15s, text-shadow .15s, background-color .15s, -webkit-text-stroke .15s; border-radius:6px; padding:3px 7px; }
+  #btn-undo, #btn-redo{ width:30px; min-width:30px; height:30px; padding:0 !important; font-size:16px !important; display:flex; align-items:center; justify-content:center; }
+  .title-style-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .title-style-grid label, .title-style-row label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:.6px; text-transform:uppercase; }
+  .title-style-control{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .title-style-row{ display:flex; align-items:center; gap:8px; margin-top:8px; }
+  .title-style-row input[type=range]{ flex:1; accent-color:var(--amber); }
+  .title-style-value{ min-width:42px; text-align:right; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment-dim); }
+  .title-style-toggles{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .title-style-toggles button{ flex:1; min-width:62px; padding:6px 8px; }
+  .title-preset-row{ display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; }
+  .title-preset-row button{ flex:1 1 30%; min-width:72px; padding:6px 7px; font-size:9px; }
   .eyebrow{
     font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:2px;
     text-transform:uppercase; color:var(--parchment-dim);
@@ -1512,8 +1524,8 @@
       </div>
       <div id="topbar-token-name"></div>
       <div id="topbar-right">
-        <button id="btn-undo" style="display:none;" title="Desfazer última ação do mestre">↩ Desfazer</button>
-        <button id="btn-redo" style="display:none;" title="Refazer ação desfeita">↪ Refazer</button>
+        <button id="btn-undo" style="display:none;" title="Desfazer">↩</button>
+        <button id="btn-redo" style="display:none;" title="Refazer">↪</button>
         <span id="master-badge" style="display:none;">Mestre</span>
         <button id="btn-preview-toggle" style="display:none;">👁 Ver como jogador</button>
         <button id="btn-freeze-toggle" style="display:none;">🔓 Jogadores atualizados</button>
@@ -1601,14 +1613,36 @@
         <div class="float-panel-body">
           <input id="title-input" type="text" placeholder="Ex: A Torre Esquecida">
           <select id="title-font-input" style="margin-top:8px;">
-            <option value="'Cinzel', serif">Cinzel (padrão)</option>
+            <option value="'Cinzel', serif">Cinzel</option>
             <option value="'EB Garamond', serif">EB Garamond</option>
             <option value="'IM Fell English', serif">IM Fell English</option>
             <option value="'Uncial Antiqua', serif">Uncial Antiqua</option>
             <option value="'Special Elite', monospace">Special Elite</option>
             <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
           </select>
-          <button id="btn-save-title" class="primary" style="width:100%; margin-top:8px;">Salvar nome</button>
+          <div class="title-style-grid">
+            <div class="title-style-control"><label for="title-size-input">Tamanho</label><input id="title-size-input" type="number" min="10" max="72" value="20"></div>
+            <div class="title-style-control"><label for="title-color-input">Cor</label><input id="title-color-input" type="color" value="#e2a53f"></div>
+            <div class="title-style-control"><label for="title-outline-color">Contorno</label><input id="title-outline-color" type="color" value="#000000"></div>
+            <div class="title-style-control"><label for="title-bg-color">Fundo</label><input id="title-bg-color" type="color" value="#15120d"></div>
+          </div>
+          <div class="title-style-toggles">
+            <button type="button" id="title-bold-toggle" class="style-toggle" style="width:auto;">N</button>
+            <button type="button" id="title-italic-toggle" class="style-toggle" style="width:auto;"><i>I</i></button>
+            <button type="button" id="title-uppercase-toggle" class="style-toggle" style="width:auto;">ABC</button>
+          </div>
+          <div class="title-style-row"><label for="title-letter-spacing">Espaço</label><input id="title-letter-spacing" type="range" min="-2" max="12" step="0.5" value="0.5"><span id="title-letter-spacing-value" class="title-style-value">0.5px</span></div>
+          <div class="title-style-row"><label for="title-outline-width">Contorno</label><input id="title-outline-width" type="range" min="0" max="3" step="0.25" value="0"><span id="title-outline-width-value" class="title-style-value">0px</span></div>
+          <div class="title-style-row"><label for="title-shadow-input">Sombra</label><select id="title-shadow-input" style="flex:1;"><option value="none">Nenhuma</option><option value="soft">Leve</option><option value="strong">Forte</option><option value="glow">Brilho</option></select></div>
+          <div class="title-style-row"><label for="title-bg-opacity">Fundo</label><input id="title-bg-opacity" type="range" min="0" max="100" step="5" value="0"><span id="title-bg-opacity-value" class="title-style-value">0%</span></div>
+          <div class="title-preset-row">
+            <button type="button" data-title-preset="classic">Fantasia</button>
+            <button type="button" data-title-preset="grim">Grimdark</button>
+            <button type="button" data-title-preset="arcane">Arcano</button>
+            <button type="button" data-title-preset="horror">Horror</button>
+            <button type="button" data-title-preset="minimal">Minimal</button>
+          </div>
+          <button id="btn-save-title" class="primary" style="width:100%; margin-top:10px;">Salvar título e estilo</button>
         </div>
       </div>
 
@@ -1637,6 +1671,11 @@
           <div class="theme-row">
             <label for="theme-topbar">Barra superior</label>
             <input type="color" id="theme-topbar">
+          </div>
+          <div class="title-style-row" style="margin-top:4px;">
+            <label for="theme-topbar-opacity">Opacidade</label>
+            <input type="range" id="theme-topbar-opacity" min="0" max="100" step="5" value="100">
+            <span id="theme-topbar-opacity-value" class="title-style-value">100%</span>
           </div>
           <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
           <div class="hint">As cores valem para todo mundo que acessar esta campanha, mestre e jogadores.</div>
@@ -4047,7 +4086,7 @@
   }
   function newId(prefix){ return prefix + Date.now() + Math.random().toString(36).slice(2,7); }
 
-  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10' };
+  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10', topbarOpacity:100 };
   function darkenHex(hex, amount){
     let h = hex.replace('#','');
     if(h.length === 3) h = h.split('').map(c => c+c).join('');
@@ -4056,16 +4095,39 @@
     const b = Math.max(0, Math.round(parseInt(h.substring(4,6),16) * (1 - amount)));
     return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
   }
+  function hexToRgbaTheme(hex, alpha){
+    let h=String(hex||'#000000').replace('#','');
+    if(h.length===3) h=h.split('').map(c=>c+c).join('');
+    const n=parseInt(h,16); if(Number.isNaN(n)) return 'rgba(0,0,0,'+alpha+')';
+    return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+alpha+')';
+  }
   function applyTheme(theme){
     const t = Object.assign({}, DEFAULT_THEME, theme || {});
     const root = document.documentElement.style;
+    const alpha=Math.max(0,Math.min(100,Number(t.topbarOpacity ?? 100)))/100;
     root.setProperty('--bg', t.bg);
     root.setProperty('--bg-panel', t.panel);
     root.setProperty('--parchment', t.text);
     root.setProperty('--amber-bright', t.accent);
     root.setProperty('--amber', t.accent);
-    root.setProperty('--topbar-bg-1', t.topbar);
-    root.setProperty('--topbar-bg-2', darkenHex(t.topbar, 0.35));
+    root.setProperty('--topbar-bg-1', hexToRgbaTheme(t.topbar,alpha));
+    root.setProperty('--topbar-bg-2', hexToRgbaTheme(darkenHex(t.topbar,0.35),alpha));
+  }
+
+  const DEFAULT_TITLE_STYLE = { size:20, color:'#e2a53f', bold:true, italic:false, uppercase:false, letterSpacing:0.5, outlineWidth:0, outlineColor:'#000000', shadow:'none', bgColor:'#15120d', bgOpacity:0 };
+  function applyTitleStyle(style){
+    const s=Object.assign({},DEFAULT_TITLE_STYLE,style||{});
+    $title.style.fontSize=Math.max(10,Math.min(72,Number(s.size)||20))+'px';
+    $title.style.color=s.color||'#e2a53f';
+    $title.style.fontWeight=s.bold?'700':'400';
+    $title.style.fontStyle=s.italic?'italic':'normal';
+    $title.style.textTransform=s.uppercase?'uppercase':'none';
+    $title.style.letterSpacing=(Number(s.letterSpacing)||0)+'px';
+    $title.style.webkitTextStroke=(Math.max(0,Number(s.outlineWidth)||0))+'px '+(s.outlineColor||'#000000');
+    const sh=s.shadow||'none';
+    $title.style.textShadow=sh==='soft'?'0 2px 4px rgba(0,0,0,.55)':sh==='strong'?'0 3px 2px rgba(0,0,0,.8),0 0 5px rgba(0,0,0,.8)':sh==='glow'?'0 0 5px currentColor,0 0 10px currentColor':'none';
+    const a=Math.max(0,Math.min(100,Number(s.bgOpacity)||0))/100;
+    $title.style.backgroundColor=hexToRgbaTheme(s.bgColor||'#15120d',a);
   }
 
   // ===================== PORTAL =====================
@@ -4937,10 +4999,19 @@
     el('theme-text').value = (state.meta.theme && state.meta.theme.text) || DEFAULT_THEME.text;
     el('theme-accent').value = (state.meta.theme && state.meta.theme.accent) || DEFAULT_THEME.accent;
     el('theme-topbar').value = (state.meta.theme && state.meta.theme.topbar) || DEFAULT_THEME.topbar;
+    const topbarOpacity = (state.meta.theme && typeof state.meta.theme.topbarOpacity==='number') ? state.meta.theme.topbarOpacity : DEFAULT_THEME.topbarOpacity;
+    el('theme-topbar-opacity').value = topbarOpacity;
+    el('theme-topbar-opacity-value').textContent = topbarOpacity + '%';
 
     const titleFont = state.meta.titleFont || "'Cinzel', serif";
     $title.style.fontFamily = titleFont;
     el('title-font-input').value = titleFont;
+    const ts=Object.assign({},DEFAULT_TITLE_STYLE,state.meta.titleStyle||{}); applyTitleStyle(ts);
+    el('title-size-input').value=ts.size; el('title-color-input').value=ts.color; el('title-outline-color').value=ts.outlineColor; el('title-bg-color').value=ts.bgColor;
+    el('title-letter-spacing').value=ts.letterSpacing; el('title-letter-spacing-value').textContent=Number(ts.letterSpacing).toFixed(1)+'px';
+    el('title-outline-width').value=ts.outlineWidth; el('title-outline-width-value').textContent=Number(ts.outlineWidth)+'px';
+    el('title-shadow-input').value=ts.shadow; el('title-bg-opacity').value=ts.bgOpacity; el('title-bg-opacity-value').textContent=ts.bgOpacity+'%';
+    el('title-bold-toggle').classList.toggle('toggle-active',!!ts.bold); el('title-italic-toggle').classList.toggle('toggle-active',!!ts.italic); el('title-uppercase-toggle').classList.toggle('toggle-active',!!ts.uppercase);
 
     if(state.selectedTokenId){
       const selTok = state.tokens.find(t => t.id === state.selectedTokenId);
@@ -8165,12 +8236,18 @@
   });
 
   // ---------- master actions ----------
+  function collectTitleStyle(){
+    return { size:Math.max(10,Math.min(72,Number(el('title-size-input').value)||20)), color:el('title-color-input').value, bold:el('title-bold-toggle').classList.contains('toggle-active'), italic:el('title-italic-toggle').classList.contains('toggle-active'), uppercase:el('title-uppercase-toggle').classList.contains('toggle-active'), letterSpacing:Number(el('title-letter-spacing').value)||0, outlineWidth:Number(el('title-outline-width').value)||0, outlineColor:el('title-outline-color').value, shadow:el('title-shadow-input').value, bgColor:el('title-bg-color').value, bgOpacity:Number(el('title-bg-opacity').value)||0 };
+  }
+  function previewTitleStyle(){ $title.style.fontFamily=el('title-font-input').value; applyTitleStyle(collectTitleStyle()); }
+  ['title-input','title-font-input','title-size-input','title-color-input','title-outline-color','title-bg-color','title-letter-spacing','title-outline-width','title-shadow-input','title-bg-opacity'].forEach(id=>el(id).addEventListener('input',()=>{ if(id==='title-input') $title.value=el('title-input').value||'Campanha sem nome'; previewTitleStyle(); if(id==='title-letter-spacing')el('title-letter-spacing-value').textContent=Number(el(id).value).toFixed(1)+'px'; if(id==='title-outline-width')el('title-outline-width-value').textContent=Number(el(id).value)+'px'; if(id==='title-bg-opacity')el('title-bg-opacity-value').textContent=el(id).value+'%'; }));
+  ['title-bold-toggle','title-italic-toggle','title-uppercase-toggle'].forEach(id=>el(id).addEventListener('click',()=>{ el(id).classList.toggle('toggle-active'); previewTitleStyle(); }));
+  const TITLE_PRESETS={ classic:{font:"'Cinzel', serif",style:{size:22,color:'#e2a53f',bold:true,italic:false,uppercase:false,letterSpacing:1.5,outlineWidth:0,outlineColor:'#000000',shadow:'soft',bgColor:'#15120d',bgOpacity:0}}, grim:{font:"'IM Fell English', serif",style:{size:23,color:'#d8c7b0',bold:true,italic:false,uppercase:true,letterSpacing:2,outlineWidth:1,outlineColor:'#160909',shadow:'strong',bgColor:'#1a0d0d',bgOpacity:45}}, arcane:{font:"'Uncial Antiqua', serif",style:{size:22,color:'#cab6ff',bold:false,italic:false,uppercase:false,letterSpacing:1,outlineWidth:.5,outlineColor:'#241943',shadow:'glow',bgColor:'#17122a',bgOpacity:30}}, horror:{font:"'Special Elite', monospace",style:{size:21,color:'#d9c9bd',bold:false,italic:false,uppercase:true,letterSpacing:1.2,outlineWidth:.5,outlineColor:'#240707',shadow:'strong',bgColor:'#180b0b',bgOpacity:35}}, minimal:{font:"'EB Garamond', serif",style:{size:20,color:'#e8dcc0',bold:false,italic:false,uppercase:false,letterSpacing:0,outlineWidth:0,outlineColor:'#000000',shadow:'none',bgColor:'#15120d',bgOpacity:0}} };
+  document.querySelectorAll('[data-title-preset]').forEach(btn=>btn.addEventListener('click',()=>{ const p=TITLE_PRESETS[btn.dataset.titlePreset]; if(!p)return; el('title-font-input').value=p.font; const s=p.style; el('title-size-input').value=s.size; el('title-color-input').value=s.color; el('title-outline-color').value=s.outlineColor; el('title-bg-color').value=s.bgColor; el('title-letter-spacing').value=s.letterSpacing; el('title-outline-width').value=s.outlineWidth; el('title-shadow-input').value=s.shadow; el('title-bg-opacity').value=s.bgOpacity; el('title-bold-toggle').classList.toggle('toggle-active',s.bold); el('title-italic-toggle').classList.toggle('toggle-active',s.italic); el('title-uppercase-toggle').classList.toggle('toggle-active',s.uppercase); el('title-letter-spacing-value').textContent=Number(s.letterSpacing).toFixed(1)+'px'; el('title-outline-width-value').textContent=Number(s.outlineWidth)+'px'; el('title-bg-opacity-value').textContent=s.bgOpacity+'%'; previewTitleStyle(); }));
   el('btn-save-title').addEventListener('click', async () => {
     const v = el('title-input').value.trim() || 'Campanha sem nome';
-    state.meta.title = v;
-    state.meta.titleFont = el('title-font-input').value;
-    render();
-    await safeSet(slotKey('meta'), state.meta);
+    state.meta.title = v; state.meta.titleFont = el('title-font-input').value; state.meta.titleStyle=collectTitleStyle();
+    render(); await safeSet(slotKey('meta'), state.meta);
   });
 
   function themeInputHandler(key){
@@ -8186,6 +8263,7 @@
   el('theme-text').addEventListener('input', themeInputHandler('text'));
   el('theme-accent').addEventListener('input', themeInputHandler('accent'));
   el('theme-topbar').addEventListener('input', themeInputHandler('topbar'));
+  el('theme-topbar-opacity').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.topbarOpacity=Number(el('theme-topbar-opacity').value); el('theme-topbar-opacity-value').textContent=state.meta.theme.topbarOpacity+'%'; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('btn-theme-reset').addEventListener('click', async () => {
     state.meta.theme = Object.assign({}, DEFAULT_THEME);
     render();
@@ -9430,6 +9508,7 @@
         if(m.playerCode !== state.meta.playerCode){ state.meta.playerCode = m.playerCode; ch = true; }
         if(JSON.stringify(m.theme) !== JSON.stringify(state.meta.theme)){ state.meta.theme = m.theme; ch = true; }
         if(m.titleFont !== state.meta.titleFont){ state.meta.titleFont = m.titleFont; ch = true; }
+        if(JSON.stringify(m.titleStyle||{}) !== JSON.stringify(state.meta.titleStyle||{})){ state.meta.titleStyle = m.titleStyle || {}; ch = true; }
         if(!state.meta.masterPass && m.masterPass){ state.meta.masterPass = m.masterPass; }
         const wasFrozen = !!state.meta.playersFrozen;
         const isFrozenNow = !!m.playersFrozen;
