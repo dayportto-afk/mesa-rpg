@@ -660,17 +660,28 @@
     box-sizing:border-box; overflow:visible;
   }
   .map-text.draggable{ cursor:grab; }
-  .map-text.draggable:hover{ outline:1px dashed rgba(226,165,63,0.7); border-radius:3px; }
-  .map-text.dragging{ cursor:grabbing; outline:1px dashed var(--amber-bright); border-radius:3px; }
-  .map-text.selected{ outline:2px dashed var(--amber-bright); border-radius:3px; }
-  .map-text.editing{ cursor:text !important; outline:2px solid var(--amber-bright); border-radius:3px; white-space:pre-wrap; }
+  .map-text.draggable:hover{ outline:none; border-radius:0; }
+  .map-text.dragging{ cursor:grabbing; outline:none; border-radius:0; }
+  .map-text.selected{ outline:none; border-radius:0; }
+  .map-text.editing{ cursor:text !important; outline:none; border-radius:0; white-space:pre-wrap; }
   .map-text.editing:not(.has-marker){ background:rgba(21,15,9,.72); }
   .map-text.has-marker{ border-radius:5px; }
-  .map-text.editing:focus{ outline:2px solid var(--amber-bright); }
+  .map-text-content-wrap{
+    width:100%; max-height:100%; overflow:visible; white-space:pre-wrap;
+    overflow-wrap:anywhere; word-break:normal;
+  }
+  .map-text-content{
+    white-space:pre-wrap; line-height:inherit;
+    box-decoration-break:clone; -webkit-box-decoration-break:clone;
+  }
+  .map-text-content.has-inline-marker{
+    padding:0 .14em; border-radius:.16em;
+  }
+  .map-text.editing:focus{ outline:none; }
   .map-text-resize-handle{
-    position:absolute; right:-7px; bottom:-7px; width:14px; height:14px;
-    border:2px solid #0a0704; border-radius:3px; background:var(--amber-bright);
-    cursor:nwse-resize; touch-action:none; z-index:12; box-shadow:0 1px 4px rgba(0,0,0,.65);
+    position:absolute; right:-4px; bottom:-4px; width:9px; height:9px;
+    border:1px solid #0a0704; border-radius:2px; background:var(--amber-bright);
+    cursor:nwse-resize; touch-action:none; z-index:12; box-shadow:0 1px 3px rgba(0,0,0,.65);
   }
   .map-text-resize-handle:hover{ background:#fff; }
   .map-text.editing .map-text-resize-handle{ display:none; }
@@ -1722,7 +1733,7 @@
             <button type="button" id="text-bold-toggle" class="style-toggle" title="Negrito"><b>N</b></button>
             <button type="button" id="text-italic-toggle" class="style-toggle" title="Itálico"><i>I</i></button>
             <label for="text-size-input" style="margin-left:auto;">Tam.</label>
-            <input type="number" id="text-size-input" min="10" max="96" value="24">
+            <input type="number" id="text-size-input" min="4" max="96" value="24">
           </div>
           <div class="text-row-controls" style="margin-top:8px;">
             <button type="button" id="text-marker-toggle" class="style-toggle" style="width:auto;padding:0 9px;" title="Ativar ou desativar marcador de fundo">Marcador</button>
@@ -7107,27 +7118,28 @@
       t.style.fontFamily = txt.font || "'Cinzel', serif";
       t.style.fontWeight = txt.bold ? '700' : '400';
       t.style.fontStyle = txt.italic ? 'italic' : 'normal';
-      if(txt.marker){
-        t.classList.add('has-marker');
-        const markerOpacity = Math.max(0, Math.min(100, typeof txt.markerOpacity === 'number' ? txt.markerOpacity : 100)) / 100;
-        t.style.backgroundColor = hexToRgba(txt.markerColor || '#fff176', markerOpacity);
-      } else {
-        t.style.backgroundColor = 'transparent';
-      }
+      t.style.backgroundColor = 'transparent';
+      if(txt.marker) t.classList.add('has-marker');
       t.style.width = (typeof txt.boxWidth === 'number' ? txt.boxWidth : 28) + '%';
       t.style.height = (typeof txt.boxHeight === 'number' ? txt.boxHeight : 12) + '%';
       t.style.pointerEvents = effectiveMaster() ? 'auto' : 'none';
       if(typeof txt.zOrder === 'number') t.style.zIndex = txt.zOrder;
+
+      const contentWrap = document.createElement('div');
+      contentWrap.className = 'map-text-content-wrap';
+      contentWrap.style.textAlign = txt.align || 'center';
+      contentWrap.style.lineHeight = String(typeof txt.lineHeight === 'number' ? txt.lineHeight : 1.2);
+
       const contentSpan = document.createElement('span');
       contentSpan.className = 'map-text-content';
-      contentSpan.style.width = '100%';
-      contentSpan.style.textAlign = txt.align || 'center';
-      contentSpan.style.lineHeight = String(typeof txt.lineHeight === 'number' ? txt.lineHeight : 1.2);
-      contentSpan.style.maxHeight = '100%';
-      contentSpan.style.overflow = 'hidden';
-      contentSpan.style.whiteSpace = 'pre-wrap';
+      if(txt.marker){
+        contentSpan.classList.add('has-inline-marker');
+        const markerOpacity = Math.max(0, Math.min(100, typeof txt.markerOpacity === 'number' ? txt.markerOpacity : 100)) / 100;
+        contentSpan.style.backgroundColor = hexToRgba(txt.markerColor || '#fff176', markerOpacity);
+      }
       contentSpan.textContent = txt.content;
-      t.appendChild(contentSpan);
+      contentWrap.appendChild(contentSpan);
+      t.appendChild(contentWrap);
       if(effectiveMaster()){
         const resizeHandle = document.createElement('div');
         resizeHandle.className = 'map-text-resize-handle';
@@ -7169,7 +7181,7 @@
           '<button type="button" class="style-toggle'+(txt.bold?' toggle-active':'')+'" data-text-bold="'+txt.id+'" title="Negrito"><b>N</b></button>' +
           '<button type="button" class="style-toggle'+(txt.italic?' toggle-active':'')+'" data-text-italic="'+txt.id+'" title="Itálico"><i>I</i></button>' +
           '<label style="margin-left:auto;">Tam.</label>' +
-          '<input type="number" min="10" max="96" value="'+(txt.size||24)+'" data-text-size="'+txt.id+'">' +
+          '<input type="number" min="4" max="96" value="'+(txt.size||24)+'" data-text-size="'+txt.id+'">' +
         '</div>' +
         '<div class="text-row-controls">' +
           '<button type="button" class="style-toggle'+(txt.marker?' toggle-active':'')+'" style="width:auto;padding:0 8px;" data-text-marker="'+txt.id+'" title="Ativar ou desativar marcador">Marcador</button>' +
@@ -7225,7 +7237,7 @@
     $list.querySelectorAll('[data-text-size]').forEach(inp=>{
       inp.addEventListener('change', () => {
         let size = parseInt(inp.value, 10);
-        if(isNaN(size) || size < 10) size = 10;
+        if(isNaN(size) || size < 4) size = 4;
         if(size > 96) size = 96;
         updateText(inp.getAttribute('data-text-size'), { size });
       });
@@ -7531,7 +7543,7 @@
     const lineHeight = Math.max(0.7, Math.min(3, parseFloat(el('text-line-height-input').value) || 1.2));
     const font = el('text-font-input').value;
     let size = parseInt(el('text-size-input').value, 10);
-    if(isNaN(size) || size < 10) size = 24;
+    if(isNaN(size) || size < 4) size = 24;
     pushUndo();
     const textCount = page.texts.length;
     page.texts.push({ id:newId('x'), content, color, size, font, bold:newTextBold, italic:newTextItalic, marker:newTextMarker, markerColor, markerOpacity, align:newTextAlign, lineHeight, x:-22, y:12 + (textCount % 7) * 12, boxWidth:28, boxHeight:12, zOrder:nextStageZOrder() });
@@ -8339,24 +8351,73 @@
   }
 
   function paintDot(ctx, pt, radius, mode){
-    ctx.globalCompositeOperation = mode === 'reveal' ? 'destination-out' : 'source-over';
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = mode === 'reveal' ? 'rgba(0,0,0,1)' : hexToRgba(state.fogColor, state.fogOpacity / 100);
-    ctx.fill();
+    renderFogStrokeOnCtx(ctx, {
+      mode,
+      color: state.fogColor,
+      opacity: state.fogOpacity,
+      brush: radius,
+      points: [pt]
+    });
   }
 
   function paintSegment(ctx, from, to, radius, mode){
-    const dist = Math.hypot(to.x - from.x, to.y - from.y);
-    const steps = Math.max(1, Math.ceil(dist / Math.max(4, radius * 0.35)));
-    for(let i = 1; i <= steps; i++){
-      const t = i / steps;
-      paintDot(ctx, { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }, radius, mode);
-    }
+    renderFogStrokeOnCtx(ctx, {
+      mode,
+      color: state.fogColor,
+      opacity: state.fogOpacity,
+      brush: radius,
+      points: [from, to]
+    });
   }
 
   function myDrawAuthorName(){
     return state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
+  }
+
+  function drawFreehandStrokeOnCtx(ctx, stroke){
+    const pts = stroke.points;
+    if(!pts || pts.length === 0) return;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = hexToRgba(stroke.color, stroke.opacity / 100);
+    ctx.fillStyle = hexToRgba(stroke.color, stroke.opacity / 100);
+    ctx.lineWidth = Math.max(2, (stroke.brush || 1) * 2);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if(pts.length === 1){
+      ctx.beginPath();
+      ctx.arc(pts[0].x, pts[0].y, Math.max(1, stroke.brush || 1), 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+  }
+
+  function renderFogStrokeOnCtx(ctx, stroke){
+    const pts = stroke.points || [];
+    if(!pts.length) return;
+    const mode = stroke.mode || 'cover';
+    ctx.save();
+    ctx.globalCompositeOperation = mode === 'reveal' ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = mode === 'reveal' ? 'rgba(0,0,0,1)' : hexToRgba(stroke.color, (stroke.opacity || 100) / 100);
+    ctx.fillStyle = mode === 'reveal' ? 'rgba(0,0,0,1)' : hexToRgba(stroke.color, (stroke.opacity || 100) / 100);
+    ctx.lineWidth = Math.max(2, (stroke.brush || 1) * 2);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if(pts.length === 1){
+      ctx.beginPath();
+      ctx.arc(pts[0].x, pts[0].y, Math.max(1, stroke.brush || 1), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawStrokeOnCtx(ctx, stroke){
@@ -8399,26 +8460,7 @@
       }
       return;
     }
-    const pts = stroke.points;
-    if(!pts || pts.length === 0) return;
-    ctx.fillStyle = hexToRgba(stroke.color, stroke.opacity / 100);
-    if(pts.length === 1){
-      ctx.beginPath();
-      ctx.arc(pts[0].x, pts[0].y, stroke.brush, 0, Math.PI * 2);
-      ctx.fill();
-      return;
-    }
-    for(let i = 1; i < pts.length; i++){
-      const from = pts[i-1], to = pts[i];
-      const dist = Math.hypot(to.x - from.x, to.y - from.y);
-      const steps = Math.max(1, Math.ceil(dist / Math.max(4, stroke.brush * 0.35)));
-      for(let s = 1; s <= steps; s++){
-        const t = s / steps;
-        ctx.beginPath();
-        ctx.arc(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, stroke.brush, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+    drawFreehandStrokeOnCtx(ctx, stroke);
   }
 
   function redrawDrawCanvas(canvas, page, inProgressStroke){
@@ -8573,6 +8615,18 @@
     flushPendingPageUpdates('draw');
   }
 
+  function redrawFogCanvasStrokeSession(session){
+    if(!session || !session.canvas || !session.ctx) return;
+    session.ctx.putImageData(session.baseImageData, 0, 0);
+    renderFogStrokeOnCtx(session.ctx, {
+      mode: session.mode,
+      color: session.color,
+      opacity: session.opacity,
+      brush: session.brush,
+      points: session.points
+    });
+  }
+
   function startFogPaint(e){
     const canvas = document.getElementById('fog-canvas');
     if(!canvas) return;
@@ -8580,8 +8634,17 @@
     if(!pt.inBounds) return;
     pushUndo();
     const ctx = canvas.getContext('2d');
-    paintDot(ctx, pt, state.fogBrush, state.fogPaintMode);
-    state.fogStroke = { canvas, ctx, last: pt };
+    state.fogStroke = {
+      canvas,
+      ctx,
+      brush: state.fogBrush,
+      mode: state.fogPaintMode,
+      color: state.fogColor,
+      opacity: state.fogOpacity,
+      points: [{ x: pt.x, y: pt.y }],
+      baseImageData: ctx.getImageData(0, 0, canvas.width, canvas.height)
+    };
+    redrawFogCanvasStrokeSession(state.fogStroke);
     $mapViewport.setPointerCapture(e.pointerId);
   }
   function moveFogPaint(e){
@@ -8589,13 +8652,16 @@
     if(!s) return;
     const pt = canvasPointFromEvent(e, s.canvas);
     if(!pt.inBounds) return;
-    paintSegment(s.ctx, s.last, pt, state.fogBrush, state.fogPaintMode);
-    s.last = pt;
+    const last = s.points[s.points.length - 1];
+    if(last && Math.hypot(pt.x - last.x, pt.y - last.y) < 0.75) return;
+    s.points.push({ x: pt.x, y: pt.y });
+    redrawFogCanvasStrokeSession(s);
   }
   async function endFogPaint(){
     const s = state.fogStroke;
     const page = currentPage();
     if(!s || !page) return;
+    redrawFogCanvasStrokeSession(s);
     page.fog.image = s.canvas.toDataURL('image/png');
     state.fogStroke = null;
     await persistPageFog(page);
