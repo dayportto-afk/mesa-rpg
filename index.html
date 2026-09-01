@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-<title>Mesa de Jogo</title>
+<title>⚔️ Mesa RPG</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400;1,500&family=Uncial+Antiqua&family=Special+Elite&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
@@ -1455,7 +1456,7 @@
   <!-- ===================== PORTAL SCREEN ===================== -->
   <div id="portal-screen" class="screen">
     <div id="portal-header">
-      <div class="eyebrow">Mesa de Jogo</div>
+      <div class="eyebrow">⚔️ Mesa RPG</div>
       <h1>Escolha sua campanha</h1>
       <p>Quantas campanhas você quiser podem viver aqui, cada uma com seu próprio mestre, histórico de mapas e fichas. Entre como mestre para criar ou administrar uma, ou use um código de acesso para entrar como jogador.</p>
     </div>
@@ -1491,7 +1492,7 @@
     <div id="topbar">
       <div id="title-wrap">
         <div>
-          <div class="eyebrow" id="slot-eyebrow">Mesa de Jogo</div>
+          <div class="eyebrow" id="slot-eyebrow">⚔️ Mesa RPG</div>
           <input id="campaign-title" type="text" value="Campanha sem nome" disabled>
         </div>
       </div>
@@ -1980,6 +1981,7 @@
             <div class="token-folder-multiselect-actions">
               <button type="button" id="btn-token-folder-apply">Salvar seleção</button>
               <button type="button" id="btn-token-folder-clear" class="danger">Esvaziar pasta</button>
+              <button type="button" id="btn-token-folder-delete" class="danger">Excluir pasta</button>
             </div>
             <div class="hint">Use Ctrl/Cmd para selecionar fichas separadas ou Shift para selecionar um intervalo.</div>
           </div>
@@ -3103,6 +3105,7 @@
   el('token-folder-filter').addEventListener('change',()=>{ renderTokenOrganizationTools(); renderTokenList(); });
   el('btn-token-folder-apply').addEventListener('click', applyFolderMultiselect);
   el('btn-token-folder-clear').addEventListener('click', clearSelectedFolder);
+  el('btn-token-folder-delete').addEventListener('click', deleteSelectedFolder);
   el('btn-custom-status-add').addEventListener('click',createCustomStatus);
   el('custom-status-name').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();createCustomStatus();} });
   el('custom-status-icon').addEventListener('click', openEmojiPicker);
@@ -4014,7 +4017,7 @@
     let backup;
     try{ backup = JSON.parse(await file.text()); }catch(e){ showToast('Arquivo JSON inválido.'); return; }
     if(!backup || backup.format !== 'mesa-de-jogo-campaign-backup' || !backup.data || typeof backup.data !== 'object'){
-      showToast('Este arquivo não é um backup válido da Mesa de Jogo.'); return;
+      showToast('Este arquivo não é um backup válido da Mesa RPG.'); return;
     }
     const title = backup.campaignTitle || 'campanha sem nome';
     if(!confirm('Restaurar o backup de "' + title + '"? O conteúdo atual desta campanha será substituído.')) return;
@@ -4316,7 +4319,7 @@
 
     $portalScreen.classList.add('hidden');
     $appScreen.classList.remove('hidden');
-    el('slot-eyebrow').textContent = 'Mesa de Jogo — Campanha ' + slotN;
+    el('slot-eyebrow').textContent = '⚔️ Mesa RPG — Campanha ' + slotN;
 
     await loadSlotData();
 
@@ -5039,6 +5042,21 @@
     await persistTokens();
     renderTokenOrganizationTools(); renderTokenList();
     showToast('Pasta esvaziada.');
+  }
+  async function deleteSelectedFolder(){
+    const filter=el('token-folder-filter');
+    if(!filter) return;
+    const folderId=filter.value||'';
+    const folder=folderList().find(f=>f.id===folderId);
+    if(!folder){ showToast('Selecione uma pasta específica.'); return; }
+    if(!confirm('Excluir a pasta “'+folder.name+'”? As fichas dentro dela não serão apagadas e passarão para Sem pasta.')) return;
+    pushUndo();
+    state.tokens.forEach(tok=>{ if(!tok.isReference && tok.folderId===folderId) tok.folderId=''; });
+    state.meta.tokenFolders=folderList().filter(f=>f.id!==folderId);
+    filter.value='';
+    await Promise.all([persistMetaOnly(),persistTokens()]);
+    renderTokenOrganizationTools(); renderTokenList();
+    showToast('Pasta excluída. As fichas foram movidas para Sem pasta.');
   }
   async function toggleCustomStatus(tokenId,statusId){ const tok=state.tokens.find(t=>t.id===tokenId); if(!tok)return; if(!Array.isArray(tok.customStatuses))tok.customStatuses=[]; const i=tok.customStatuses.indexOf(statusId); if(i>=0)tok.customStatuses.splice(i,1);else tok.customStatuses.push(statusId); await persistTokens(); render(); }
   function customStatusBadgesMarkup(tok){
