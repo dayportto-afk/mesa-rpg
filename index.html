@@ -8874,6 +8874,24 @@
     });
   }
 
+  let playerReleaseSyncInFlight = false;
+  async function syncPlayerImmediatelyAfterRelease(){
+    if(state.isMaster || playerReleaseSyncInFlight) return;
+    playerReleaseSyncInFlight = true;
+    try{
+      pendingTokensRaw = null;
+      pendingPageUpdates = {};
+      await loadSlotData();
+      render();
+      startRealtimeSync();
+    }catch(e){
+      // Keep the existing listeners alive if a transient read fails.
+      try{ render(); }catch(_){}
+    }finally{
+      playerReleaseSyncInFlight = false;
+    }
+  }
+
   function startRealtimeSync(){
     stopAllListeners();
 
@@ -8887,8 +8905,15 @@
         if(JSON.stringify(m.theme) !== JSON.stringify(state.meta.theme)){ state.meta.theme = m.theme; ch = true; }
         if(m.titleFont !== state.meta.titleFont){ state.meta.titleFont = m.titleFont; ch = true; }
         if(!state.meta.masterPass && m.masterPass){ state.meta.masterPass = m.masterPass; }
-        if(!!state.meta.playersFrozen !== !!m.playersFrozen){ state.meta.playersFrozen = !!m.playersFrozen; ch = true; }
+        const wasFrozen = !!state.meta.playersFrozen;
+        const isFrozenNow = !!m.playersFrozen;
+        if(wasFrozen !== isFrozenNow){ state.meta.playersFrozen = isFrozenNow; ch = true; }
         if(ch) render();
+        if(!state.isMaster && wasFrozen && !isFrozenNow){
+          // Enquanto congelado, os listeners ignoram as atualizações da cena.
+          // Ao liberar, recarrega tudo imediatamente em vez de esperar o próximo evento remoto.
+          void syncPlayerImmediatelyAfterRelease();
+        }
       }catch(e){}
     });
 
