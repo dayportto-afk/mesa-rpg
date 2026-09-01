@@ -853,11 +853,31 @@
   .token-tools-title{ font-family:'Cinzel',serif; font-size:11px; color:var(--amber-bright); margin-bottom:7px; letter-spacing:.5px; }
   .token-tools-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   .token-tools-row input[type=text], .token-tools-row select{ flex:1; min-width:110px; }
+  #token-folder-multiselect-wrap{ display:none; margin-top:8px; border-top:1px solid var(--line); padding-top:8px; }
+  #token-folder-multiselect-wrap.show{ display:block; }
+  #token-folder-multiselect{ width:100%; min-height:120px; background:#0c0906; color:var(--parchment); border:1px solid var(--line); border-radius:4px; padding:5px; font-family:'EB Garamond',serif; font-size:13px; }
+  #token-folder-multiselect option{ padding:4px 6px; }
+  .token-folder-multiselect-actions{ display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .token-folder-multiselect-actions button{ flex:1; min-width:120px; }
   .token-folder-label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:.5px; text-transform:uppercase; margin-top:7px; }
-  .custom-status-manager{ margin-top:8px; display:flex; flex-direction:column; gap:6px; }
-  .custom-status-item{ display:flex; align-items:center; gap:6px; padding:5px 6px; border:1px solid var(--line); border-radius:4px; }
-  .custom-status-preview{ width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#150f09; flex-shrink:0; }
-  .custom-status-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  .custom-status-manager{ margin-top:8px; display:flex; flex-direction:row; flex-wrap:wrap; gap:5px; align-items:flex-start; }
+  .custom-status-item{
+    display:inline-flex; align-items:center; gap:4px; width:auto; max-width:100%;
+    padding:3px 4px 3px 5px; border:1px solid var(--line); border-radius:999px;
+    background:#120e08; flex:0 0 auto;
+  }
+  .custom-status-preview{
+    width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:#150f09; flex-shrink:0; font-size:10px; line-height:1;
+  }
+  .custom-status-name{
+    flex:0 1 auto; min-width:0; max-width:120px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; font-size:11px;
+  }
+  .custom-status-item [data-custom-status-delete]{
+    width:17px; height:17px; min-width:17px; padding:0; border-radius:50%;
+    font-size:8px; line-height:1; display:flex; align-items:center; justify-content:center;
+  }
   .emoji-picker-wrap{ position:relative; flex:0 0 auto; }
   #custom-status-icon{ width:82px; min-width:82px; max-width:82px; text-align:center; cursor:pointer; font-size:18px; }
   #emoji-picker{
@@ -1954,6 +1974,15 @@
             <input type="text" id="token-folder-new" placeholder="Nova pasta">
             <button type="button" id="btn-token-folder-add">Criar</button>
           </div>
+          <div id="token-folder-multiselect-wrap">
+            <div class="hint" id="token-folder-multiselect-label">Selecione as fichas desta pasta.</div>
+            <select id="token-folder-multiselect" multiple></select>
+            <div class="token-folder-multiselect-actions">
+              <button type="button" id="btn-token-folder-apply">Salvar seleção</button>
+              <button type="button" id="btn-token-folder-clear" class="danger">Esvaziar pasta</button>
+            </div>
+            <div class="hint">Use Ctrl/Cmd para selecionar fichas separadas ou Shift para selecionar um intervalo.</div>
+          </div>
         </div>
         <div class="token-tools-box" id="custom-status-tools">
           <div class="token-tools-title">✨ Status visuais personalizados</div>
@@ -1994,6 +2023,7 @@
           <button type="button" id="dice-private">Privada</button>
         </div>
         <button id="btn-roll-dice" class="primary" style="width:100%;">Rolar</button>
+        <button type="button" id="btn-dice-history-clear" class="danger" style="width:100%; display:none;">Limpar histórico de rolagens</button>
         <div id="dice-log"></div>
       </div>
     </div>
@@ -3070,7 +3100,9 @@
   el('tokens-panel-toggle').addEventListener('click', openTokensPanel);
   el('btn-token-folder-add').addEventListener('click', createTokenFolder);
   el('token-folder-new').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();createTokenFolder();} });
-  el('token-folder-filter').addEventListener('change',renderTokenList);
+  el('token-folder-filter').addEventListener('change',()=>{ renderTokenOrganizationTools(); renderTokenList(); });
+  el('btn-token-folder-apply').addEventListener('click', applyFolderMultiselect);
+  el('btn-token-folder-clear').addEventListener('click', clearSelectedFolder);
   el('btn-custom-status-add').addEventListener('click',createCustomStatus);
   el('custom-status-name').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();createCustomStatus();} });
   el('custom-status-icon').addEventListener('click', openEmojiPicker);
@@ -3269,6 +3301,8 @@
       .sort((a,b) => b.ts - a.ts)
       .slice(0, 25);
     const $log = el('dice-log');
+    const clearBtn = el('btn-dice-history-clear');
+    if(clearBtn) clearBtn.style.display = effectiveMaster() && state.diceRolls.length ? 'block' : 'none';
     if(visible.length === 0){
       $log.innerHTML = '<div class="hint">Nenhuma rolagem ainda.</div>';
       return;
@@ -3286,6 +3320,18 @@
         '</div>'
       );
     }).join('');
+  }
+
+  async function clearDiceHistory(){
+    if(!effectiveMaster()) return;
+    if(state.diceRolls.length === 0) return;
+    if(!confirm('Apagar todo o histórico de rolagens de dados desta campanha?')) return;
+    state.diceRolls = [];
+    lastDiceLogSnapshot = JSON.stringify({ list: [] });
+    lastSeenRollId = 'NONE';
+    renderDiceLog();
+    await safeSet(slotKey('dice-log'), { list: [] });
+    showToast('Histórico de rolagens apagado.');
   }
 
   // ---------- initiative tracker ----------
@@ -4381,6 +4427,7 @@
     el('dice-public').classList.remove('toggle-active');
   });
   el('btn-roll-dice').addEventListener('click', performDiceRoll);
+  el('btn-dice-history-clear').addEventListener('click', clearDiceHistory);
 
   el('btn-export-campaign').addEventListener('click', exportCampaignBackup);
   el('campaign-backup-input').addEventListener('change', async (e) => {
@@ -4939,6 +4986,7 @@
         await Promise.all([persistMetaOnly(),persistTokens()]); render();
       }));
     }
+    renderFolderMultiselect();
   }
   async function createTokenFolder(){
     const inp=el('token-folder-new'); const name=(inp&&inp.value||'').trim(); if(!name) return;
@@ -4951,6 +4999,47 @@
     state.meta.customStatuses.push({id:newId('cs'),name,icon,color}); el('custom-status-name').value=''; el('custom-status-icon').value=''; await persistMetaOnly(); render();
   }
   async function setTokenFolder(id, folderId){ const tok=state.tokens.find(t=>t.id===id); if(!tok)return; tok.folderId=folderId||''; await persistTokens(); renderTokenList(); }
+  function renderFolderMultiselect(){
+    const wrap=el('token-folder-multiselect-wrap');
+    const select=el('token-folder-multiselect');
+    const label=el('token-folder-multiselect-label');
+    const filter=el('token-folder-filter');
+    if(!wrap||!select||!filter) return;
+    const folderId=filter.value||'';
+    const folder=folderList().find(f=>f.id===folderId);
+    if(!folder){ wrap.classList.remove('show'); select.innerHTML=''; return; }
+    wrap.classList.add('show');
+    if(label) label.textContent='Fichas em “'+folder.name+'”';
+    const eligible=state.tokens.filter(t=>!t.isReference);
+    select.innerHTML=eligible.map(tok=>'<option value="'+tok.id+'"'+(tok.folderId===folderId?' selected':'')+'>'+escapeHtml(tok.name||'Sem nome')+(tok.masterLocked?' · NPC':' · Personagem')+'</option>').join('');
+  }
+  async function applyFolderMultiselect(){
+    const filter=el('token-folder-filter'); const select=el('token-folder-multiselect');
+    if(!filter||!select) return;
+    const folderId=filter.value||'';
+    if(!folderList().some(f=>f.id===folderId)){ showToast('Selecione uma pasta específica.'); return; }
+    const chosen=new Set(Array.from(select.selectedOptions).map(o=>o.value));
+    pushUndo();
+    state.tokens.forEach(tok=>{
+      if(tok.isReference) return;
+      if(chosen.has(tok.id)) tok.folderId=folderId;
+      else if(tok.folderId===folderId) tok.folderId='';
+    });
+    await persistTokens();
+    renderTokenOrganizationTools(); renderTokenList();
+    showToast('Pasta atualizada.');
+  }
+  async function clearSelectedFolder(){
+    const filter=el('token-folder-filter');
+    if(!filter) return;
+    const folderId=filter.value||'';
+    if(!folderList().some(f=>f.id===folderId)){ showToast('Selecione uma pasta específica.'); return; }
+    pushUndo();
+    state.tokens.forEach(tok=>{ if(!tok.isReference && tok.folderId===folderId) tok.folderId=''; });
+    await persistTokens();
+    renderTokenOrganizationTools(); renderTokenList();
+    showToast('Pasta esvaziada.');
+  }
   async function toggleCustomStatus(tokenId,statusId){ const tok=state.tokens.find(t=>t.id===tokenId); if(!tok)return; if(!Array.isArray(tok.customStatuses))tok.customStatuses=[]; const i=tok.customStatuses.indexOf(statusId); if(i>=0)tok.customStatuses.splice(i,1);else tok.customStatuses.push(statusId); await persistTokens(); render(); }
   function customStatusBadgesMarkup(tok){
     const active=Array.isArray(tok.customStatuses)?tok.customStatuses:[];
@@ -5194,14 +5283,9 @@
     line.style.transform = 'rotate('+angle+'deg)';
     $canvas.appendChild(line);
 
-    const page = currentPage();
-    let labelText;
-    if(page && page.grid && page.grid.enabled && page.grid.size > 0){
-      const squares = distPx / page.grid.size;
-      labelText = squares.toFixed(1) + (squares.toFixed(1) === '1.0' ? ' quadrado' : ' quadrados');
-    } else {
-      labelText = Math.round(distPx) + ' px';
-    }
+    // Usa a mesma escala da movimentação de tokens:
+    // 1) medidas reais do mapa, quando informadas; 2) grade; 3) pixels.
+    const labelText = movementDistanceText(startPt, endPt) || (Math.round(distPx) + ' px');
     const label = document.createElement('div');
     label.id = 'measure-label-el';
     label.className = 'measure-label';
