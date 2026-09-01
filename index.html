@@ -2221,7 +2221,12 @@
   // True master authority minus an active "view as player" preview.
   // Use this (not state.isMaster) for anything the player screen should hide.
   function effectiveMaster(){ return state.isMaster && !state.previewAsPlayer; }
-  function canInteractWithToken(tok){ return effectiveMaster() || (!(tok && tok.masterLocked) && isOwnToken(tok)); }
+  function canPlayerMoveLockedNpc(tok){
+    return !!(tok && !tok.isReference && tok.masterLocked && tok.playersCanMove);
+  }
+  function canInteractWithToken(tok){
+    return effectiveMaster() || (canPlayerMoveLockedNpc(tok) || (!(tok && tok.masterLocked) && isOwnToken(tok)));
+  }
   function isOwnToken(tok){
     if(!tok) return false;
     return (tok.name||'').trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
@@ -4495,6 +4500,10 @@
         playerName:me,
         pageId:state.currentPageId,
         tokens:JSON.parse(JSON.stringify(state.tokens.filter(t => isOwnToken(t)))),
+        movableNpcPositions:JSON.parse(JSON.stringify(state.tokens.filter(t => canPlayerMoveLockedNpc(t)).map(t => ({
+          id:t.id,
+          position:(t.positions && t.positions[state.currentPageId]) ? t.positions[state.currentPageId] : null
+        })))),
         draw:page ? JSON.parse(JSON.stringify((page.draw && page.draw.strokes || []).filter(st => (st.author || '').trim().toLowerCase() === me))) : []
       };
     }
@@ -4535,6 +4544,15 @@
       state.tokens = state.tokens.map(t => {
         if(!isOwnToken(t)) return t;
         return ownById.has(t.id) ? JSON.parse(JSON.stringify(ownById.get(t.id))) : t;
+      });
+      // Para NPCs liberados, o histórico do jogador restaura SOMENTE a posição.
+      // Nenhum outro campo da ficha é copiado do snapshot.
+      const npcPosById = new Map((snap.movableNpcPositions || []).map(item => [item.id, item.position]));
+      state.tokens.forEach(t => {
+        if(!canPlayerMoveLockedNpc(t) || !npcPosById.has(t.id)) return;
+        if(!t.positions) t.positions = {};
+        const pos = npcPosById.get(t.id);
+        if(pos) t.positions[state.currentPageId] = JSON.parse(JSON.stringify(pos));
       });
       const page = currentPage();
       const jobs = [ safeSet(slotKey('tokens'), { list: state.tokens }) ];
@@ -5257,7 +5275,7 @@
                     (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
-                    (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="Só o mestre pode mover">🔒</div>' : '') +
+                    (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '') +
                     (canResizeToken(tok) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
       $canvas.appendChild(t);
@@ -5913,7 +5931,8 @@
         '</div>' +
         (isOpen ? (
           '<div class="token-row" style="margin-top:4px;">' +
-            '<button type="button" class="lock-toggle'+(tok.masterLocked?' toggle-active':'')+'" data-lock-toggle="'+tok.id+'" title="Só o mestre pode mover esta ficha (NPCs/inimigos)">🔒</button>' +
+            '<button type="button" class="lock-toggle'+(tok.masterLocked?' toggle-active':'')+'" data-lock-toggle="'+tok.id+'" title="Transformar em NPC / restringir controles dos jogadores">🔒</button>' +
+            (tok.masterLocked ? '<button type="button" class="'+(tok.playersCanMove?'toggle-active':'')+'" data-player-npc-move="'+tok.id+'" title="Quando ativo, jogadores podem apenas mover este NPC">'+(tok.playersCanMove?'✓ Jogadores movem':'Jogadores não movem')+'</button>' : '') +
             (onPage
               ? '<button class="danger" data-remove-page="'+tok.id+'">Remover</button>'
               : '<button data-add-page="'+tok.id+'">+ Página</button>') +
@@ -6018,6 +6037,9 @@
     wireNotesControls($tokenList);
     $tokenList.querySelectorAll('[data-lock-toggle]').forEach(btn=>{
       btn.addEventListener('click', () => toggleMasterLock(btn.getAttribute('data-lock-toggle')));
+    });
+    $tokenList.querySelectorAll('[data-player-npc-move]').forEach(btn=>{
+      btn.addEventListener('click', () => togglePlayerNpcMove(btn.getAttribute('data-player-npc-move')));
     });
     $tokenList.querySelectorAll('[data-reference-lock]').forEach(btn=>{
       btn.addEventListener('click', () => toggleReferenceLock(btn.getAttribute('data-reference-lock')));
@@ -6168,7 +6190,8 @@
     const now = Date.now();
     if(lastTokenTapId === target.dataset.id && (now - lastTokenTapTime) < 400){
       lastTokenTapId = null; lastTokenTapTime = 0;
-      if(tok) openTokenSheet(tok);
+      // NPC liberado para jogador continua sendo apenas um objeto móvel; a ficha não abre.
+      if(tok && (effectiveMaster() || !canPlayerMoveLockedNpc(tok))) openTokenSheet(tok);
       return;
     }
     lastTokenTapId = target.dataset.id;
@@ -7061,6 +7084,18 @@
     if(!tok) return;
     pushUndo();
     tok.masterLocked = !tok.masterLocked;
+    // A permissão especial só existe enquanto a ficha for NPC/travada.
+    if(!tok.masterLocked) tok.playersCanMove = false;
+    render();
+    await persistTokens();
+  }
+
+  async function togglePlayerNpcMove(id){
+    if(!effectiveMaster()) return;
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok || tok.isReference || !tok.masterLocked) return;
+    pushUndo();
+    tok.playersCanMove = !tok.playersCanMove;
     render();
     await persistTokens();
   }
