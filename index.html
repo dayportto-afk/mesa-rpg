@@ -1830,8 +1830,8 @@
       </div>
       <div id="tokens-panel-body">
         <div id="tokens-bulk-map-actions">
-          <button type="button" id="btn-tokens-put-all-map" class="primary" title="Move todas as fichas desta página para dentro do mapa">⬇ Colocar todos no mapa</button>
-          <button type="button" id="btn-tokens-take-all-map" title="Move todas as fichas desta página para a área externa exclusiva do mestre">⬆ Retirar todos do mapa</button>
+          <button type="button" id="btn-tokens-put-all-map" class="primary" title="Ativa nesta página todas as fichas que estão fora dela e as coloca na área externa do mestre">＋ Colocar todos na mesa</button>
+          <button type="button" id="btn-tokens-take-all-map" title="Remove desta página todas as fichas ativas, como o botão Remover de cada ficha">− Retirar todos da mesa</button>
         </div>
         <div id="token-list"></div>
       </div>
@@ -6312,46 +6312,54 @@
     return state.tokens.filter(tok => !tok.isReference && isTokenOnPage(tok, state.currentPageId));
   }
 
+  function tokensOffCurrentPageForBulkAdd(){
+    if(!state.currentPageId) return [];
+    return state.tokens.filter(tok => !tok.isReference && !isTokenOnPage(tok, state.currentPageId));
+  }
+
+  function bulkStagePosition(index){
+    // Área externa exclusiva do mestre, logo abaixo do mapa.
+    // Usa várias linhas para evitar empilhar fichas quando houver muitas.
+    const cols = 8;
+    const col = index % cols;
+    const row = Math.floor(index / cols);
+    return { x: 8 + col * 12, y: 112 + row * 14 };
+  }
+
   async function putAllTokensOnMap(){
-    if(!effectiveMaster()) return;
-    const tokens = tokensOnCurrentPageForBulkMove();
+    if(!effectiveMaster() || !state.currentPageId) return;
+    const tokens = tokensOffCurrentPageForBulkAdd();
     if(tokens.length === 0) return;
     pushUndo();
 
-    // Distribui as fichas de forma organizada dentro dos limites do mapa,
-    // sem tocar no tamanho individual de nenhuma delas.
-    const count = tokens.length;
-    const cols = Math.min(8, Math.max(1, Math.ceil(Math.sqrt(count))));
-    const rows = Math.ceil(count / cols);
-    const xMin = 10, xMax = 90, yMin = 10, yMax = 90;
+    // Equivale a clicar em + Página em todas as fichas inativas:
+    // ativa somente quem estava fora desta página e estaciona na área do mestre.
+    const alreadyStaged = tokensOnCurrentPageForBulkMove().filter(tok => {
+      const p = tok.positions && tok.positions[state.currentPageId];
+      return p && (p.x < 0 || p.x > 100 || p.y < 0 || p.y > 100);
+    }).length;
+
     tokens.forEach((tok, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = cols === 1 ? 50 : xMin + (xMax - xMin) * (col / (cols - 1));
-      const y = rows === 1 ? 50 : yMin + (yMax - yMin) * (row / (rows - 1));
+      tok.removedFromPages = (tok.removedFromPages || []).filter(pid => pid !== state.currentPageId);
       if(!tok.positions) tok.positions = {};
-      tok.positions[state.currentPageId] = { x, y, zOrder: nextTokenZOrder() };
+      const pos = bulkStagePosition(alreadyStaged + i);
+      tok.positions[state.currentPageId] = { ...pos, zOrder: nextTokenZOrder() };
     });
     await persistTokens();
     render();
   }
 
   async function takeAllTokensOffMap(){
-    if(!effectiveMaster()) return;
+    if(!effectiveMaster() || !state.currentPageId) return;
     const tokens = tokensOnCurrentPageForBulkMove();
     if(tokens.length === 0) return;
     pushUndo();
 
-    // Mantém as fichas na página, mas estacionadas na área externa invisível
-    // aos jogadores. Tamanhos e demais dados permanecem intactos.
-    const cols = Math.min(8, Math.max(1, Math.ceil(Math.sqrt(tokens.length))));
-    tokens.forEach((tok, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = 8 + col * 14;
-      const y = 116 + row * 14;
-      if(!tok.positions) tok.positions = {};
-      tok.positions[state.currentPageId] = { x, y, zOrder: nextTokenZOrder() };
+    // Equivale ao botão Remover de cada ficha: deixa de renderizá-las nesta página,
+    // sem apagar a ficha global nem alterar tamanho, atributos ou imagem.
+    tokens.forEach(tok => {
+      if(!tok.removedFromPages) tok.removedFromPages = [];
+      if(!tok.removedFromPages.includes(state.currentPageId)) tok.removedFromPages.push(state.currentPageId);
     });
     await persistTokens();
     render();
@@ -6369,11 +6377,19 @@
 
   async function addTokenToPage(id){
     const tok = state.tokens.find(t => t.id === id);
-    if(!tok) return;
+    if(!tok || !state.currentPageId) return;
     pushUndo();
     tok.removedFromPages = (tok.removedFromPages || []).filter(pid => pid !== state.currentPageId);
     if(!tok.positions) tok.positions = {};
-    if(!tok.positions[state.currentPageId]) tok.positions[state.currentPageId] = { x:50, y:50 };
+
+    // + Página sempre reativa a ficha na área externa do mestre, nunca em cima do mapa.
+    const stagedCount = state.tokens.filter(t => {
+      if(t.id === tok.id || t.isReference || !isTokenOnPage(t, state.currentPageId)) return false;
+      const p = t.positions && t.positions[state.currentPageId];
+      return p && (p.x < 0 || p.x > 100 || p.y < 0 || p.y > 100);
+    }).length;
+    const pos = bulkStagePosition(stagedCount);
+    tok.positions[state.currentPageId] = { ...pos, zOrder: nextTokenZOrder() };
     render();
     await persistTokens();
   }
