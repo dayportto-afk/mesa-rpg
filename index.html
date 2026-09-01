@@ -609,8 +609,8 @@
   .token.token-reference{ border-radius:8px; border-color:var(--parchment-dim); }
   .token.token-reference img{ border-radius:6px; object-fit:contain; background:#0a0704; }
   .token-resize-handle{
-    position:absolute; right:-3px; bottom:-3px; width:9px; height:9px;
-    background:var(--amber-bright); border:1.5px solid #0a0704; border-radius:2px;
+    position:absolute; right:-2px; bottom:-2px; width:5px; height:5px;
+    background:var(--amber-bright); border:1px solid #0a0704; border-radius:1px;
     cursor:nwse-resize; z-index:6; touch-action:none;
   }
   .token-resize-handle:hover{ background:#fff; }
@@ -667,20 +667,25 @@
   .map-text.editing:not(.has-marker){ background:rgba(21,15,9,.72); }
   .map-text.has-marker{ border-radius:5px; }
   .map-text-content-wrap{
-    width:100%; max-height:100%; overflow:visible; white-space:pre-wrap;
+    position:relative; width:100%; max-height:100%; overflow:visible; white-space:pre-wrap;
     overflow-wrap:anywhere; word-break:normal;
   }
+  .map-text-marker-layer{
+    position:absolute; inset:0; pointer-events:none; z-index:0;
+  }
+  .map-text-marker-line{
+    position:absolute; border-radius:.16em;
+  }
   .map-text-content{
-    white-space:pre-wrap; line-height:inherit;
-    box-decoration-break:clone; -webkit-box-decoration-break:clone;
+    position:relative; z-index:1; white-space:pre-wrap; line-height:inherit;
   }
   .map-text-content.has-inline-marker{
-    padding:0 .14em; border-radius:.16em;
+    background:transparent !important;
   }
   .map-text.editing:focus{ outline:none; }
   .map-text-resize-handle{
-    position:absolute; right:-4px; bottom:-4px; width:9px; height:9px;
-    border:1px solid #0a0704; border-radius:2px; background:var(--amber-bright);
+    position:absolute; right:-2px; bottom:-2px; width:5px; height:5px;
+    border:1px solid #0a0704; border-radius:1px; background:var(--amber-bright);
     cursor:nwse-resize; touch-action:none; z-index:12; box-shadow:0 1px 3px rgba(0,0,0,.65);
   }
   .map-text-resize-handle:hover{ background:#fff; }
@@ -7103,6 +7108,36 @@
     return `rgba(${r},${g},${b},${alpha})`;
   }
 
+  function applyTextMarkerRects(contentWrap, contentEl, txt){
+    if(!contentWrap || !contentEl) return;
+    const existingLayer = contentWrap.querySelector('.map-text-marker-layer');
+    if(existingLayer) existingLayer.remove();
+    if(!txt || !txt.marker) return;
+    const rawText = String(txt.content || '').split(String.fromCharCode(13)).join('');
+    if(!rawText.trim()) return;
+    const markerOpacity = Math.max(0, Math.min(100, typeof txt.markerOpacity === 'number' ? txt.markerOpacity : 100)) / 100;
+    if(markerOpacity <= 0) return;
+    const layer = document.createElement('div');
+    layer.className = 'map-text-marker-layer';
+    contentWrap.insertBefore(layer, contentEl);
+
+    const range = document.createRange();
+    range.selectNodeContents(contentEl);
+    const wrapRect = contentWrap.getBoundingClientRect();
+    const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0.5 && rect.height > 0.5);
+    const padX = Math.max(1, (txt.size || 24) * 0.08);
+    rects.forEach(rect => {
+      const marker = document.createElement('div');
+      marker.className = 'map-text-marker-line';
+      marker.style.left = (rect.left - wrapRect.left - padX) + 'px';
+      marker.style.top = (rect.top - wrapRect.top) + 'px';
+      marker.style.width = (rect.width + padX * 2) + 'px';
+      marker.style.height = rect.height + 'px';
+      marker.style.backgroundColor = hexToRgba(txt.markerColor || '#fff176', markerOpacity);
+      layer.appendChild(marker);
+    });
+  }
+
   function renderTexts(){
     document.querySelectorAll('.map-text').forEach(t => t.remove());
     const page = currentPage();
@@ -7132,11 +7167,7 @@
 
       const contentSpan = document.createElement('span');
       contentSpan.className = 'map-text-content';
-      if(txt.marker){
-        contentSpan.classList.add('has-inline-marker');
-        const markerOpacity = Math.max(0, Math.min(100, typeof txt.markerOpacity === 'number' ? txt.markerOpacity : 100)) / 100;
-        contentSpan.style.backgroundColor = hexToRgba(txt.markerColor || '#fff176', markerOpacity);
-      }
+      if(txt.marker) contentSpan.classList.add('has-inline-marker');
       contentSpan.textContent = txt.content;
       contentWrap.appendChild(contentSpan);
       t.appendChild(contentWrap);
@@ -7150,6 +7181,8 @@
         t.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); beginInlineTextEdit(t, txt.id); });
       }
       $canvas.appendChild(t);
+      applyTextMarkerRects(contentWrap, contentSpan, txt);
+      requestAnimationFrame(() => applyTextMarkerRects(contentWrap, contentSpan, txt));
     });
   }
 
@@ -7380,6 +7413,8 @@
     target.classList.add('editing');
     const contentEl = target.querySelector('.map-text-content');
     if(!contentEl) return;
+    const markerLayer = target.querySelector('.map-text-marker-layer');
+    if(markerLayer) markerLayer.remove();
     contentEl.contentEditable = 'true';
     target.dataset.originalContent = txt.content || 'Texto';
     contentEl.focus();
@@ -7428,6 +7463,13 @@
     d.w = w; d.h = h;
     d.el.style.width = w + '%';
     d.el.style.height = h + '%';
+    const page = currentPage();
+    const txt = page ? page.texts.find(t => t.id === d.id) : null;
+    if(txt){
+      const contentWrap = d.el.querySelector('.map-text-content-wrap');
+      const contentEl = d.el.querySelector('.map-text-content');
+      applyTextMarkerRects(contentWrap, contentEl, Object.assign({}, txt, { boxWidth:w, boxHeight:h }));
+    }
   }
   async function onTextResizePointerUp(e){
     const d = state.textResizing;
