@@ -7124,15 +7124,23 @@
     const range = document.createRange();
     range.selectNodeContents(contentEl);
     const wrapRect = contentWrap.getBoundingClientRect();
+    const localWidth = contentWrap.offsetWidth || wrapRect.width || 1;
+    const localHeight = contentWrap.offsetHeight || wrapRect.height || 1;
+    const scaleX = wrapRect.width > 0 ? wrapRect.width / localWidth : 1;
+    const scaleY = wrapRect.height > 0 ? wrapRect.height / localHeight : 1;
     const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0.5 && rect.height > 0.5);
-    const padX = Math.max(1, (txt.size || 24) * 0.08);
+    const padX = Math.max(0.5, (txt.size || 24) * 0.05);
     rects.forEach(rect => {
       const marker = document.createElement('div');
       marker.className = 'map-text-marker-line';
-      marker.style.left = (rect.left - wrapRect.left - padX) + 'px';
-      marker.style.top = (rect.top - wrapRect.top) + 'px';
-      marker.style.width = (rect.width + padX * 2) + 'px';
-      marker.style.height = rect.height + 'px';
+      const left = (rect.left - wrapRect.left) / scaleX;
+      const top = (rect.top - wrapRect.top) / scaleY;
+      const width = rect.width / scaleX;
+      const height = rect.height / scaleY;
+      marker.style.left = (left - padX) + 'px';
+      marker.style.top = top + 'px';
+      marker.style.width = (width + padX * 2) + 'px';
+      marker.style.height = height + 'px';
       marker.style.backgroundColor = hexToRgba(txt.markerColor || '#fff176', markerOpacity);
       layer.appendChild(marker);
     });
