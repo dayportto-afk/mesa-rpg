@@ -657,6 +657,9 @@
   .map-text.draggable:hover{ outline:1px dashed rgba(226,165,63,0.7); border-radius:3px; }
   .map-text.dragging{ cursor:grabbing; outline:1px dashed var(--amber-bright); border-radius:3px; }
   .map-text.selected{ outline:2px dashed var(--amber-bright); border-radius:3px; }
+  .map-text.editing{ cursor:text !important; outline:2px solid var(--amber-bright); border-radius:3px; background:rgba(21,15,9,.72); white-space:pre-wrap; min-width:24px; }
+  .map-text.editing:focus{ outline:2px solid var(--amber-bright); }
+
 
   #freeze-banner{
     position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:70;
@@ -6912,7 +6915,10 @@
       t.style.pointerEvents = effectiveMaster() ? 'auto' : 'none';
       if(typeof txt.zOrder === 'number') t.style.zIndex = txt.zOrder;
       t.textContent = txt.content;
-      if(effectiveMaster()) t.addEventListener('pointerdown', onTextPointerDown);
+      if(effectiveMaster()){
+        t.addEventListener('pointerdown', onTextPointerDown);
+        t.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); beginInlineTextEdit(t, txt.id); });
+      }
       $canvas.appendChild(t);
     });
   }
@@ -7028,10 +7034,57 @@
       if(input) input.focus();
     });
   }
+  async function finishInlineTextEdit(target, id, cancel=false){
+    if(!target || !target.isContentEditable) return;
+    const page = currentPage();
+    const txt = page ? page.texts.find(t => t.id === id) : null;
+    if(!txt) return;
+    const original = target.dataset.originalContent || txt.content || 'Texto';
+    const content = cancel ? original : (target.innerText.replace(/\r/g,'').trim() || 'Texto');
+    target.contentEditable = 'false';
+    target.classList.remove('editing');
+    target.removeAttribute('data-original-content');
+    if(content !== txt.content){
+      pushUndo();
+      txt.content = content;
+      txt.zOrder = nextStageZOrder();
+      await persistPageTexts(page);
+    }
+    renderTexts();
+    renderTextList();
+  }
+
+  function beginInlineTextEdit(target, id){
+    if(!effectiveMaster() || !target) return;
+    const page = currentPage();
+    const txt = page ? page.texts.find(t => t.id === id) : null;
+    if(!txt) return;
+    if(state.textDragging) state.textDragging = null;
+    state.selectedTextId = id;
+    state.selectedTokenId = null;
+    target.classList.remove('dragging');
+    target.classList.add('editing');
+    target.contentEditable = 'true';
+    target.dataset.originalContent = txt.content || 'Texto';
+    target.focus();
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    target.addEventListener('blur', () => finishInlineTextEdit(target, id), { once:true });
+    target.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if(e.key === 'Escape'){ e.preventDefault(); finishInlineTextEdit(target, id, true); }
+      else if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); target.blur(); }
+    });
+  }
+
   function onTextPointerDown(e){
+    const target = e.currentTarget;
+    if(target.isContentEditable || target.classList.contains('editing')){ e.stopPropagation(); return; }
     e.preventDefault();
     e.stopPropagation();
-    const target = e.currentTarget;
     const id = target.dataset.id;
     const now = Date.now();
     if(lastTextTapId === id && (now - lastTextTapTime) < 400){
