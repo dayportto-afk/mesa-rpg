@@ -4417,10 +4417,21 @@
     });
   }
 
-  // ---------- undo / redo (scoped to the current page + tokens) ----------
+  // ---------- undo / redo (mestre: cena inteira; jogador: somente as próprias ações) ----------
   function snapshotState(){
     const page = currentPage();
+    if(!state.isMaster){
+      const me = (state.playerName || '').trim().toLowerCase();
+      return {
+        scope:'player',
+        playerName:me,
+        pageId:state.currentPageId,
+        tokens:JSON.parse(JSON.stringify(state.tokens.filter(t => isOwnToken(t)))),
+        draw:page ? JSON.parse(JSON.stringify((page.draw && page.draw.strokes || []).filter(st => (st.author || '').trim().toLowerCase() === me))) : []
+      };
+    }
     return {
+      scope:'master',
       pageId: state.currentPageId,
       map: page ? page.map.image : '',
       fog: page ? page.fog.image : '',
@@ -4430,19 +4441,47 @@
     };
   }
   function pushUndo(){
-    if(!state.isMaster) return;
+    // O mestre em "ver como jogador" não cria histórico de edição. Jogadores reais criam.
+    if(state.previewAsPlayer) return;
     state.undoStack.push(snapshotState());
     if(state.undoStack.length > 20) state.undoStack.shift();
     state.redoStack = [];
     updateHistoryButtons();
   }
   function updateHistoryButtons(){
-    $btnUndo.style.display = effectiveMaster() ? 'inline-block' : 'none';
+    const canUseHistory = !state.previewAsPlayer;
+    $btnUndo.style.display = canUseHistory ? 'inline-block' : 'none';
     $btnUndo.disabled = state.undoStack.length === 0;
-    $btnRedo.style.display = effectiveMaster() ? 'inline-block' : 'none';
+    $btnRedo.style.display = canUseHistory ? 'inline-block' : 'none';
     $btnRedo.disabled = state.redoStack.length === 0;
+    $btnUndo.title = state.isMaster ? 'Desfazer última ação' : 'Desfazer sua última ação';
+    $btnRedo.title = state.isMaster ? 'Refazer ação desfeita' : 'Refazer sua ação desfeita';
   }
   async function applySnapshot(snap){
+    if(snap.scope === 'player' || !state.isMaster){
+      // Segurança: um jogador nunca restaura mapa, névoa, textos ou fichas de terceiros.
+      if(snap.pageId !== state.currentPageId) return;
+      const me = (state.playerName || '').trim().toLowerCase();
+      const ownSnap = (snap.tokens || []).filter(t => (t.name || '').trim().toLowerCase() === me);
+      const ownById = new Map(ownSnap.map(t => [t.id, t]));
+      state.tokens = state.tokens.map(t => {
+        if(!isOwnToken(t)) return t;
+        return ownById.has(t.id) ? JSON.parse(JSON.stringify(ownById.get(t.id))) : t;
+      });
+      const page = currentPage();
+      const jobs = [ safeSet(slotKey('tokens'), { list: state.tokens }) ];
+      if(page){
+        if(!page.draw) page.draw = { strokes:[] };
+        const others = (page.draw.strokes || []).filter(st => (st.author || '').trim().toLowerCase() !== me);
+        const mine = (snap.draw || []).filter(st => (st.author || '').trim().toLowerCase() === me);
+        page.draw.strokes = others.concat(JSON.parse(JSON.stringify(mine)));
+        jobs.push(persistPageDraw(page));
+      }
+      render();
+      await Promise.all(jobs);
+      updateHistoryButtons();
+      return;
+    }
     state.currentPageId = snap.pageId;
     const page = currentPage();
     state.tokens = snap.tokens;
@@ -4486,7 +4525,7 @@
     const tag = active ? active.tagName.toLowerCase() : '';
     const isTyping = tag === 'input' || tag === 'textarea' || (active && active.isContentEditable);
     if(isTyping) return;
-    if(!effectiveMaster()) return;
+    if(state.previewAsPlayer) return;
     e.preventDefault();
     if(key === 'y' || (key === 'z' && e.shiftKey)) redoLast();
     else undoLast();
@@ -6065,7 +6104,7 @@
     lastTokenTapTime = now;
     if(tok && !canInteractWithToken(tok)) return; // só o mestre ou o dono da ficha pode movê-la
     if(tok && tok.isReference && tok.referenceLocked){ state.selectedTokenId = tok.id; state.selectedTextId = null; render(); return; }
-    if(state.isMaster) pushUndo();
+    pushUndo();
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
     target.style.zIndex = 999999; // fica por cima de tudo enquanto está sendo arrastado
