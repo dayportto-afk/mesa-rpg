@@ -5886,6 +5886,8 @@
     if(!confirm('Excluir esta página do histórico? O mapa e a névoa dela se perdem. As fichas de personagem continuam existindo.')) return;
     pushUndo();
     state.pages = state.pages.filter(p => p.id !== id);
+    const removedObjectIds=state.tokens.filter(t=>t.isMapObject&&t.pageId===id).map(t=>t.id);
+    removedObjectIds.forEach(detachTokensFromMapObject);
     state.tokens = state.tokens.filter(t => !(t.isMapObject && t.pageId === id));
     if(state.currentPageId === id){ state.currentPageId = state.pages[state.pages.length-1].id; }
     render();
@@ -6242,7 +6244,9 @@
       if(tok.isMapObject){
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.06)));
         const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
-        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(.1,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';">' +
+        const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
+        const shadowFilter=shadow.enabled ? 'drop-shadow(0 '+Math.max(0,Number(shadow.offset)||0)+'px '+Math.max(0,Number(shadow.blur)||0)+'px '+hexToRgbaTheme(shadow.color||'#000000',Math.max(0,Math.min(1,Number(shadow.opacity)||0)))+')' : 'none';
+        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(.1,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';filter:'+shadowFilter+';">' +
                       (effectiveMaster() ? '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' : '') + handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
         t.addEventListener('contextmenu', e=>openContextMenu(e,'mapobject',tok.id));
@@ -6953,9 +6957,15 @@
     if(!objects.length){ root.innerHTML='<div class="hint">Nenhum objeto nesta página.</div>'; return; }
     root.innerHTML=objects.map(tok=>{
       const opacity=Math.round(Math.max(.1,Math.min(1,Number(tok.opacity==null?1:tok.opacity)))*100);
+      const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
+      const shadowOpacity=Math.round(Math.max(0,Math.min(1,Number(shadow.opacity)||0))*100);
       return '<div class="map-object-card">'+
         '<div class="map-object-card-top"><img class="map-object-thumb" src="'+tok.image+'" alt=""><input type="text" value="'+escapeHtml(tok.name)+'" data-map-object-name="'+tok.id+'"><button type="button" class="danger" data-map-object-delete="'+tok.id+'" title="Excluir objeto">✕</button></div>'+
         '<div class="map-object-opacity-row"><label>Opacidade</label><input type="range" min="10" max="100" step="5" value="'+opacity+'" data-map-object-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+opacity+'%</span></div>'+
+        '<button type="button" class="'+(shadow.enabled?'toggle-active':'')+'" data-map-object-shadow-toggle="'+tok.id+'">'+(shadow.enabled?'☁ Sombra ativada':'☁ Ativar sombra')+'</button>'+
+        (shadow.enabled?'<div class="map-object-opacity-row"><label>Intens.</label><input type="range" min="0" max="100" step="5" value="'+shadowOpacity+'" data-map-object-shadow-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+shadowOpacity+'%</span></div>'+
+        '<div class="map-object-opacity-row"><label>Desfoque</label><input type="range" min="0" max="30" step="1" value="'+Math.max(0,Number(shadow.blur)||0)+'" data-map-object-shadow-blur="'+tok.id+'"><span class="map-object-opacity-value">'+Math.max(0,Number(shadow.blur)||0)+'px</span></div>'+
+        '<div class="theme-row"><label>Cor da sombra</label><input type="color" value="'+escapeHtml(shadow.color||'#000000')+'" data-map-object-shadow-color="'+tok.id+'"></div>':'')+
         '<button type="button" data-jump-map-object="'+tok.id+'">Localizar no mapa</button></div>';
     }).join('');
     root.querySelectorAll('[data-map-object-name]').forEach(inp=>inp.addEventListener('change',()=>renameToken(inp.getAttribute('data-map-object-name'),inp.value)));
@@ -6966,12 +6976,36 @@
       });
       inp.addEventListener('change',()=>persistTokens());
     });
+    root.querySelectorAll('[data-map-object-shadow-toggle]').forEach(btn=>btn.addEventListener('click',async()=>{
+      const tok=state.tokens.find(t=>t.id===btn.getAttribute('data-map-object-shadow-toggle')); if(!tok)return;
+      tok.shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
+      tok.shadow.enabled=!tok.shadow.enabled; render(); await persistTokens();
+    }));
+    root.querySelectorAll('[data-map-object-shadow-opacity]').forEach(inp=>{
+      inp.addEventListener('input',()=>{const tok=state.tokens.find(t=>t.id===inp.getAttribute('data-map-object-shadow-opacity'));if(!tok)return;tok.shadow.opacity=Number(inp.value)/100;inp.nextElementSibling.textContent=inp.value+'%';renderTokens();});
+      inp.addEventListener('change',()=>persistTokens());
+    });
+    root.querySelectorAll('[data-map-object-shadow-blur]').forEach(inp=>{
+      inp.addEventListener('input',()=>{const tok=state.tokens.find(t=>t.id===inp.getAttribute('data-map-object-shadow-blur'));if(!tok)return;tok.shadow.blur=Number(inp.value);inp.nextElementSibling.textContent=inp.value+'px';renderTokens();});
+      inp.addEventListener('change',()=>persistTokens());
+    });
+    root.querySelectorAll('[data-map-object-shadow-color]').forEach(inp=>{
+      inp.addEventListener('input',()=>{const tok=state.tokens.find(t=>t.id===inp.getAttribute('data-map-object-shadow-color'));if(!tok)return;tok.shadow.color=inp.value;renderTokens();});
+      inp.addEventListener('change',()=>persistTokens());
+    });
     root.querySelectorAll('[data-jump-map-object]').forEach(btn=>btn.addEventListener('click',()=>jumpToToken(btn.getAttribute('data-jump-map-object'))));
     root.querySelectorAll('[data-map-object-delete]').forEach(btn=>btn.addEventListener('click',async()=>{
       const id=btn.getAttribute('data-map-object-delete'); const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
       if(!confirm('Excluir o objeto “'+tok.name+'”?')) return;
-      pushUndo(); state.tokens=state.tokens.filter(t=>t.id!==id); render(); await persistTokens();
+      pushUndo(); detachTokensFromMapObject(id); state.tokens=state.tokens.filter(t=>t.id!==id); render(); await persistTokens();
     }));
+  }
+
+  function detachTokensFromMapObject(objectId){
+    state.tokens.forEach(tok=>{
+      if(!tok.platformByPage) return;
+      Object.keys(tok.platformByPage).forEach(pageId=>{ if(tok.platformByPage[pageId]===objectId) delete tok.platformByPage[pageId]; });
+    });
   }
 
   function tokenCardMarkup(tok){
@@ -7267,17 +7301,31 @@
   }
   function clearMoveDistanceLabel(){ const x=document.getElementById('token-move-distance'); if(x)x.remove(); }
 
+  function mapObjectAtPoint(x,y){
+    if(!$canvas.clientWidth || !$canvas.clientHeight) return null;
+    const objects=state.tokens.filter(tok=>tok.isMapObject && (!tok.pageId || tok.pageId===state.currentPageId) && isTokenOnPage(tok,state.currentPageId));
+    return objects.sort((a,b)=>{
+      const az=Number(tokenPos(a).zOrder)||MAP_LAYER_FLOOR_Z, bz=Number(tokenPos(b).zOrder)||MAP_LAYER_FLOOR_Z;
+      return bz-az;
+    }).find(platform=>{
+      const p=tokenPos(platform), dims=tokenDisplayDimensions(platform,tokenSize(platform));
+      const halfW=(dims.width/$canvas.clientWidth)*50, halfH=(dims.height/$canvas.clientHeight)*50;
+      return x>=p.x-halfW && x<=p.x+halfW && y>=p.y-halfH && y<=p.y+halfH;
+    })||null;
+  }
+  function updateTokenPlatformMembership(tok,x,y){
+    if(!tok || tok.isReference || tok.isMapObject) return;
+    if(!tok.platformByPage) tok.platformByPage={};
+    const platform=mapObjectAtPoint(x,y);
+    if(platform) tok.platformByPage[state.currentPageId]=platform.id;
+    else delete tok.platformByPage[state.currentPageId];
+  }
   function tokensRidingMapObject(platform){
-    if(!platform || !platform.isMapObject || !$canvas.clientWidth || !$canvas.clientHeight) return [];
-    const p = tokenPos(platform);
-    const dims = tokenDisplayDimensions(platform, tokenSize(platform));
-    const halfW = (dims.width / $canvas.clientWidth) * 50;
-    const halfH = (dims.height / $canvas.clientHeight) * 50;
-    return state.tokens.filter(tok => {
-      if(tok.id === platform.id || tok.isReference || tok.isMapObject || !isTokenOnPage(tok,state.currentPageId)) return false;
-      const tp = tokenPos(tok);
-      return tp.x >= p.x-halfW && tp.x <= p.x+halfW && tp.y >= p.y-halfH && tp.y <= p.y+halfH;
-    });
+    if(!platform || !platform.isMapObject) return [];
+    return state.tokens.filter(tok=>
+      !tok.isReference && !tok.isMapObject && isTokenOnPage(tok,state.currentPageId) &&
+      tok.platformByPage && tok.platformByPage[state.currentPageId]===platform.id
+    );
   }
 
   function onTokenPointerDown(e){
@@ -7285,7 +7333,7 @@
     e.stopPropagation();
     const target = e.currentTarget;
     const tok = state.tokens.find(t => t.id === target.dataset.id);
-    if(effectiveMaster() && (e.ctrlKey || e.metaKey) && tok){
+    if(effectiveMaster() && (e.ctrlKey || e.metaKey) && tok && !tok.isMapObject){
       // Ctrl/Cmd+clique: alterna a ficha na seleção múltipla, sem iniciar arraste.
       if(multiSelectedTokenIds.has(tok.id)) multiSelectedTokenIds.delete(tok.id);
       else multiSelectedTokenIds.add(tok.id);
@@ -7323,7 +7371,7 @@
       state.dragging.anchorStartY = tokenPos(tok).y;
     }
     // Se essa ficha faz parte de uma seleção múltipla (2+), arrasta o grupo inteiro junto.
-    if(effectiveMaster() && tok && multiSelectedTokenIds.has(tok.id) && multiSelectedTokenIds.size >= 2){
+    if(effectiveMaster() && tok && !tok.isMapObject && multiSelectedTokenIds.has(tok.id) && multiSelectedTokenIds.size >= 2){
       const anchorPos = tokenPos(tok);
       state.dragging.group = [...multiSelectedTokenIds].map(id => {
         const t2 = state.tokens.find(t => t.id === id);
@@ -7502,6 +7550,7 @@
           if(!t2) return;
           if(!t2.positions) t2.positions = {};
           t2.positions[state.currentPageId] = { x:g.liveX, y:g.liveY, zOrder: nextTokenZOrder() };
+          updateTokenPlatformMembership(t2,g.liveX,g.liveY);
         });
         persistTokens();
       } else {
@@ -7509,6 +7558,7 @@
         if(tok){
           if(!tok.positions) tok.positions = {};
           tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: tok.isMapObject ? MAP_LAYER_FLOOR_Z : nextTokenZOrder() };
+          if(!tok.isMapObject) updateTokenPlatformMembership(tok,d.x,d.y);
           (d.riders||[]).forEach(r => {
             const rider = state.tokens.find(t=>t.id===r.id); if(!rider) return;
             if(!rider.positions) rider.positions={};
@@ -7565,6 +7615,7 @@
 
     tokens.forEach((tok, i) => {
       tok.removedFromPages = (tok.removedFromPages || []).filter(pid => pid !== state.currentPageId);
+      if(tok.platformByPage) delete tok.platformByPage[state.currentPageId];
       if(!tok.positions) tok.positions = {};
       const pos = bulkStagePosition(alreadyStaged + i);
       tok.positions[state.currentPageId] = { ...pos, zOrder: nextTokenZOrder() };
@@ -7584,6 +7635,7 @@
     tokens.forEach(tok => {
       if(!tok.removedFromPages) tok.removedFromPages = [];
       if(!tok.removedFromPages.includes(state.currentPageId)) tok.removedFromPages.push(state.currentPageId);
+      if(tok.platformByPage) delete tok.platformByPage[state.currentPageId];
     });
     await persistTokens();
     render();
@@ -7595,6 +7647,7 @@
     pushUndo();
     if(!tok.removedFromPages) tok.removedFromPages = [];
     if(!tok.removedFromPages.includes(state.currentPageId)) tok.removedFromPages.push(state.currentPageId);
+    if(tok.platformByPage) delete tok.platformByPage[state.currentPageId];
     render();
     await persistTokens();
   }
@@ -7604,6 +7657,7 @@
     if(!tok || !state.currentPageId) return;
     pushUndo();
     tok.removedFromPages = (tok.removedFromPages || []).filter(pid => pid !== state.currentPageId);
+    if(tok.platformByPage) delete tok.platformByPage[state.currentPageId];
     if(!tok.positions) tok.positions = {};
 
     // + Página sempre reativa a ficha na área externa do mestre, nunca em cima do mapa.
@@ -7625,6 +7679,7 @@
     const clone = JSON.parse(JSON.stringify(tok));
     clone.id = newId('t');
     clone.name = tok.name + ' (cópia)';
+    if(clone.platformByPage && state.currentPageId) delete clone.platformByPage[state.currentPageId];
     if(clone.positions && state.currentPageId && clone.positions[state.currentPageId]){
       const p = clone.positions[state.currentPageId];
       clone.positions[state.currentPageId] = { x: Math.min(96, p.x + 4), y: Math.min(96, p.y + 4) };
@@ -7683,8 +7738,10 @@
   }
 
   async function deleteTokenPermanently(id){
+    const deleting=state.tokens.find(t=>t.id===id);
     if(!confirm('Excluir esta ficha de todas as páginas permanentemente? Essa ação não pode ser desfeita com o botão de remover desta página.')) return;
     pushUndo();
+    if(deleting&&deleting.isMapObject) detachTokensFromMapObject(id);
     state.tokens = state.tokens.filter(t => t.id !== id);
     render();
     await persistTokens();
@@ -9105,6 +9162,7 @@
       id:newId('obj'), name:el('map-object-name').value.trim()||('Objeto '+(count+1)),
       image:pendingMapObjectImage, isMapObject:true, masterLocked:true, pageId:state.currentPageId,
       opacity:Number(el('map-object-new-opacity').value)/100, aspectRatio:pendingMapObjectAspectRatio,
+      shadow:{enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},
       size:360, sizes:{}, positions:{[state.currentPageId]:pos}
     };
     state.tokens.push(tok); render(); await persistTokens();
