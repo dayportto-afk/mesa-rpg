@@ -635,6 +635,23 @@
   .token img{ width:100%; height:100%; object-fit:cover; border-radius:50%; pointer-events:none; -webkit-user-drag:none;}
   .token.token-reference{ border-radius:8px; border-color:var(--parchment-dim); }
   .token.token-reference img{ border-radius:6px; object-fit:contain; background:#0a0704; }
+  .token.map-object{
+    border:1px dashed rgba(226,165,63,.72); border-radius:4px; box-shadow:none;
+    background:transparent;
+  }
+  .token.map-object img{ border-radius:0; object-fit:contain; background:transparent; }
+  body:not(.role-master) .token.map-object{ border-color:transparent; }
+  .map-object-card{
+    display:flex; flex-direction:column; gap:8px; padding:10px; margin-top:8px;
+    background:#120e08; border:1px solid var(--line); border-radius:5px;
+  }
+  .map-object-card-top{ display:flex; align-items:center; gap:8px; }
+  .map-object-thumb{ width:48px; height:48px; object-fit:contain; background:#0a0704; border:1px solid var(--line); border-radius:4px; }
+  .map-object-card-top input{ flex:1; min-width:0; }
+  .map-object-opacity-row{ display:flex; align-items:center; gap:8px; }
+  .map-object-opacity-row label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); text-transform:uppercase; letter-spacing:.5px; }
+  .map-object-opacity-row input[type=range]{ flex:1; accent-color:var(--amber); }
+  .map-object-opacity-value{ min-width:34px; text-align:right; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment-dim); }
   .token-resize-handle{
     position:absolute; right:-2px; bottom:-2px; width:5px; height:5px;
     background:var(--amber-bright); border:1px solid #0a0704; border-radius:1px;
@@ -966,7 +983,7 @@
   #journal-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
   #journal-input{
     width:100%; background:#120e08; border:1px solid var(--line); border-radius:3px;
-    color:var(--journal-current-color, var(--parchment)); padding:9px 10px; font-family:var(--journal-font-family, 'EB Garamond', serif); font-size:var(--journal-font-size, 15px);
+    color:var(--parchment); padding:9px 10px; font-family:'EB Garamond', serif; font-size:15px;
     outline:none; min-height:64px; max-height:220px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;
   }
   #journal-input:empty:before{ content:attr(data-placeholder); color:var(--parchment-dim); }
@@ -984,7 +1001,7 @@
   }
   .journal-entry-meta .journal-author{ color:var(--amber-bright); }
   .journal-entry-meta .journal-remove, .journal-entry-meta .journal-edit{ padding:2px 7px; font-size:9px; }
-  .journal-entry-text{ font-family:var(--journal-font-family, 'EB Garamond', serif); font-size:var(--journal-font-size, 14px); color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
+  .journal-entry-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
   .journal-group{ display:flex; flex-direction:column; gap:8px; }
   .journal-group-title{
     font-family:'Cinzel', serif; font-size:11px; letter-spacing:1px; text-transform:uppercase;
@@ -995,7 +1012,7 @@
   .journal-session-row input{ width:64px; background:#120e08; border:1px solid var(--line); border-radius:3px; color:var(--parchment); padding:4px 6px; font-size:12px; }
   .journal-entry-edit{
     width:100%; background:#0c0906; border:1px solid var(--amber); border-radius:3px;
-    color:var(--journal-current-color, var(--parchment)); padding:8px 9px; font-family:var(--journal-font-family, 'EB Garamond', serif); font-size:var(--journal-font-size, 14px);
+    color:var(--parchment); padding:8px 9px; font-family:'EB Garamond', serif; font-size:14px;
     outline:none; min-height:50px; max-height:220px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;
   }
 
@@ -1601,6 +1618,10 @@
           <span class="icon-rail-label">Mapas</span>
         </div>
         <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-mapobjects" title="Objetos móveis do mapa">⛵</button>
+          <span class="icon-rail-label">Objetos</span>
+        </div>
+        <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn" data-panel="float-newtoken" title="Nova ficha">➕</button>
           <span class="icon-rail-label">Ficha</span>
         </div>
@@ -1746,6 +1767,31 @@
           </div>
           <div id="page-history-list"></div>
           <div class="hint">Cada imagem enviada vira uma nova página no histórico — as anteriores continuam salvas. As fichas de personagem aparecem em todas as páginas por padrão; "Remover desta página" só as esconde ali, sem apagá-las das demais.</div>
+        </div>
+      </div>
+
+      <div class="float-panel" id="float-mapobjects" style="left:176px; top:112px;">
+        <div class="float-panel-header">
+          <span>⛵ Objetos do mapa</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-mapobjects">✕</button>
+        </div>
+        <div class="float-panel-body">
+          <form id="map-object-form">
+            <input type="text" id="map-object-name" placeholder="Nome do objeto (ex.: Barco)">
+            <label class="file-btn" for="map-object-upload">Escolher PNG transparente</label>
+            <input type="file" id="map-object-upload" accept="image/png,image/webp">
+            <div id="map-object-preview" style="display:none; margin-top:8px;">
+              <img id="map-object-preview-img" alt="Pré-visualização do objeto" style="display:block; width:100%; max-height:220px; object-fit:contain; border:1px solid var(--line); border-radius:4px; background:#0a0704;">
+            </div>
+            <div class="map-object-opacity-row" style="margin-top:10px;">
+              <label for="map-object-new-opacity">Opacidade</label>
+              <input type="range" id="map-object-new-opacity" min="10" max="100" step="5" value="100">
+              <span id="map-object-new-opacity-value" class="map-object-opacity-value">100%</span>
+            </div>
+            <button type="submit" class="primary" style="width:100%; margin-top:10px;">Adicionar objeto ao mapa</button>
+          </form>
+          <div class="hint">Coloque as fichas sobre o objeto. Ao mover a plataforma, as fichas que estiverem em cima acompanham o deslocamento e continuam livres para andar sobre ela.</div>
+          <div id="map-object-list"></div>
         </div>
       </div>
 
@@ -2234,17 +2280,6 @@
     <div id="journal-panel">
       <div id="journal-panel-header">
         <h2>Diário da Campanha</h2>
-        <div id="journal-font-controls" style="display:none; align-items:center; gap:4px; margin-left:auto; margin-right:8px;">
-          <select id="journal-font-family" title="Fonte do diário para todos" style="width:105px; padding:3px 5px; font-size:10px;">
-            <option value="'EB Garamond', serif">Garamond</option>
-            <option value="'Cinzel', serif">Cinzel</option>
-            <option value="'IM Fell English', serif">IM Fell</option>
-            <option value="'Special Elite', monospace">Special Elite</option>
-            <option value="'JetBrains Mono', monospace">Monospace</option>
-          </select>
-          <button type="button" id="journal-font-dec" title="Diminuir fonte para todos" style="padding:3px 8px; font-size:12px;">A−</button>
-          <button type="button" id="journal-font-inc" title="Aumentar fonte para todos" style="padding:3px 8px; font-size:12px;">A+</button>
-        </div>
         <button id="journal-panel-close">✕</button>
       </div>
       <div id="journal-panel-body">
@@ -2252,9 +2287,6 @@
           <button type="button" data-fmt="b" title="Negrito"><b>N</b></button>
           <button type="button" data-fmt="i" title="Itálico"><i>I</i></button>
           <button type="button" data-fmt="u" title="Sublinhado"><u>S</u></button>
-          <label for="journal-color-input" title="Cor das suas anotações" style="display:flex;align-items:center;gap:4px;margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--parchment-dim);">COR
-            <input type="color" id="journal-color-input" value="#e2a53f" style="width:28px;height:20px;padding:0;border:1px solid var(--line);border-radius:4px;background:none;cursor:pointer;">
-          </label>
         </div>
         <div id="journal-input" class="rich-editable" contenteditable="true" data-placeholder="Escreva uma entrada no diário — o que aconteceu, uma pista, um resumo da sessão..."></div>
         <div class="journal-session-row">
@@ -2447,7 +2479,6 @@
     isAdmin:false,
     playerName:'',
     playerColor:'',
-    journalColor:'#e2a53f',
     sends:[],
     musicTracks:[],
     musicPlayingIds:[],
@@ -2523,16 +2554,17 @@
   // Use this (not state.isMaster) for anything the player screen should hide.
   function effectiveMaster(){ return state.isMaster && !state.previewAsPlayer; }
   function canPlayerMoveLockedNpc(tok){
-    return !!(tok && !tok.isReference && tok.masterLocked && tok.playersCanMove);
+    return !!(tok && !tok.isReference && !tok.isMapObject && tok.masterLocked && tok.playersCanMove);
   }
   function canInteractWithToken(tok){
+    if(tok && tok.isMapObject) return effectiveMaster();
     return effectiveMaster() || (canPlayerMoveLockedNpc(tok) || (!(tok && tok.masterLocked) && isOwnToken(tok)));
   }
   function isOwnToken(tok){
     if(!tok) return false;
     return (tok.name||'').trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
   }
-  function canResizeToken(tok){ return effectiveMaster() || (!tok.isReference && !tok.masterLocked && isOwnToken(tok)); }
+  function canResizeToken(tok){ return effectiveMaster() || (!tok.isReference && !tok.isMapObject && !tok.masterLocked && isOwnToken(tok)); }
   function canPlayerSeePage(page){
     if(!page) return true;
     if(!page.allowedPlayers || page.allowedPlayers.length === 0) return true;
@@ -2541,7 +2573,7 @@
   }
   function knownPlayerNames(){
     const names = state.tokens
-      .filter(t => !t.isReference && !t.masterLocked && (t.name||'').trim())
+      .filter(t => !t.isReference && !t.isMapObject && !t.masterLocked && (t.name||'').trim())
       .map(t => t.name.trim());
     return [...new Set(names)];
   }
@@ -3799,8 +3831,9 @@
     if(effectiveMaster()){
       const sel = el('initiative-token-select');
       const prevValue = sel.value;
-      sel.innerHTML = state.tokens.map(t => '<option value="'+t.id+'">'+escapeHtml(t.name)+'</option>').join('');
-      if(prevValue && state.tokens.some(t => t.id === prevValue)) sel.value = prevValue;
+      const initiativeTokens=state.tokens.filter(t=>!t.isReference&&!t.isMapObject);
+      sel.innerHTML = initiativeTokens.map(t => '<option value="'+t.id+'">'+escapeHtml(t.name)+'</option>').join('');
+      if(prevValue && initiativeTokens.some(t => t.id === prevValue)) sel.value = prevValue;
     }
     const sorted = sortedInitiative();
     const $list = el('initiative-list');
@@ -4100,7 +4133,7 @@
     if(!effectiveMaster()) return;
     const pageId = state.currentPageId;
     const npcs = state.tokens.filter(tok =>
-      !tok.isReference && !!tok.masterLocked && isTokenOnPage(tok, pageId)
+      !tok.isReference && !tok.isMapObject && !!tok.masterLocked && isTokenOnPage(tok, pageId)
     );
     if(!npcs.length){
       showToast('Não há NPCs ativos nesta página.');
@@ -4221,7 +4254,7 @@
               '<span>'+formatJournalTime(entry.ts)+(entry.editedTs ? ' · editado' : '')+'</span>' +
               (canEdit ? '<span style="display:flex; gap:4px;"><button type="button" class="journal-edit" data-journal-edit="'+entry.id+'" title="Editar">✎</button><button type="button" class="danger journal-remove" data-journal-remove="'+entry.id+'">✕</button></span>' : '') +
             '</div>' +
-            '<div class="journal-entry-text" style="color:'+(entry.color||'var(--parchment)')+';">'+sanitizeRichHtml(entry.text)+'</div>' +
+            '<div class="journal-entry-text">'+sanitizeRichHtml(entry.text)+'</div>' +
           '</div>'
         );
       }).join('');
@@ -4259,7 +4292,7 @@
     let session = parseInt($sessionInput.value, 10);
     if(!Number.isFinite(session) || session < 1) session = lastJournalSession;
     lastJournalSession = session;
-    const entry = { id:newId('j'), author:currentDisplayName(), color:state.journalColor || '#e2a53f', ts:Date.now(), text, session };
+    const entry = { id:newId('j'), author:currentDisplayName(), color:(state.isMaster ? '#e2a53f' : (state.playerColor || '#e2a53f')), ts:Date.now(), text, session };
     state.journal.push(entry);
     if(state.journal.length > 100) state.journal = state.journal.slice(-100);
     lastJournalSnapshot = JSON.stringify({ list: state.journal });
@@ -4277,7 +4310,6 @@
     if(!$editBox) return;
     if(!$editBox.textContent.trim()) return;
     entry.text = sanitizeRichHtml($editBox.innerHTML);
-    entry.color = state.journalColor || entry.color || '#e2a53f';
     entry.editedTs = Date.now();
     editingJournalId = null;
     lastJournalSnapshot = JSON.stringify({ list: state.journal });
@@ -4295,33 +4327,11 @@
     await persistJournal();
   }
 
-  async function adjustJournalFontSize(delta){
-    if(!effectiveMaster()) return;
-    const current = Number(state.meta.journalFontSize) || DEFAULT_JOURNAL_FONT_SIZE;
-    const next = Math.max(10, Math.min(28, current + delta));
-    state.meta.journalFontSize = next;
-    applyJournalFontSize(next);
-    await persistMetaOnly();
-  }
-
-  async function changeJournalFontFamily(){
-    if(!effectiveMaster()) return;
-    state.meta.journalFontFamily = el('journal-font-family').value;
-    applyJournalFontFamily(state.meta.journalFontFamily);
-    await persistMetaOnly();
-  }
-
   function openJournalPanel(){
     el('journal-panel').classList.add('open');
     el('journal-backdrop').classList.add('open');
     const $sessionInput = el('journal-session-input');
     if($sessionInput && !$sessionInput.value) $sessionInput.value = lastJournalSession;
-    const $fontControls = el('journal-font-controls');
-    if($fontControls) $fontControls.style.display = effectiveMaster() ? 'flex' : 'none';
-    const savedColor = localStorage.getItem('journal-color-c'+state.currentSlot+'-'+currentDisplayName().toLowerCase());
-    state.journalColor = savedColor || (state.isMaster ? '#e2a53f' : (state.playerColor || '#e2a53f'));
-    el('journal-color-input').value = state.journalColor;
-    document.documentElement.style.setProperty('--journal-current-color', state.journalColor);
     renderJournalList();
     const $list = el('journal-list');
     if($list) $list.scrollTop = $list.scrollHeight;
@@ -4334,14 +4344,6 @@
   el('journal-panel-close').addEventListener('click', closeJournalPanel);
   el('journal-backdrop').addEventListener('click', closeJournalPanel);
   el('btn-journal-add').addEventListener('click', addJournalEntry);
-  el('journal-font-dec').addEventListener('click', () => adjustJournalFontSize(-1));
-  el('journal-font-inc').addEventListener('click', () => adjustJournalFontSize(1));
-  el('journal-font-family').addEventListener('change', changeJournalFontFamily);
-  el('journal-color-input').addEventListener('input', () => {
-    state.journalColor = el('journal-color-input').value;
-    document.documentElement.style.setProperty('--journal-current-color', state.journalColor);
-    localStorage.setItem('journal-color-c'+state.currentSlot+'-'+currentDisplayName().toLowerCase(), state.journalColor);
-  });
 
   // ---------- "My Sheet" (players view/interact with their own character, matched by name) ----------
   function findMyToken(){
@@ -4557,15 +4559,6 @@
     root.setProperty('--amber', t.accent);
     root.setProperty('--topbar-bg-1', hexToRgbaTheme(t.topbar,alpha));
     root.setProperty('--topbar-bg-2', hexToRgbaTheme(darkenHex(t.topbar,0.35),alpha));
-  }
-
-  const DEFAULT_JOURNAL_FONT_SIZE = 14;
-  function applyJournalFontSize(size){
-    const s = Math.max(10, Math.min(28, Number(size) || DEFAULT_JOURNAL_FONT_SIZE));
-    document.documentElement.style.setProperty('--journal-font-size', s + 'px');
-  }
-  function applyJournalFontFamily(font){
-    document.documentElement.style.setProperty('--journal-font-family', font || "'EB Garamond', serif");
   }
 
   const DEFAULT_TITLE_STYLE = { size:20, color:'#e2a53f', bold:true, italic:false, uppercase:false, letterSpacing:0.5, outlineWidth:0, outlineColor:'#000000', shadow:'none', bgColor:'#15120d', bgOpacity:0 };
@@ -5310,6 +5303,25 @@
     });
   }
 
+  function resizeTransparentImage(file, maxDim){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>{
+        const img=new Image();
+        img.onload=()=>{
+          let w=img.width,h=img.height;
+          if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;}
+          else if(h>=w&&h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}
+          const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+          const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror=reject; img.src=reader.result;
+      };
+      reader.onerror=reject; reader.readAsDataURL(file);
+    });
+  }
+
   // ---------- undo / redo (mestre: cena inteira; jogador: somente as próprias ações) ----------
   function snapshotState(){
     const page = currentPage();
@@ -5448,9 +5460,6 @@
     el('access-code-input').value = state.meta.playerCode || '';
 
     applyTheme(state.meta.theme);
-    applyJournalFontSize(state.meta.journalFontSize);
-    applyJournalFontFamily(state.meta.journalFontFamily);
-    el('journal-font-family').value = state.meta.journalFontFamily || "'EB Garamond', serif";
     el('theme-bg').value = (state.meta.theme && state.meta.theme.bg) || DEFAULT_THEME.bg;
     el('theme-panel').value = (state.meta.theme && state.meta.theme.panel) || DEFAULT_THEME.panel;
     el('theme-text').value = (state.meta.theme && state.meta.theme.text) || DEFAULT_THEME.text;
@@ -5510,6 +5519,7 @@
     }
     renderMultiSelectBar();
     renderTokenList();
+    renderMapObjectList();
     renderTextList();
     renderPageHistory();
     applyTransform();
@@ -5652,7 +5662,7 @@
     if(!folder){ wrap.classList.remove('show'); select.innerHTML=''; return; }
     wrap.classList.add('show');
     if(label) label.textContent='Fichas em “'+folder.name+'”';
-    const eligible=state.tokens.filter(t=>!t.isReference);
+    const eligible=state.tokens.filter(t=>!t.isReference&&!t.isMapObject);
     select.innerHTML=eligible.map(tok=>'<option value="'+tok.id+'"'+(tok.folderId===folderId?' selected':'')+'>'+escapeHtml(tok.name||'Sem nome')+(tok.masterLocked?' · NPC':' · Personagem')+'</option>').join('');
   }
   async function applyFolderMultiselect(){
@@ -5876,10 +5886,11 @@
     if(!confirm('Excluir esta página do histórico? O mapa e a névoa dela se perdem. As fichas de personagem continuam existindo.')) return;
     pushUndo();
     state.pages = state.pages.filter(p => p.id !== id);
+    state.tokens = state.tokens.filter(t => !(t.isMapObject && t.pageId === id));
     if(state.currentPageId === id){ state.currentPageId = state.pages[state.pages.length-1].id; }
     render();
     await Promise.all([
-      persistPagesIndex(),
+      persistPagesIndex(), persistTokens(),
       safeDelete(slotKey('page-'+id+'-map')),
       safeDelete(slotKey('page-'+id+'-fog')),
       safeDelete(slotKey('page-'+id+'-draw')),
@@ -5964,6 +5975,7 @@
   }
 
   function stagePositionByType(tok, indexInType){
+    if(tok.isMapObject) return { x:50, y:50 };
     if(tok.isReference) return { x:-18, y: 8 + (indexInType % 6) * 16 };
     if(tok.masterLocked) return { x:112, y: 8 + (indexInType % 8) * 12 };
     return { x: 8 + (indexInType % 8) * 12, y: 112 };
@@ -6146,7 +6158,7 @@
   }
 
   function tokenDisplayDimensions(tok, size){
-    if(!tok || !tok.isReference) return { width:size, height:size };
+    if(!tok || (!tok.isReference && !tok.isMapObject)) return { width:size, height:size };
     const ratio = Number(tok.aspectRatio) || 1;
     if(ratio >= 1) return { width:size, height:size / ratio };
     return { width:size * ratio, height:size };
@@ -6174,6 +6186,7 @@
       const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
       actions=[['Abrir ficha','open'],['Duplicar','duplicate'],['Trazer para frente','front'],['Enviar para trás','back'],[isTokenOnPage(tok,state.currentPageId)?'Remover desta página':'+ Página','page'],['Excluir permanentemente','delete','context-danger']];
     }else if(type==='reference') actions=[['Trazer para frente','front'],['Enviar para trás','back'],['Travar / destravar','lock'],['Remover desta página','page'],['Excluir permanentemente','delete','context-danger']];
+    else if(type==='mapobject') actions=[['Trazer para frente','front'],['Enviar para trás','back'],['Excluir objeto','delete','context-danger']];
     else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
     menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
     menu.style.left=Math.min(e.clientX,window.innerWidth-230)+'px'; menu.style.top=Math.min(e.clientY,window.innerHeight-260)+'px'; menu.classList.add('open');
@@ -6187,7 +6200,7 @@
       if(action==='delete'){ await deleteText(c.id); return; }
     }
     const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
-    if(action==='open'&&!tok.isReference){openTokenSheet(tok);return;}
+    if(action==='open'&&!tok.isReference&&!tok.isMapObject){openTokenSheet(tok);return;}
     if(action==='duplicate'){await duplicateToken(tok.id);return;}
     if(action==='front'||action==='back'){ pushUndo(); if(!tok.positions)tok.positions={}; const pos=tokenPos(tok); tok.positions[state.currentPageId] = { x:pos.x, y:pos.y, zOrder: action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z }; await persistTokens();render();return; }
     if(action==='lock'&&tok.isReference){await toggleReferenceLock(tok.id);return;}
@@ -6198,12 +6211,14 @@
   function renderTokens(){
     document.querySelectorAll('.token').forEach(t => t.remove());
     if(!document.getElementById('map-img')) return;
-    state.tokens.forEach(tok => {
+    const renderOrder = state.tokens.slice().sort((a,b) => Number(!!b.isMapObject) - Number(!!a.isMapObject));
+    renderOrder.forEach(tok => {
       if(!isTokenOnPage(tok, state.currentPageId)) return;
+      if(tok.isMapObject && tok.pageId && tok.pageId !== state.currentPageId) return;
       if(tok.isReference && !effectiveMaster()) return;
       const pos = tokenPos(tok);
       const t = document.createElement('div');
-      t.className = 'token' + (tok.isReference ? ' token-reference' : '') + (tok.isReference && tok.referenceLocked ? ' reference-locked' : '');
+      t.className = 'token' + (tok.isReference ? ' token-reference' : '') + (tok.isMapObject ? ' map-object' : '') + (tok.isReference && tok.referenceLocked ? ' reference-locked' : '');
       t.dataset.id = tok.id;
       const size = tokenSize(tok);
       const dims = tokenDisplayDimensions(tok, size);
@@ -6224,6 +6239,18 @@
         t.style.setProperty('--token-custom-status-font', customStatusFont + 'px');
       }
       t.style.zIndex = String(clampStageZOrder(typeof pos.zOrder === 'number' ? pos.zOrder : MAP_LAYER_FLOOR_Z));
+      if(tok.isMapObject){
+        const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.06)));
+        const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
+        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(.1,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';">' +
+                      (effectiveMaster() ? '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' : '') + handleHtml;
+        t.addEventListener('pointerdown', onTokenPointerDown);
+        t.addEventListener('contextmenu', e=>openContextMenu(e,'mapobject',tok.id));
+        $canvas.appendChild(t);
+        const handle = t.querySelector('[data-resize-handle]');
+        if(handle) handle.addEventListener('pointerdown', onRefResizeStart);
+        return;
+      }
       if(tok.isReference){
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.12)));
         const handleHtml = (effectiveMaster() && !tok.referenceLocked) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
@@ -6919,6 +6946,34 @@
     });
   }
 
+  function renderMapObjectList(){
+    const root=el('map-object-list'); if(!root) return;
+    if(!effectiveMaster()){ root.innerHTML=''; return; }
+    const objects=state.tokens.filter(t=>t.isMapObject && (!t.pageId || t.pageId===state.currentPageId));
+    if(!objects.length){ root.innerHTML='<div class="hint">Nenhum objeto nesta página.</div>'; return; }
+    root.innerHTML=objects.map(tok=>{
+      const opacity=Math.round(Math.max(.1,Math.min(1,Number(tok.opacity==null?1:tok.opacity)))*100);
+      return '<div class="map-object-card">'+
+        '<div class="map-object-card-top"><img class="map-object-thumb" src="'+tok.image+'" alt=""><input type="text" value="'+escapeHtml(tok.name)+'" data-map-object-name="'+tok.id+'"><button type="button" class="danger" data-map-object-delete="'+tok.id+'" title="Excluir objeto">✕</button></div>'+
+        '<div class="map-object-opacity-row"><label>Opacidade</label><input type="range" min="10" max="100" step="5" value="'+opacity+'" data-map-object-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+opacity+'%</span></div>'+
+        '<button type="button" data-jump-map-object="'+tok.id+'">Localizar no mapa</button></div>';
+    }).join('');
+    root.querySelectorAll('[data-map-object-name]').forEach(inp=>inp.addEventListener('change',()=>renameToken(inp.getAttribute('data-map-object-name'),inp.value)));
+    root.querySelectorAll('[data-map-object-opacity]').forEach(inp=>{
+      inp.addEventListener('input',()=>{
+        const tok=state.tokens.find(t=>t.id===inp.getAttribute('data-map-object-opacity')); if(!tok)return;
+        tok.opacity=Number(inp.value)/100; inp.nextElementSibling.textContent=inp.value+'%'; renderTokens();
+      });
+      inp.addEventListener('change',()=>persistTokens());
+    });
+    root.querySelectorAll('[data-jump-map-object]').forEach(btn=>btn.addEventListener('click',()=>jumpToToken(btn.getAttribute('data-jump-map-object'))));
+    root.querySelectorAll('[data-map-object-delete]').forEach(btn=>btn.addEventListener('click',async()=>{
+      const id=btn.getAttribute('data-map-object-delete'); const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
+      if(!confirm('Excluir o objeto “'+tok.name+'”?')) return;
+      pushUndo(); state.tokens=state.tokens.filter(t=>t.id!==id); render(); await persistTokens();
+    }));
+  }
+
   function tokenCardMarkup(tok){
     const size = tokenSize(tok);
     const onPage = isTokenOnPage(tok, state.currentPageId);
@@ -7027,8 +7082,8 @@
     const folderFilter = el('token-folder-filter') ? el('token-folder-filter').value : '';
     const folderOk = t => !folderFilter || (folderFilter==='__none' ? !t.folderId : t.folderId===folderFilter);
     const references = state.tokens.filter(t => t.isReference && folderOk(t));
-    const characters = state.tokens.filter(t => !t.isReference && !t.masterLocked && folderOk(t));
-    const npcs = state.tokens.filter(t => !t.isReference && t.masterLocked && folderOk(t));
+    const characters = state.tokens.filter(t => !t.isReference && !t.isMapObject && !t.masterLocked && folderOk(t));
+    const npcs = state.tokens.filter(t => !t.isReference && !t.isMapObject && t.masterLocked && folderOk(t));
     function section(title, list, markupFn){
       if(list.length === 0) return '';
       return (
@@ -7212,6 +7267,19 @@
   }
   function clearMoveDistanceLabel(){ const x=document.getElementById('token-move-distance'); if(x)x.remove(); }
 
+  function tokensRidingMapObject(platform){
+    if(!platform || !platform.isMapObject || !$canvas.clientWidth || !$canvas.clientHeight) return [];
+    const p = tokenPos(platform);
+    const dims = tokenDisplayDimensions(platform, tokenSize(platform));
+    const halfW = (dims.width / $canvas.clientWidth) * 50;
+    const halfH = (dims.height / $canvas.clientHeight) * 50;
+    return state.tokens.filter(tok => {
+      if(tok.id === platform.id || tok.isReference || tok.isMapObject || !isTokenOnPage(tok,state.currentPageId)) return false;
+      const tp = tokenPos(tok);
+      return tp.x >= p.x-halfW && tp.x <= p.x+halfW && tp.y >= p.y-halfH && tp.y <= p.y+halfH;
+    });
+  }
+
   function onTokenPointerDown(e){
     e.preventDefault();
     e.stopPropagation();
@@ -7245,6 +7313,15 @@
       startClientX: e.clientX, startClientY: e.clientY,
       origLeft: target.style.left, origTop: target.style.top, startPos: tok ? {x:tokenPos(tok).x,y:tokenPos(tok).y} : null
     };
+    if(tok && tok.isMapObject && effectiveMaster()){
+      state.dragging.riders = tokensRidingMapObject(tok).map(rider => {
+        const riderEl = document.querySelector('.token[data-id="'+rider.id+'"]');
+        const riderPos = tokenPos(rider);
+        return riderEl ? { id:rider.id, el:riderEl, startX:riderPos.x, startY:riderPos.y, liveX:riderPos.x, liveY:riderPos.y } : null;
+      }).filter(Boolean);
+      state.dragging.anchorStartX = tokenPos(tok).x;
+      state.dragging.anchorStartY = tokenPos(tok).y;
+    }
     // Se essa ficha faz parte de uma seleção múltipla (2+), arrasta o grupo inteiro junto.
     if(effectiveMaster() && tok && multiSelectedTokenIds.has(tok.id) && multiSelectedTokenIds.size >= 2){
       const anchorPos = tokenPos(tok);
@@ -7327,7 +7404,7 @@
       const ratio = newSize / (s.startSize || newSize || 1);
       s.group.forEach(g => {
         const gTok = state.tokens.find(t => t.id === g.id);
-        const gMax = gTok && gTok.isReference ? 1200 : 500;
+        const gMax = gTok && (gTok.isReference || gTok.isMapObject) ? 1200 : 500;
         const gSize = Math.max(10, Math.min(gMax, Math.round(g.startSize * ratio)));
         applyLiveTokenSize(g.el, gSize, gTok);
         g.liveSize = gSize;
@@ -7389,6 +7466,16 @@
         g.liveY = gy;
       });
     }
+    if(state.dragging.riders){
+      const dx = xPct - state.dragging.anchorStartX;
+      const dy = yPct - state.dragging.anchorStartY;
+      state.dragging.riders.forEach(r => {
+        const rx = Math.max(min, Math.min(max, r.startX + dx));
+        const ry = Math.max(min, Math.min(max, r.startY + dy));
+        r.el.style.left = rx + '%'; r.el.style.top = ry + '%';
+        r.liveX = rx; r.liveY = ry;
+      });
+    }
   }
   function onTokenPointerUp(e){
     if(!state.dragging) return;
@@ -7404,7 +7491,7 @@
     // token before I persist, so my write doesn't overwrite a concurrent change.
     // Preserva tanto o token arrastado quanto os tamanhos locais dos demais.
     // Assim, mover uma ficha para o mapa não desfaz redimensionamentos anteriores.
-    const protectedMoveIds = d.group ? d.group.map(g => g.id) : [d.id];
+    const protectedMoveIds = d.group ? d.group.map(g => g.id) : [d.id].concat((d.riders||[]).map(r=>r.id));
     adoptPendingTokensPreservingSizes(protectedMoveIds);
 
     const dist = Math.hypot((e.clientX||0) - d.startClientX, (e.clientY||0) - d.startClientY);
@@ -7421,7 +7508,12 @@
         const tok = state.tokens.find(t => t.id === d.id);
         if(tok){
           if(!tok.positions) tok.positions = {};
-          tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: nextTokenZOrder() };
+          tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: tok.isMapObject ? MAP_LAYER_FLOOR_Z : nextTokenZOrder() };
+          (d.riders||[]).forEach(r => {
+            const rider = state.tokens.find(t=>t.id===r.id); if(!rider) return;
+            if(!rider.positions) rider.positions={};
+            rider.positions[state.currentPageId] = { x:r.liveX, y:r.liveY, zOrder:nextTokenZOrder() };
+          });
           persistTokens();
         }
       }
@@ -7441,12 +7533,12 @@
 
   function tokensOnCurrentPageForBulkMove(){
     if(!state.currentPageId) return [];
-    return state.tokens.filter(tok => !tok.isReference && isTokenOnPage(tok, state.currentPageId));
+    return state.tokens.filter(tok => !tok.isReference && !tok.isMapObject && isTokenOnPage(tok, state.currentPageId));
   }
 
   function tokensOffCurrentPageForBulkAdd(){
     if(!state.currentPageId) return [];
-    return state.tokens.filter(tok => !tok.isReference && !isTokenOnPage(tok, state.currentPageId));
+    return state.tokens.filter(tok => !tok.isReference && !tok.isMapObject && !isTokenOnPage(tok, state.currentPageId));
   }
 
   function bulkStagePosition(index){
@@ -8225,7 +8317,7 @@
     pushUndo();
     const current = tokenSize(tok);
     if(!tok.sizes) tok.sizes = {};
-    tok.sizes[state.currentPageId] = Math.max(10, Math.min(tok.isReference ? 1200 : 500, current + delta));
+    tok.sizes[state.currentPageId] = Math.max(10, Math.min((tok.isReference || tok.isMapObject) ? 1200 : 500, current + delta));
     render();
     await persistTokens();
   }
@@ -8912,7 +9004,7 @@
     if(!tok) return;
     let size = parseInt(value, 10);
     if(isNaN(size)) size = tokenSize(tok);
-    size = Math.max(10, Math.min(tok.isReference ? 1200 : 500, size));
+    size = Math.max(10, Math.min((tok.isReference || tok.isMapObject) ? 1200 : 500, size));
     pushUndo();
     if(!tok.sizes) tok.sizes = {};
     tok.sizes[state.currentPageId] = size;
@@ -8965,7 +9057,7 @@
       tok.hp = { current:maxHp, max:maxHp, temp:0 };
     }
     if(state.currentPageId){
-      const staged = state.tokens.filter(t => !t.isReference && !t.masterLocked).length;
+      const staged = state.tokens.filter(t => !t.isReference && !t.isMapObject && !t.masterLocked).length;
       tok.positions[state.currentPageId] = stagePositionByType({ isReference:false, masterLocked:false }, staged);
     }
     state.tokens.push(tok);
@@ -8980,6 +9072,44 @@
     selectNewTokenSystem('hp');
     el('new-stats-section').style.display = 'block';
     el('token-name').placeholder = 'Nome do personagem';
+  });
+
+  // ---------- movable map objects / platforms ----------
+  let pendingMapObjectImage=null;
+  let pendingMapObjectAspectRatio=1;
+  el('map-object-new-opacity').addEventListener('input',()=>{
+    el('map-object-new-opacity-value').textContent=el('map-object-new-opacity').value+'%';
+    el('map-object-preview-img').style.opacity=Number(el('map-object-new-opacity').value)/100;
+  });
+  el('map-object-upload').addEventListener('change',async(e)=>{
+    const file=e.target.files[0]; if(!file)return;
+    try{
+      pendingMapObjectImage=await resizeTransparentImage(file,1600);
+      pendingMapObjectAspectRatio=await getImageAspectRatio(pendingMapObjectImage);
+      el('map-object-preview-img').src=pendingMapObjectImage;
+      el('map-object-preview-img').style.opacity=Number(el('map-object-new-opacity').value)/100;
+      el('map-object-preview').style.display='block';
+    }catch(err){
+      pendingMapObjectImage=null; pendingMapObjectAspectRatio=1;
+      alert('Não consegui carregar esse PNG. Tente outro arquivo.');
+    }
+  });
+  el('map-object-form').addEventListener('submit',async(e)=>{
+    e.preventDefault();
+    if(!state.currentPageId){ alert('Abra um mapa antes de adicionar o objeto.'); return; }
+    if(!pendingMapObjectImage){ el('map-object-upload').click(); return; }
+    pushUndo();
+    const count=state.tokens.filter(t=>t.isMapObject&&t.pageId===state.currentPageId).length;
+    const pos=stagePositionByType({isMapObject:true},count); pos.zOrder=MAP_LAYER_FLOOR_Z;
+    const tok={
+      id:newId('obj'), name:el('map-object-name').value.trim()||('Objeto '+(count+1)),
+      image:pendingMapObjectImage, isMapObject:true, masterLocked:true, pageId:state.currentPageId,
+      opacity:Number(el('map-object-new-opacity').value)/100, aspectRatio:pendingMapObjectAspectRatio,
+      size:360, sizes:{}, positions:{[state.currentPageId]:pos}
+    };
+    state.tokens.push(tok); render(); await persistTokens();
+    el('map-object-form').reset(); el('map-object-new-opacity').value=100; el('map-object-new-opacity-value').textContent='100%';
+    pendingMapObjectImage=null; pendingMapObjectAspectRatio=1; el('map-object-preview').style.display='none'; el('map-object-preview-img').removeAttribute('src');
   });
 
   // ---------- reference images ----------
@@ -10014,7 +10144,6 @@
         if(JSON.stringify(m.theme) !== JSON.stringify(state.meta.theme)){ state.meta.theme = m.theme; ch = true; }
         if(m.titleFont !== state.meta.titleFont){ state.meta.titleFont = m.titleFont; ch = true; }
         if(JSON.stringify(m.titleStyle||{}) !== JSON.stringify(state.meta.titleStyle||{})){ state.meta.titleStyle = m.titleStyle || {}; ch = true; }
-        if(m.journalFontSize !== state.meta.journalFontSize){ state.meta.journalFontSize = m.journalFontSize; ch = true; }
         if(!state.meta.masterPass && m.masterPass){ state.meta.masterPass = m.masterPass; }
         const wasFrozen = !!state.meta.playersFrozen;
         const isFrozenNow = !!m.playersFrozen;
