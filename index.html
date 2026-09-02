@@ -1612,12 +1612,12 @@
           <span class="icon-rail-label">Desenhar</span>
         </div>
         <div class="icon-rail-item">
-          <button type="button" class="icon-rail-btn icon-rail-danger" data-panel="float-danger" title="Zona de perigo">⚠️</button>
-          <span class="icon-rail-label">Perigo</span>
-        </div>
-        <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn" data-panel="float-oracle" title="Oráculo do mestre">🔮</button>
           <span class="icon-rail-label">Oráculo</span>
+        </div>
+        <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn icon-rail-danger" data-panel="float-danger" title="Zona de perigo">⚠️</button>
+          <span class="icon-rail-label">Perigo</span>
         </div>
       </div>
 
@@ -1919,7 +1919,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-danger" style="left:272px; top:88px;">
+      <div class="float-panel" id="float-danger" style="left:272px; top:112px;">
         <div class="float-panel-header">
           <span>⚠️ Zona de perigo</span>
           <button type="button" class="float-panel-close" data-close-panel="float-danger">✕</button>
@@ -1936,7 +1936,7 @@
         </div>
       </div>
 
-      <div class="float-panel" id="float-oracle" style="left:296px; top:112px; width:300px;">
+      <div class="float-panel" id="float-oracle" style="left:296px; top:16px; width:300px;">
         <div class="float-panel-header">
           <span>🔮 Oráculo do mestre</span>
           <button type="button" class="float-panel-close" data-close-panel="float-oracle">✕</button>
@@ -1967,6 +1967,14 @@
             <div class="oracle-result" id="oracle-event-box">
               <p class="oracle-event-tag" id="oracle-event-action"></p>
               <p class="oracle-result-main" id="oracle-event-text" style="font-size:13px;"></p>
+            </div>
+          </div>
+
+          <div class="oracle-section">
+            <div class="oracle-section-title">Encontro aleatório</div>
+            <button id="btn-oracle-encounter" style="width:100%;">Gerar criatura</button>
+            <div class="oracle-result" id="oracle-encounter-box">
+              <p class="oracle-result-sub" id="oracle-encounter-text" style="font-size:12px; text-align:left;"></p>
             </div>
           </div>
 
@@ -3343,8 +3351,16 @@
           'O caminho de fuga ou retirada se fecha.',
           'O personagem se vê em desvantagem de posição (perde o chão, cai, fica cercado).',
           'Um item essencial é perdido, danificado ou cai fora de alcance.',
-          'O oponente foge, se esconde ou muda de tática, alterando o ritmo do confronto.'
-        ]
+          'O oponente foge, se esconde ou muda de tática, alterando o ritmo do confronto.',
+          'Um som ou movimento distante indica que algo mais está se aproximando.',
+          'Um objeto do cenário é derrubado e passa a atrapalhar a movimentação.',
+          'O personagem percebe tarde demais que caiu em uma armadilha simples.',
+          'A visibilidade despenca de repente (poeira, névoa, luz forte demais).',
+          'Um erro de cálculo custa uma ação inteira do personagem.'
+        ],
+        creatureForms: ['magra e coberta de pelos ásperos, do tamanho de um lobo grande','com uma carapaça grossa e patas curtas, pouco maior que um javali','esguia e ágil, quase do tamanho de um humano adulto','robusta e musculosa, quase duas vezes a altura de uma pessoa','pequena e ligeira, do tamanho de um cão de porte médio','alta e desengonçada, com membros desproporcionais','de corpo compacto, escondida sob uma armadura natural espessa','esbelta e alongada, movendo-se quase rente ao chão'],
+        creatureBehaviors: ['que observa à distância antes de se aproximar','que ataca em grupo, cercando a presa','que evita o confronto direto e prefere emboscadas','que reage com agressividade a qualquer luz ou barulho súbito','que parece mais curiosa do que hostil, a princípio','que se camufla bem no ambiente ao redor','que caça sozinha e defende um território bem marcado','que se comunica com sons agudos e repetitivos'],
+        creatureTraits: ['Tem garras ou presas visivelmente afiadas.','Sua pele muda de tonalidade conforme o ambiente.','Um cheiro forte e almiscarado a acompanha.','Movimenta-se de forma estranhamente silenciosa.','Possui marcas ou cicatrizes de batalhas anteriores.','Reage de forma exagerada a fogo ou luz intensa.','Parece ferida ou debilitada, mas isso pode ser uma armadilha.','Emite um som grave e constante, quase como um rosnado baixo.']
       },
       numenera: {
         itemTitle: 'Numenera aleatório',
@@ -3352,9 +3368,30 @@
         oddFlavor: 'o Nono Mundo responde de um jeito que ninguém esperava.',
         actions: ['Revelar','Trair','Ameaçar','Proteger','Esconder','Corromper','Transformar','Negociar','Fugir de','Invocar','Bloquear','Curar','Enganar','Investigar','Destruir','Recrutar'],
         themes: ['um artefato antigo','uma facção rival','o próprio corpo','uma memória perdida','um ninho sintetizado','um portal instável','uma criatura mutante','uma máquina abandonada','um pacto esquecido','a passagem do tempo','um recurso escasso','as ruínas abaixo','um sinal do céu'],
-        numForms: ['um cilindro do tamanho da mão','uma esfera perfeita','um fragmento de cristal irregular','um disco fino com bordas afiadas','um bastão articulado','uma câmara sem abertura visível','um anel com padrões gravados','um cubo que não reflete luz'],
-        numDescriptors: ['metálico e frio ao toque','emite um zumbido grave','muda de cor sob luz forte','parece orgânico, quase vivo','está coberto de símbolos indecifráveis','vibra levemente sem motivo aparente','cheira a ozônio','é surpreendentemente leve'],
-        numEffects: ['libera um pulso de energia quando ativado','projeta uma imagem tridimensional','altera a gravidade ao redor por instantes','cura ferimentos leves ao ser tocado','abre uma fresta dimensional momentânea','gera uma barreira de força invisível','permite ver através de paredes por segundos','comunica pensamentos simples a quem o segura'],
+        numForms: ['um cilindro do tamanho da mão','uma esfera perfeita','um fragmento de cristal irregular','um disco fino com bordas afiadas','um bastão articulado','uma câmara sem abertura visível','um anel com padrões gravados','um cubo que não reflete luz','uma placa flexível e semitransparente','um conjunto de hastes interligadas por fios finíssimos','uma cápsula selada com um líquido em movimento constante','um objeto de forma indefinida, quase impossível de descrever'],
+        numDescriptors: ['metálico e frio ao toque','emite um zumbido grave','muda de cor sob luz forte','parece orgânico, quase vivo','está coberto de símbolos indecifráveis','vibra levemente sem motivo aparente','cheira a ozônio','é surpreendentemente leve','está quente demais para ter ficado exposto ao tempo','parece mais antigo do que qualquer coisa ao redor','reflete luz de um jeito que não deveria ser possível','emite um cheiro adocicado e artificial'],
+        numEffects: [
+          'libera um pulso de energia quando ativado',
+          'projeta uma imagem tridimensional',
+          'altera a gravidade ao redor por instantes',
+          'cura ferimentos leves ao ser tocado',
+          'abre uma fresta dimensional momentânea',
+          'gera uma barreira de força invisível',
+          'permite ver através de paredes por segundos',
+          'comunica pensamentos simples a quem o segura',
+          'emite um clarão que cega temporariamente quem olha diretamente',
+          'gera um campo que desacelera objetos em movimento próximos',
+          'reorganiza pequenos objetos próximos em um padrão específico',
+          'faz pequenos itens metálicos flutuarem por alguns segundos',
+          'projeta um som que só pode ser ouvido por quem o ativou',
+          'altera temporariamente a temperatura do ambiente ao redor',
+          'cria uma réplica ilusória de quem o segura por poucos segundos',
+          'absorve a luz ambiente, escurecendo a área ao redor',
+          'emite um pulso que interfere em outros numenera próximos',
+          'gera uma sensação de calma ou torpor em quem está por perto',
+          'revela texto ou símbolos invisíveis em superfícies próximas',
+          'faz o próprio dispositivo desaparecer por um instante e reaparecer em outro ponto'
+        ],
         intrusions: [
           'Reforços surgem: mais um inimigo entra na cena, vindo de uma direção inesperada.',
           'O terreno cede ou desaba parcialmente, forçando um teste para não perder o equilíbrio.',
@@ -3367,8 +3404,15 @@
           'O personagem se vê em desvantagem de posição (perde o chão, cai, fica cercado).',
           'Algo no cenário muda de forma drástica: luzes se apagam, gravidade oscila, uma estrutura antiga desperta.',
           'Um item essencial (arma, munição, cura) é perdido, danificado ou cai fora de alcance.',
-          'O inimigo foge, se esconde ou muda de tática, alterando o ritmo do combate.'
-        ]
+          'O inimigo foge, se esconde ou muda de tática, alterando o ritmo do combate.',
+          'Um numenera próximo ativa sozinho, com efeito imprevisível para todos na cena.',
+          'Uma estrutura antiga próxima desperta parcialmente, reagindo ao combate.',
+          'Um resíduo de energia do Nono Mundo interfere em dispositivos e sentidos por perto.',
+          'A própria realidade oscila por um instante, distorcendo sons e distâncias.'
+        ],
+        creatureForms: ['de corpo translúcido, revelando estruturas internas que pulsam com luz fraca','com múltiplos membros finos terminados em pontas metálicas','coberta por uma camada cristalina que estala a cada movimento','de forma quase líquida, mudando de contorno lentamente','com um exoesqueleto que parece feito de material sintético antigo','pequena e flutuante, sustentada por algo que ninguém consegue explicar','alta e filiforme, quase indistinguível de uma estrutura em ruínas','com padrões geométricos na pele que se reorganizam continuamente'],
+        creatureBehaviors: ['que emite pulsos de luz em sequências que parecem ter significado','que se aproxima de fontes de energia residual do Nono Mundo','que ignora completamente ameaças convencionais','que parece estar seguindo instruções de algo distante','que se multiplica ou se divide quando ameaçada','que interage com numenera próximos de forma quase intencional','que se desloca em padrões repetitivos, quase mecânicos','que reage com hostilidade a qualquer numenera ativado nas proximidades'],
+        creatureTraits: ['Seu toque deixa uma sensação de formigamento elétrico.','Parece estar parcialmente fora de sincronia com o presente.','Restos de tecnologia antiga estão fundidos ao seu corpo.','Produz um zumbido grave, quase abaixo do limite da audição.','Sua origem é claramente artificial, ainda que pareça viva.','Deixa um rastro de resíduo cristalino por onde passa.','Parece consciente do observador, mesmo sem olhos aparentes.','Uma parte de seu corpo pisca com uma luz intermitente e fraca.']
       },
       dnd: {
         itemTitle: 'Item mágico aleatório',
@@ -3394,7 +3438,11 @@
           'O chefe da cena revela uma segunda forma ou fase, mais perigosa.',
           'Uma coluna ou estrutura da masmorra começa a desabar.',
           'Um aliado é enfeitiçado ou dominado temporariamente pelo inimigo.',
-          'A luz das tochas se apaga, mergulhando o combate na escuridão.'
+          'A luz das tochas se apaga, mergulhando o combate na escuridão.',
+          'Um item mágico do personagem se ativa sozinho, com efeito colateral.',
+          'Uma barreira ou selo antigo se rompe, liberando algo que estava contido.',
+          'O grupo é separado por uma parede de gelo, fogo ou força mágica.',
+          'Um NPC neutro na cena decide agir, mudando o equilíbrio da luta.'
         ]
       },
       tormenta: {
@@ -3421,10 +3469,20 @@
           'Uma armadilha ou maldição antiga se ativa no calor da batalha.',
           'O inimigo invoca reforços de um pacto obscuro.',
           'A luz do dia escurece de repente, como se a Tormenta se aproximasse.',
-          'Um objeto ou estrutura próxima é corrompido, tornando-se hostil.'
-        ]
+          'Um objeto ou estrutura próxima é corrompido, tornando-se hostil.',
+          'Um estilhaço de Tormenta próximo libera energia instável na área.',
+          'Um personagem sente os efeitos de exaustão da Tormenta de forma repentina.',
+          'Uma criatura da cena sofre uma mutação súbita em pleno combate.',
+          'Um selo ou proteção contra a Tormenta se rompe momentaneamente.'
+        ],
+        creatureForms: ['deformada por resíduos da Tormenta, com simetria quebrada','coberta por uma pele escamosa de tom acinzentado','alta e magra, com membros alongados de forma antinatural','compacta e musculosa, como se moldada por magia bruta','translúcida em partes, como se não pertencesse totalmente ao mundo','pequena e ágil, movendo-se em saltos erráticos','robusta e imponente, lembrando vagamente uma besta comum, porém maior','de contorno instável, mudando sutilmente de forma a cada instante'],
+        creatureBehaviors: ['que reage de forma imprevisível, alternando entre furtividade e fúria','que parece atraída por magia ou energia arcana próxima','que caça em silêncio até o momento do ataque','que se agita quando perto de resquícios da Tormenta','que ataca sem padrão aparente, como se guiada pelo caos','que protege um território corrompido pela Tormenta','que reage com pânico a símbolos sagrados ou luz pura','que se comunica através de sons guturais e desconexos'],
+        creatureTraits: ['Sua presença faz o ar ao redor parecer mais pesado.','Marcas de corrupção pulsam levemente em sua pele.','Um cheiro de ozônio e podridão a acompanha.','Parece sofrer, como se a própria existência lhe causasse dor.','Seus olhos têm um brilho anormal, quase hipnótico.','Deixa resíduos estranhos, quase oleosos, por onde passa.','Reage de forma violenta a qualquer tentativa de cura ou purificação.','Sua forma parece instável, como se pudesse mudar a qualquer momento.']
       }
     };
+    systems.dnd.creatureForms = ['coberta de escamas escuras, do tamanho de um cavalo grande','esguia e alada, pairando silenciosamente no ar','robusta e de pele grossa como pedra, quase do tamanho de um urso','magra e encurvada, com garras longas e olhos famintos','de porte humanoide, mas com traços claramente bestiais','enorme e lenta, deixando marcas profundas no chão por onde passa','pequena e ágil, movendo-se entre sombras com facilidade','de aparência quase angelical, mas com um brilho perturbador no olhar'];
+    systems.dnd.creatureBehaviors = ['que ruge antes de atacar, buscando intimidar','que age em bando, coordenando ataques com sinais sutis','que protege um ninho, tesouro ou território com ferocidade','que testa a força dos oponentes antes de se comprometer com o ataque','que usa o ambiente a seu favor, emboscando de cima ou por baixo','que parece obedecer a um mestre ou convocador não visto','que caça por instinto, sem hesitar diante de qualquer perigo','que recua estrategicamente quando ferida, para atacar de novo depois'];
+    systems.dnd.creatureTraits = ['Seu bafo carrega um forte cheiro de enxofre.','Runas ou marcas antigas estão gravadas em sua pele.','Um brilho sutil de magia cerca seu corpo.','Cicatrizes de batalhas contra caçadores cobrem seu couro.','Seus olhos brilham com uma luz interna incomum.','Emite um rosnado grave que ecoa antes mesmo dela aparecer.','Parece imune a ferimentos superficiais.','Uma aura de medo instintivo acompanha sua presença.'];
 
     const baseAnswers = [
       {t:'Sim, e...', cls:'yes', f:'algo além do esperado se revela a seu favor.'},
@@ -3438,7 +3496,7 @@
     let currentSystem = 'outros';
 
     function clearResults(){
-      ['oracle-answer-box','oracle-event-box','oracle-artifact-box','oracle-intrusion-box'].forEach(id => {
+      ['oracle-answer-box','oracle-event-box','oracle-encounter-box','oracle-artifact-box','oracle-intrusion-box'].forEach(id => {
         const box = el(id);
         if(box) box.classList.remove('show','yes','no','odd');
       });
@@ -3477,6 +3535,14 @@
       el('oracle-event-box').classList.add('show');
       el('oracle-event-action').textContent = pick(sys.actions);
       el('oracle-event-text').textContent = pick(sys.themes);
+    });
+
+    const encounterBtn = el('btn-oracle-encounter');
+    if(encounterBtn) encounterBtn.addEventListener('click', () => {
+      const sys = systems[currentSystem];
+      el('oracle-encounter-box').classList.add('show');
+      el('oracle-encounter-text').textContent =
+        'Uma criatura ' + pick(sys.creatureForms) + ', ' + pick(sys.creatureBehaviors) + '. ' + pick(sys.creatureTraits);
     });
 
     const artifactBtn = el('btn-oracle-artifact');
