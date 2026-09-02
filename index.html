@@ -611,6 +611,7 @@
   #map-canvas img{ position:relative; z-index:0; display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:11; }
+  #object-attachment-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:900001; pointer-events:none; }
   #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:9; }
 
   #empty-map{
@@ -6252,7 +6253,7 @@
       let renderedZ=clampStageZOrder(typeof pos.zOrder === 'number' ? pos.zOrder : MAP_LAYER_FLOOR_Z);
       if(!tok.isMapObject && tok.platformByPage && tok.platformByPage[state.currentPageId]){
         const platform=state.tokens.find(p=>p.id===tok.platformByPage[state.currentPageId]&&p.isMapObject);
-        if(platform){ const platformZ=clampStageZOrder(tokenPos(platform).zOrder); renderedZ=Math.max(renderedZ,platformZ+1); }
+        if(platform) renderedZ=Math.max(renderedZ,900002);
       }
       t.style.zIndex = String(renderedZ);
       if(tok.isMapObject){
@@ -7421,7 +7422,7 @@
     pushUndo();
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
-    target.style.zIndex = 999999; // fica por cima de tudo enquanto está sendo arrastado
+    target.style.zIndex = tok&&tok.isMapObject ? 899999 : 1000000;
     const canvasRect = $canvas.getBoundingClientRect();
     state.dragging = {
       id: target.dataset.id, el: target, canvasRect,
@@ -7448,7 +7449,7 @@
         const t2=state.tokens.find(t=>t.id===id), el2=document.querySelector('.token[data-id="'+id+'"]');
         if(!t2||!el2)return null;
         const p2=tokenPos(t2);
-        el2.style.zIndex=t2.isMapObject?'999999':'1000000';
+        el2.style.zIndex=t2.isMapObject?'899999':'1000000';
         return {id,el:el2,startX:p2.x,startY:p2.y,liveX:p2.x,liveY:p2.y,attachmentX:p2.x,attachmentY:p2.y,startZ:p2.zOrder,selected:meta.selected,riderOf:meta.riderOf};
       }).filter(Boolean);
       const anchorPos=tokenPos(tok);
@@ -9623,6 +9624,7 @@
     ensureFogModel(page).objectStrokes = [];
     page.fog.image = canvas.toDataURL('image/png');
     canvas._baseFogImageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+    redrawObjectAttachmentCanvases(page);
     await persistPageFog(page);
   });
 
@@ -9781,12 +9783,48 @@
     return page.fog;
   }
 
+  function getObjectAttachmentCanvas(id,zIndex){
+    const img=document.getElementById('map-img');
+    if(!img) return null;
+    let canvas=document.getElementById(id);
+    if(!canvas){
+      canvas=document.createElement('canvas');
+      canvas.id=id;
+      $canvas.appendChild(canvas);
+    }
+    const width=img.naturalWidth||1200, height=img.naturalHeight||800;
+    if(canvas.width!==width) canvas.width=width;
+    if(canvas.height!==height) canvas.height=height;
+    canvas.style.zIndex=String(zIndex);
+    return canvas;
+  }
+
+  function redrawObjectAttachmentCanvases(page,inProgressDraw,inProgressFog){
+    if(!page) return;
+    document.getElementById('fog-object-canvas')?.remove();
+    document.getElementById('draw-object-canvas')?.remove();
+    const canvas=getObjectAttachmentCanvas('object-attachment-canvas',900001);
+    if(!canvas) return;
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const layers=[];
+    ensureFogModel(page).objectStrokes.forEach(stroke=>layers.push({kind:'fog',stroke}));
+    ((page.draw&&page.draw.strokes)||[]).filter(stroke=>stroke.platformId).forEach(stroke=>layers.push({kind:'draw',stroke}));
+    if(inProgressFog&&inProgressFog.platformId) layers.push({kind:'fog',stroke:inProgressFog});
+    if(inProgressDraw&&inProgressDraw.platformId) layers.push({kind:'draw',stroke:inProgressDraw});
+    layers.sort((a,b)=>(Number(a.stroke.createdAt)||0)-(Number(b.stroke.createdAt)||0));
+    layers.forEach(layer=>{
+      if(layer.kind==='fog') renderFogStrokeOnCtx(ctx,layer.stroke);
+      else drawStrokeOnCtx(ctx,layer.stroke);
+    });
+  }
+
   function redrawFogCanvasFromModel(canvas,page){
     if(!canvas || !page) return;
     const ctx=canvas.getContext('2d');
     if(canvas._baseFogImageData) ctx.putImageData(canvas._baseFogImageData,0,0);
     else ctx.clearRect(0,0,canvas.width,canvas.height);
-    ensureFogModel(page).objectStrokes.forEach(stroke=>renderFogStrokeOnCtx(ctx,stroke));
+    redrawObjectAttachmentCanvases(page);
   }
 
   function setupFogCanvas(){
@@ -9993,8 +10031,9 @@
   function redrawDrawCanvas(canvas, page, inProgressStroke){
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    (page.draw.strokes || []).forEach(stroke => drawStrokeOnCtx(ctx, stroke));
-    if(inProgressStroke) drawStrokeOnCtx(ctx, inProgressStroke);
+    (page.draw.strokes || []).filter(stroke=>!stroke.platformId).forEach(stroke => drawStrokeOnCtx(ctx, stroke));
+    if(inProgressStroke&&!inProgressStroke.platformId) drawStrokeOnCtx(ctx, inProgressStroke);
+    redrawObjectAttachmentCanvases(page,inProgressStroke);
   }
 
   function translateStrokeGeometry(stroke,dx,dy){
@@ -10137,11 +10176,11 @@
       state.drawStroke = { canvas, page, mode:'erase' };
       redrawDrawCanvas(canvas, page);
     } else if(state.drawShape !== 'freehand'){
-      const stroke = { id:newId('dr'), author: myDrawAuthorName(), platformId:mapObjectIdAtCanvasPoint(pt,canvas), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape: state.drawShape, start:{x:pt.x, y:pt.y}, end:{x:pt.x, y:pt.y} };
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), createdAt:Date.now(), platformId:mapObjectIdAtCanvasPoint(pt,canvas), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape: state.drawShape, start:{x:pt.x, y:pt.y}, end:{x:pt.x, y:pt.y} };
       state.drawStroke = { canvas, page, mode:'shape', stroke };
       redrawDrawCanvas(canvas, page, stroke);
     } else {
-      const stroke = { id:newId('dr'), author: myDrawAuthorName(), platformId:mapObjectIdAtCanvasPoint(pt,canvas), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape:'freehand', points:[{x:pt.x, y:pt.y}] };
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), createdAt:Date.now(), platformId:mapObjectIdAtCanvasPoint(pt,canvas), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape:'freehand', points:[{x:pt.x, y:pt.y}] };
       state.drawStroke = { canvas, page, mode:'pen', stroke };
       redrawDrawCanvas(canvas, page, stroke);
     }
@@ -10186,19 +10225,19 @@
     if(!session || !session.canvas || !session.ctx) return;
     session.ctx.putImageData(session.baseFogImageData, 0, 0);
     const liveStroke={
+      platformId:session.platformId,
+      createdAt:session.createdAt,
       mode: session.mode,
       color: session.color,
       opacity: session.opacity,
       brush: session.brush,
       points: session.points
     };
-    const attached=ensureFogModel(session.page).objectStrokes;
     if(session.platformId){
-      attached.forEach(stroke=>renderFogStrokeOnCtx(session.ctx,stroke));
-      renderFogStrokeOnCtx(session.ctx,liveStroke);
+      redrawObjectAttachmentCanvases(session.page,null,liveStroke);
     }else{
       renderFogStrokeOnCtx(session.ctx,liveStroke);
-      attached.forEach(stroke=>renderFogStrokeOnCtx(session.ctx,stroke));
+      redrawObjectAttachmentCanvases(session.page);
     }
   }
 
@@ -10214,6 +10253,7 @@
     state.fogStroke = {
       canvas, page,
       ctx,
+      createdAt:Date.now(),
       platformId:mapObjectIdAtCanvasPoint(pt,canvas),
       brush: state.fogBrush,
       mode: state.fogPaintMode,
@@ -10240,7 +10280,7 @@
     const page = s && s.page;
     if(!s || !page) return;
     const stroke={
-      id:newId('fg'), platformId:s.platformId, mode:s.mode, color:s.color,
+      id:newId('fg'), createdAt:s.createdAt, platformId:s.platformId, mode:s.mode, color:s.color,
       opacity:s.opacity, brush:s.brush, points:s.points
     };
     if(s.platformId){
