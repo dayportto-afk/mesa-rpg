@@ -646,6 +646,7 @@
     display:flex; flex-direction:column; gap:8px; padding:10px; margin-top:8px;
     background:#120e08; border:1px solid var(--line); border-radius:5px;
   }
+  .map-object-card.object-card-flash{ animation:token-card-flash-anim 1.2s ease; }
   .map-object-card-top{ display:flex; align-items:center; gap:8px; }
   .map-object-thumb{ width:48px; height:48px; object-fit:contain; background:#0a0704; border:1px solid var(--line); border-radius:4px; }
   .map-object-card-top input{ flex:1; min-width:0; }
@@ -6972,7 +6973,7 @@
       const opacity=Math.round(Math.max(.1,Math.min(1,Number(tok.opacity==null?1:tok.opacity)))*100);
       const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
       const shadowOpacity=Math.round(Math.max(0,Math.min(1,Number(shadow.opacity)||0))*100);
-      return '<div class="map-object-card">'+
+      return '<div class="map-object-card" id="map-object-card-'+tok.id+'">'+
         '<div class="map-object-card-top"><img class="map-object-thumb" src="'+tok.image+'" alt=""><input type="text" value="'+escapeHtml(tok.name)+'" data-map-object-name="'+tok.id+'"><button type="button" class="danger" data-map-object-delete="'+tok.id+'" title="Excluir objeto">✕</button></div>'+
         '<div class="map-object-opacity-row"><label>Opacidade</label><input type="range" min="10" max="100" step="5" value="'+opacity+'" data-map-object-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+opacity+'%</span></div>'+
         '<button type="button" class="'+(tok.objectLocked?'toggle-active':'')+'" data-map-object-lock="'+tok.id+'">'+(tok.objectLocked?'🔒 Posição travada':'🔓 Travar posição')+'</button>'+
@@ -7014,6 +7015,22 @@
       if(!confirm('Excluir o objeto “'+tok.name+'”?')) return;
       pushUndo(); detachTokensFromMapObject(id); state.tokens=state.tokens.filter(t=>t.id!==id); render(); await persistTokens();
     }));
+  }
+
+  function openMapObjectEditor(id){
+    if(!effectiveMaster()) return;
+    const tok=state.tokens.find(t=>t.id===id&&t.isMapObject); if(!tok)return;
+    state.selectedTokenId=id; state.selectedTextId=null;
+    openFloatPanel('float-mapobjects');
+    render();
+    requestAnimationFrame(()=>{
+      const card=el('map-object-card-'+id); if(!card)return;
+      card.scrollIntoView({block:'nearest',behavior:'smooth'});
+      card.classList.add('object-card-flash');
+      const nameInput=card.querySelector('[data-map-object-name]');
+      if(nameInput){nameInput.focus();nameInput.select();}
+      setTimeout(()=>card.classList.remove('object-card-flash'),1300);
+    });
   }
 
   function detachTokensFromMapObject(objectId){
@@ -7357,18 +7374,19 @@
       render();
       return;
     }
-    if(tok && tok.isMapObject && tok.objectLocked){
-      state.selectedTokenId=tok.id; state.selectedTextId=null; render(); return;
-    }
     const now = Date.now();
     if(lastTokenTapId === target.dataset.id && (now - lastTokenTapTime) < 400){
       lastTokenTapId = null; lastTokenTapTime = 0;
       // NPC liberado para jogador continua sendo apenas um objeto móvel; a ficha não abre.
-      if(tok && !tok.isMapObject && (effectiveMaster() || !canPlayerMoveLockedNpc(tok))) openTokenSheet(tok);
+      if(tok&&tok.isMapObject&&effectiveMaster()) openMapObjectEditor(tok.id);
+      else if(tok && !tok.isMapObject && (effectiveMaster() || !canPlayerMoveLockedNpc(tok))) openTokenSheet(tok);
       return;
     }
     lastTokenTapId = target.dataset.id;
     lastTokenTapTime = now;
+    if(tok && tok.isMapObject && tok.objectLocked){
+      state.selectedTokenId=tok.id; state.selectedTextId=null; render(); return;
+    }
     if(tok && !canInteractWithToken(tok)) return; // só o mestre ou o dono da ficha pode movê-la
     if(tok && tok.isReference && tok.referenceLocked){ state.selectedTokenId = tok.id; state.selectedTextId = null; render(); return; }
     pushUndo();
