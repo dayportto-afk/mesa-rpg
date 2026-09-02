@@ -641,6 +641,9 @@
   }
   .token.map-object img{ border-radius:0; object-fit:contain; background:transparent; }
   body:not(.role-master) .token.map-object{ border-color:transparent; }
+  body:not(.role-master) .token.map-object.selected,
+  body:not(.role-master) .token.map-object.multi-selected,
+  body:not(.role-master) .token.map-object.dragging{ box-shadow:none; }
   .token.map-object.object-locked{ cursor:not-allowed; }
   .map-object-card{
     display:flex; flex-direction:column; gap:8px; padding:10px; margin-top:8px;
@@ -5345,7 +5348,7 @@
       scope:'master',
       pageId: state.currentPageId,
       map: page ? page.map.image : '',
-      fog: page ? page.fog.image : '',
+      fog: page ? JSON.parse(JSON.stringify(page.fog || {image:''})) : {image:''},
       draw: page ? JSON.parse(JSON.stringify(page.draw.strokes || [])) : [],
       texts: page ? JSON.parse(JSON.stringify(page.texts)) : [],
       tokens: JSON.parse(JSON.stringify(state.tokens))
@@ -5407,7 +5410,7 @@
     state.tokens = snap.tokens;
     if(page){
       page.map.image = snap.map;
-      page.fog.image = snap.fog;
+      page.fog = typeof snap.fog === 'string' ? {image:snap.fog} : JSON.parse(JSON.stringify(snap.fog || {image:''}));
       if(!page.draw) page.draw = { strokes:[] };
       page.draw.strokes = snap.draw;
       page.texts = snap.texts;
@@ -6253,8 +6256,8 @@
       }
       t.style.zIndex = String(renderedZ);
       if(tok.isMapObject){
-        t.classList.toggle('selected',tok.id===state.selectedTokenId);
-        t.classList.toggle('multi-selected',multiSelectedTokenIds.has(tok.id));
+        t.classList.toggle('selected',effectiveMaster()&&tok.id===state.selectedTokenId);
+        t.classList.toggle('multi-selected',effectiveMaster()&&multiSelectedTokenIds.has(tok.id));
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.06)));
         const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
         const lockBadge = effectiveMaster() && tok.objectLocked ? '<div class="reference-lock-badge" title="Posição travada">🔒</div>' : '';
@@ -7344,8 +7347,34 @@
     }).find(platform=>{
       const p=tokenPos(platform), dims=tokenDisplayDimensions(platform,tokenSize(platform));
       const halfW=(dims.width/$canvas.clientWidth)*50, halfH=(dims.height/$canvas.clientHeight)*50;
-      return x>=p.x-halfW && x<=p.x+halfW && y>=p.y-halfH && y<=p.y+halfH;
+      if(x<p.x-halfW || x>p.x+halfW || y<p.y-halfH || y>p.y+halfH) return false;
+      // PNGs transparentes contam como área do objeto apenas onde há pixels visíveis.
+      const objectImg=document.querySelector('.token.map-object[data-id="'+platform.id+'"] img');
+      if(!objectImg || !objectImg.complete || !objectImg.naturalWidth || !objectImg.naturalHeight) return true;
+      try{
+        if(!objectImg._alphaHitCanvas || objectImg._alphaHitSource!==objectImg.currentSrc){
+          const hitCanvas=document.createElement('canvas');
+          const scale=Math.min(1,512/Math.max(objectImg.naturalWidth,objectImg.naturalHeight));
+          hitCanvas.width=Math.max(1,Math.round(objectImg.naturalWidth*scale));
+          hitCanvas.height=Math.max(1,Math.round(objectImg.naturalHeight*scale));
+          hitCanvas.getContext('2d').drawImage(objectImg,0,0,hitCanvas.width,hitCanvas.height);
+          objectImg._alphaHitCanvas=hitCanvas;
+          objectImg._alphaHitSource=objectImg.currentSrc;
+        }
+        const localX=(x-(p.x-halfW))/(halfW*2);
+        const localY=(y-(p.y-halfH))/(halfH*2);
+        const hitCanvas=objectImg._alphaHitCanvas;
+        const px=Math.max(0,Math.min(hitCanvas.width-1,Math.floor(localX*hitCanvas.width)));
+        const py=Math.max(0,Math.min(hitCanvas.height-1,Math.floor(localY*hitCanvas.height)));
+        return hitCanvas.getContext('2d').getImageData(px,py,1,1).data[3]>8;
+      }catch(err){ return true; }
     })||null;
+  }
+
+  function mapObjectIdAtCanvasPoint(pt,canvas){
+    if(!pt || !canvas || !canvas.width || !canvas.height) return null;
+    const platform=mapObjectAtPoint((pt.x/canvas.width)*100,(pt.y/canvas.height)*100);
+    return platform ? platform.id : null;
   }
   function updateTokenPlatformMembership(tok,x,y){
     if(!tok || tok.isReference || tok.isMapObject) return;
@@ -7420,7 +7449,7 @@
         if(!t2||!el2)return null;
         const p2=tokenPos(t2);
         el2.style.zIndex=t2.isMapObject?'999999':'1000000';
-        return {id,el:el2,startX:p2.x,startY:p2.y,liveX:p2.x,liveY:p2.y,startZ:p2.zOrder,selected:meta.selected,riderOf:meta.riderOf};
+        return {id,el:el2,startX:p2.x,startY:p2.y,liveX:p2.x,liveY:p2.y,attachmentX:p2.x,attachmentY:p2.y,startZ:p2.zOrder,selected:meta.selected,riderOf:meta.riderOf};
       }).filter(Boolean);
       const anchorPos=tokenPos(tok);
       state.dragging.anchorStartX=anchorPos.x;
@@ -7434,6 +7463,8 @@
       }).filter(Boolean);
       state.dragging.anchorStartX = tokenPos(tok).x;
       state.dragging.anchorStartY = tokenPos(tok).y;
+      state.dragging.attachmentX = tokenPos(tok).x;
+      state.dragging.attachmentY = tokenPos(tok).y;
     }
     target.addEventListener('pointermove', onTokenPointerMove);
     target.addEventListener('pointerup', onTokenPointerUp);
@@ -7553,6 +7584,8 @@
     state.dragging.el.style.top = yPct + '%';
     state.dragging.x = xPct;
     state.dragging.y = yPct;
+    const pointerDist=Math.hypot(e.clientX-state.dragging.startClientX,e.clientY-state.dragging.startClientY);
+    if(pointerDist>=6) state.dragging.didDrag=true;
     updateMoveDistanceLabel(state.dragging,xPct,yPct);
     if(state.dragging.group){
       const dx = xPct - state.dragging.anchorStartX;
@@ -7576,6 +7609,30 @@
         r.liveX = rx; r.liveY = ry;
       });
     }
+    if(effectiveMaster() && state.dragging.didDrag){
+      const attachmentMoves=[];
+      if(state.dragging.group){
+        state.dragging.group.forEach(g=>{
+          const object=state.tokens.find(t=>t.id===g.id&&t.isMapObject);
+          if(!object) return;
+          const prevX=Number.isFinite(g.attachmentX)?g.attachmentX:g.startX;
+          const prevY=Number.isFinite(g.attachmentY)?g.attachmentY:g.startY;
+          attachmentMoves.push({platformId:g.id,dxPct:g.liveX-prevX,dyPct:g.liveY-prevY});
+          g.attachmentX=g.liveX; g.attachmentY=g.liveY;
+        });
+      }else{
+        const object=state.tokens.find(t=>t.id===state.dragging.id&&t.isMapObject);
+        if(object){
+          const prevX=Number.isFinite(state.dragging.attachmentX)?state.dragging.attachmentX:state.dragging.anchorStartX;
+          const prevY=Number.isFinite(state.dragging.attachmentY)?state.dragging.attachmentY:state.dragging.anchorStartY;
+          attachmentMoves.push({platformId:object.id,dxPct:xPct-prevX,dyPct:yPct-prevY});
+          state.dragging.attachmentX=xPct; state.dragging.attachmentY=yPct;
+        }
+      }
+      const moved=translateObjectAttachmentLayers(attachmentMoves);
+      state.dragging.attachedDrawMoved=state.dragging.attachedDrawMoved||moved.draw;
+      state.dragging.attachedFogMoved=state.dragging.attachedFogMoved||moved.fog;
+    }
   }
   function onTokenPointerUp(e){
     if(!state.dragging) return;
@@ -7595,7 +7652,7 @@
     adoptPendingTokensPreservingSizes(protectedMoveIds);
 
     const dist = Math.hypot((e.clientX||0) - d.startClientX, (e.clientY||0) - d.startClientY);
-    if(typeof d.x === 'number' && dist >= 6){
+    if(typeof d.x === 'number' && (dist >= 6 || d.didDrag)){
       if(d.group){
         d.group.forEach(g => {
           const t2 = state.tokens.find(t => t.id === g.id);
@@ -7630,6 +7687,9 @@
         state.selectedTextId = null;
       }
     }
+    const attachmentPage=currentPage();
+    if(attachmentPage&&d.attachedDrawMoved) void persistPageDraw(attachmentPage);
+    if(attachmentPage&&d.attachedFogMoved) void persistPageFog(attachmentPage);
     state.dragging = null;
     render();
   }
@@ -9560,7 +9620,9 @@
     if(!confirm('Remover toda a névoa desta página?')) return;
     pushUndo();
     ctx.clearRect(0,0,canvas.width,canvas.height);
+    ensureFogModel(page).objectStrokes = [];
     page.fog.image = canvas.toDataURL('image/png');
+    canvas._baseFogImageData = ctx.getImageData(0,0,canvas.width,canvas.height);
     await persistPageFog(page);
   });
 
@@ -9712,6 +9774,21 @@
   }
 
   let fogBuildId = 0;
+  function ensureFogModel(page){
+    if(typeof page.fog==='string') page.fog={image:page.fog,objectStrokes:[]};
+    else if(!page.fog || typeof page.fog!=='object') page.fog={image:'',objectStrokes:[]};
+    if(!Array.isArray(page.fog.objectStrokes)) page.fog.objectStrokes=[];
+    return page.fog;
+  }
+
+  function redrawFogCanvasFromModel(canvas,page){
+    if(!canvas || !page) return;
+    const ctx=canvas.getContext('2d');
+    if(canvas._baseFogImageData) ctx.putImageData(canvas._baseFogImageData,0,0);
+    else ctx.clearRect(0,0,canvas.width,canvas.height);
+    ensureFogModel(page).objectStrokes.forEach(stroke=>renderFogStrokeOnCtx(ctx,stroke));
+  }
+
   function setupFogCanvas(){
     const img = document.getElementById('map-img');
     const page = currentPage();
@@ -9725,9 +9802,13 @@
       canvas.width = img.naturalWidth || 1200;
       canvas.height = img.naturalHeight || 800;
       canvas.style.pointerEvents = (effectiveMaster() && state.fogMode) ? 'auto' : 'none';
+      ensureFogModel(page);
 
       const swapIn = () => {
         if(myBuildId !== fogBuildId) return;
+        const ctx=canvas.getContext('2d');
+        canvas._baseFogImageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+        redrawFogCanvasFromModel(canvas,page);
         const existing = document.getElementById('fog-canvas');
         if(existing) existing.remove();
         $canvas.appendChild(canvas);
@@ -9916,6 +9997,46 @@
     if(inProgressStroke) drawStrokeOnCtx(ctx, inProgressStroke);
   }
 
+  function translateStrokeGeometry(stroke,dx,dy){
+    if((stroke.shape || 'freehand') === 'freehand'){
+      (stroke.points || []).forEach(pt=>{ pt.x+=dx; pt.y+=dy; });
+    }else{
+      if(stroke.start){ stroke.start.x+=dx; stroke.start.y+=dy; }
+      if(stroke.end){ stroke.end.x+=dx; stroke.end.y+=dy; }
+    }
+  }
+
+  function translateObjectAttachmentLayers(moves){
+    const page=currentPage();
+    if(!page || !Array.isArray(moves) || moves.length===0) return {draw:false,fog:false};
+    const drawCanvas=document.getElementById('draw-canvas');
+    const fogCanvas=document.getElementById('fog-canvas');
+    const mapImg=document.getElementById('map-img');
+    const baseW=(mapImg&&mapImg.naturalWidth)||1200;
+    const baseH=(mapImg&&mapImg.naturalHeight)||800;
+    let drawMoved=false, fogMoved=false;
+    moves.forEach(move=>{
+      if(!move || (!move.dxPct&&!move.dyPct)) return;
+      const drawDx=(move.dxPct/100)*((drawCanvas&&drawCanvas.width)||baseW);
+      const drawDy=(move.dyPct/100)*((drawCanvas&&drawCanvas.height)||baseH);
+      const fogDx=(move.dxPct/100)*((fogCanvas&&fogCanvas.width)||baseW);
+      const fogDy=(move.dyPct/100)*((fogCanvas&&fogCanvas.height)||baseH);
+      ((page.draw&&page.draw.strokes)||[]).forEach(stroke=>{
+        if(stroke.platformId!==move.platformId) return;
+        translateStrokeGeometry(stroke,drawDx,drawDy);
+        drawMoved=true;
+      });
+      ensureFogModel(page).objectStrokes.forEach(stroke=>{
+        if(stroke.platformId!==move.platformId) return;
+        (stroke.points||[]).forEach(pt=>{ pt.x+=fogDx; pt.y+=fogDy; });
+        fogMoved=true;
+      });
+    });
+    if(drawMoved&&drawCanvas) redrawDrawCanvas(drawCanvas,page);
+    if(fogMoved&&fogCanvas) redrawFogCanvasFromModel(fogCanvas,page);
+    return {draw:drawMoved,fog:fogMoved};
+  }
+
   function isNearShapeOutline(stroke, pt, reach){
     const r = reach + (stroke.brush || 10);
     const s = stroke.start, e = stroke.end;
@@ -10016,11 +10137,11 @@
       state.drawStroke = { canvas, page, mode:'erase' };
       redrawDrawCanvas(canvas, page);
     } else if(state.drawShape !== 'freehand'){
-      const stroke = { id:newId('dr'), author: myDrawAuthorName(), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape: state.drawShape, start:{x:pt.x, y:pt.y}, end:{x:pt.x, y:pt.y} };
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), platformId:mapObjectIdAtCanvasPoint(pt,canvas), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape: state.drawShape, start:{x:pt.x, y:pt.y}, end:{x:pt.x, y:pt.y} };
       state.drawStroke = { canvas, page, mode:'shape', stroke };
       redrawDrawCanvas(canvas, page, stroke);
     } else {
-      const stroke = { id:newId('dr'), author: myDrawAuthorName(), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape:'freehand', points:[{x:pt.x, y:pt.y}] };
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), platformId:mapObjectIdAtCanvasPoint(pt,canvas), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape:'freehand', points:[{x:pt.x, y:pt.y}] };
       state.drawStroke = { canvas, page, mode:'pen', stroke };
       redrawDrawCanvas(canvas, page, stroke);
     }
@@ -10063,32 +10184,43 @@
 
   function redrawFogCanvasStrokeSession(session){
     if(!session || !session.canvas || !session.ctx) return;
-    session.ctx.putImageData(session.baseImageData, 0, 0);
-    renderFogStrokeOnCtx(session.ctx, {
+    session.ctx.putImageData(session.baseFogImageData, 0, 0);
+    const liveStroke={
       mode: session.mode,
       color: session.color,
       opacity: session.opacity,
       brush: session.brush,
       points: session.points
-    });
+    };
+    const attached=ensureFogModel(session.page).objectStrokes;
+    if(session.platformId){
+      attached.forEach(stroke=>renderFogStrokeOnCtx(session.ctx,stroke));
+      renderFogStrokeOnCtx(session.ctx,liveStroke);
+    }else{
+      renderFogStrokeOnCtx(session.ctx,liveStroke);
+      attached.forEach(stroke=>renderFogStrokeOnCtx(session.ctx,stroke));
+    }
   }
 
   function startFogPaint(e){
     const canvas = document.getElementById('fog-canvas');
-    if(!canvas) return;
+    const page=currentPage();
+    if(!canvas || !page) return;
     const pt = canvasPointFromEvent(e, canvas);
     if(!pt.inBounds) return;
     pushUndo();
     const ctx = canvas.getContext('2d');
+    ensureFogModel(page);
     state.fogStroke = {
-      canvas,
+      canvas, page,
       ctx,
+      platformId:mapObjectIdAtCanvasPoint(pt,canvas),
       brush: state.fogBrush,
       mode: state.fogPaintMode,
       color: state.fogColor,
       opacity: state.fogOpacity,
       points: [{ x: pt.x, y: pt.y }],
-      baseImageData: ctx.getImageData(0, 0, canvas.width, canvas.height)
+      baseFogImageData: canvas._baseFogImageData || ctx.getImageData(0, 0, canvas.width, canvas.height)
     };
     redrawFogCanvasStrokeSession(state.fogStroke);
     $mapViewport.setPointerCapture(e.pointerId);
@@ -10105,10 +10237,22 @@
   }
   async function endFogPaint(){
     const s = state.fogStroke;
-    const page = currentPage();
+    const page = s && s.page;
     if(!s || !page) return;
-    redrawFogCanvasStrokeSession(s);
-    page.fog.image = s.canvas.toDataURL('image/png');
+    const stroke={
+      id:newId('fg'), platformId:s.platformId, mode:s.mode, color:s.color,
+      opacity:s.opacity, brush:s.brush, points:s.points
+    };
+    if(s.platformId){
+      ensureFogModel(page).objectStrokes.push(stroke);
+      redrawFogCanvasFromModel(s.canvas,page);
+    }else{
+      s.ctx.putImageData(s.baseFogImageData,0,0);
+      renderFogStrokeOnCtx(s.ctx,stroke);
+      s.canvas._baseFogImageData=s.ctx.getImageData(0,0,s.canvas.width,s.canvas.height);
+      page.fog.image=s.canvas.toDataURL('image/png');
+      redrawFogCanvasFromModel(s.canvas,page);
+    }
     state.fogStroke = null;
     await persistPageFog(page);
     flushPendingPageUpdates('fog');
