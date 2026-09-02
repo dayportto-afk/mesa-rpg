@@ -983,8 +983,21 @@
     margin-bottom:5px;
   }
   .journal-entry-meta .journal-author{ color:var(--amber-bright); }
-  .journal-entry-meta .journal-remove{ padding:2px 7px; font-size:9px; }
+  .journal-entry-meta .journal-remove, .journal-entry-meta .journal-edit{ padding:2px 7px; font-size:9px; }
   .journal-entry-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
+  .journal-group{ display:flex; flex-direction:column; gap:8px; }
+  .journal-group-title{
+    font-family:'Cinzel', serif; font-size:11px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--amber-bright); border-bottom:1px solid var(--line); padding-bottom:4px; margin-top:4px;
+  }
+  .journal-group:first-child .journal-group-title{ margin-top:0; }
+  .journal-session-row{ display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--parchment-dim); }
+  .journal-session-row input{ width:64px; background:#120e08; border:1px solid var(--line); border-radius:3px; color:var(--parchment); padding:4px 6px; font-size:12px; }
+  .journal-entry-edit{
+    width:100%; background:#0c0906; border:1px solid var(--amber); border-radius:3px;
+    color:var(--parchment); padding:8px 9px; font-family:'EB Garamond', serif; font-size:14px;
+    outline:none; min-height:50px; max-height:220px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;
+  }
 
   /* Fichas panel (extracted from sidebar for better visibility, especially during combat) */
   /* Ambient music (master-only panel; everyone gets a small mute-only indicator) */
@@ -2230,6 +2243,10 @@
           <button type="button" data-fmt="u" title="Sublinhado"><u>S</u></button>
         </div>
         <div id="journal-input" class="rich-editable" contenteditable="true" data-placeholder="Escreva uma entrada no diário — o que aconteceu, uma pista, um resumo da sessão..."></div>
+        <div class="journal-session-row">
+          <label for="journal-session-input">Sessão nº</label>
+          <input type="number" id="journal-session-input" min="1" step="1" placeholder="1">
+        </div>
         <button id="btn-journal-add" class="primary" style="width:100%; margin-top:6px;">Adicionar entrada</button>
         <div id="journal-list"></div>
       </div>
@@ -2532,6 +2549,7 @@
   let openT20SkillsTokens = new Set();
   let openSystemDrawerTokens = new Set();
   let multiSelectedTokenIds = new Set();
+  let tokenClipboard = null;
 
   // ---------- sound effects ----------
   let soundMuted = false;
@@ -4131,6 +4149,9 @@
            String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
   }
 
+  let editingJournalId = null;
+  let lastJournalSession = 1;
+
   function renderJournalList(){
     const $list = el('journal-list');
     if(state.journal.length === 0){
@@ -4138,21 +4159,80 @@
       return;
     }
     const me = currentDisplayName();
-    $list.innerHTML = state.journal.map(entry => {
-      const canRemove = effectiveMaster() || entry.author === me;
+
+    // agrupa por sessão, preservando a ordem de chegada dentro de cada grupo
+    const groups = {};
+    const groupOrder = [];
+    state.journal.forEach(entry => {
+      const key = (entry.session === undefined || entry.session === null || entry.session === '') ? 'none' : String(entry.session);
+      if(!groups[key]){ groups[key] = []; groupOrder.push(key); }
+      groups[key].push(entry);
+    });
+    const sortedKeys = groupOrder.slice().sort((a, b) => {
+      if(a === 'none') return -1;
+      if(b === 'none') return 1;
+      return Number(a) - Number(b);
+    });
+
+    $list.innerHTML = sortedKeys.map(key => {
+      const groupLabel = key === 'none' ? 'Sem sessão definida' : ('Sessão ' + key);
+      const entriesHtml = groups[key].map(entry => {
+        const canEdit = effectiveMaster() || entry.author === me;
+        if(editingJournalId === entry.id){
+          const editId = 'journal-edit-' + entry.id;
+          return (
+            '<div class="journal-entry">' +
+              '<div class="journal-entry-meta">' +
+                '<span class="journal-author" style="color:'+(entry.color||'var(--amber-bright)')+';">'+escapeHtml(entry.author)+'</span>' +
+                '<span>'+formatJournalTime(entry.ts)+(entry.editedTs ? ' · editado' : '')+'</span>' +
+              '</div>' +
+              '<div class="rich-toolbar" data-toolbar-for="'+editId+'">' +
+                '<button type="button" data-fmt="b" title="Negrito"><b>N</b></button>' +
+                '<button type="button" data-fmt="i" title="Itálico"><i>I</i></button>' +
+                '<button type="button" data-fmt="u" title="Sublinhado"><u>S</u></button>' +
+              '</div>' +
+              '<div id="'+editId+'" class="journal-entry-edit rich-editable" contenteditable="true">'+sanitizeRichHtml(entry.text)+'</div>' +
+              '<div style="display:flex; gap:6px; margin-top:6px;">' +
+                '<button type="button" class="primary" data-journal-save="'+entry.id+'" style="flex:1;">Salvar</button>' +
+                '<button type="button" data-journal-cancel="'+entry.id+'" style="flex:1;">Cancelar</button>' +
+              '</div>' +
+            '</div>'
+          );
+        }
+        return (
+          '<div class="journal-entry">' +
+            '<div class="journal-entry-meta">' +
+              '<span class="journal-author" style="color:'+(entry.color||'var(--amber-bright)')+';">'+escapeHtml(entry.author)+'</span>' +
+              '<span>'+formatJournalTime(entry.ts)+(entry.editedTs ? ' · editado' : '')+'</span>' +
+              (canEdit ? '<span style="display:flex; gap:4px;"><button type="button" class="journal-edit" data-journal-edit="'+entry.id+'" title="Editar">✎</button><button type="button" class="danger journal-remove" data-journal-remove="'+entry.id+'">✕</button></span>' : '') +
+            '</div>' +
+            '<div class="journal-entry-text">'+sanitizeRichHtml(entry.text)+'</div>' +
+          '</div>'
+        );
+      }).join('');
       return (
-        '<div class="journal-entry">' +
-          '<div class="journal-entry-meta">' +
-            '<span class="journal-author" style="color:'+(entry.color||'var(--amber-bright)')+';">'+escapeHtml(entry.author)+'</span>' +
-            '<span>'+formatJournalTime(entry.ts)+'</span>' +
-            (canRemove ? '<button type="button" class="danger journal-remove" data-journal-remove="'+entry.id+'">✕</button>' : '') +
-          '</div>' +
-          '<div class="journal-entry-text">'+sanitizeRichHtml(entry.text)+'</div>' +
+        '<div class="journal-group">' +
+          '<div class="journal-group-title">'+escapeHtml(groupLabel)+'</div>' +
+          entriesHtml +
         '</div>'
       );
     }).join('');
+
+    wireRichToolbars($list);
     $list.querySelectorAll('[data-journal-remove]').forEach(btn => {
       btn.addEventListener('click', () => removeJournalEntry(btn.getAttribute('data-journal-remove')));
+    });
+    $list.querySelectorAll('[data-journal-edit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        editingJournalId = btn.getAttribute('data-journal-edit');
+        renderJournalList();
+      });
+    });
+    $list.querySelectorAll('[data-journal-save]').forEach(btn => {
+      btn.addEventListener('click', () => saveJournalEdit(btn.getAttribute('data-journal-save')));
+    });
+    $list.querySelectorAll('[data-journal-cancel]').forEach(btn => {
+      btn.addEventListener('click', () => { editingJournalId = null; renderJournalList(); });
     });
   }
 
@@ -4160,12 +4240,32 @@
     const $input = el('journal-input');
     if(!$input.textContent.trim()) return;
     const text = sanitizeRichHtml($input.innerHTML);
-    const entry = { id:newId('j'), author:currentDisplayName(), color:(state.isMaster ? '#e2a53f' : (state.playerColor || '#e2a53f')), ts:Date.now(), text };
-    state.journal.unshift(entry);
-    if(state.journal.length > 100) state.journal = state.journal.slice(0, 100);
+    const $sessionInput = el('journal-session-input');
+    let session = parseInt($sessionInput.value, 10);
+    if(!Number.isFinite(session) || session < 1) session = lastJournalSession;
+    lastJournalSession = session;
+    const entry = { id:newId('j'), author:currentDisplayName(), color:(state.isMaster ? '#e2a53f' : (state.playerColor || '#e2a53f')), ts:Date.now(), text, session };
+    state.journal.push(entry);
+    if(state.journal.length > 100) state.journal = state.journal.slice(-100);
     lastJournalSnapshot = JSON.stringify({ list: state.journal });
     renderJournalList();
     $input.innerHTML = '';
+    $sessionInput.value = session;
+    await persistJournal();
+  }
+
+  async function saveJournalEdit(id){
+    const entry = state.journal.find(e => e.id === id);
+    if(!entry) return;
+    if(!effectiveMaster() && entry.author !== currentDisplayName()) return;
+    const $editBox = el('journal-edit-' + id);
+    if(!$editBox) return;
+    if(!$editBox.textContent.trim()) return;
+    entry.text = sanitizeRichHtml($editBox.innerHTML);
+    entry.editedTs = Date.now();
+    editingJournalId = null;
+    lastJournalSnapshot = JSON.stringify({ list: state.journal });
+    renderJournalList();
     await persistJournal();
   }
 
@@ -4182,7 +4282,11 @@
   function openJournalPanel(){
     el('journal-panel').classList.add('open');
     el('journal-backdrop').classList.add('open');
+    const $sessionInput = el('journal-session-input');
+    if($sessionInput && !$sessionInput.value) $sessionInput.value = lastJournalSession;
     renderJournalList();
+    const $list = el('journal-list');
+    if($list) $list.scrollTop = $list.scrollHeight;
   }
   function closeJournalPanel(){
     el('journal-panel').classList.remove('open');
@@ -7380,6 +7484,54 @@
     await persistTokens();
   }
 
+  // ---------- copiar/colar fichas (Ctrl+C / Ctrl+V) ----------
+  function copySelectedTokensToClipboard(){
+    if(!effectiveMaster()) return;
+    const ids = multiSelectedTokenIds.size > 0 ? [...multiSelectedTokenIds] : (state.selectedTokenId ? [state.selectedTokenId] : []);
+    if(ids.length === 0) return;
+    const snapshots = ids.map(id => state.tokens.find(t => t.id === id)).filter(Boolean).map(t => JSON.parse(JSON.stringify(t)));
+    if(snapshots.length === 0) return;
+    tokenClipboard = snapshots;
+    showToast(snapshots.length === 1 ? 'Ficha copiada.' : (snapshots.length + ' fichas copiadas.'));
+  }
+
+  async function pasteTokensFromClipboard(){
+    if(!effectiveMaster()) return;
+    if(!tokenClipboard || tokenClipboard.length === 0) return;
+    pushUndo();
+    const newIds = [];
+    tokenClipboard.forEach(snapshot => {
+      const clone = JSON.parse(JSON.stringify(snapshot));
+      clone.id = newId('t');
+      if(!/\(cópia\)\s*$/.test(clone.name || '')) clone.name = (clone.name || 'Ficha') + ' (cópia)';
+      if(clone.positions && state.currentPageId && clone.positions[state.currentPageId]){
+        const p = clone.positions[state.currentPageId];
+        clone.positions[state.currentPageId] = { x: Math.min(96, p.x + 4), y: Math.min(96, p.y + 4) };
+      }
+      state.tokens.push(clone);
+      newIds.push(clone.id);
+    });
+    // desloca as posições no clipboard para que cada Ctrl+V seguinte gere uma nova cópia
+    // num ponto ligeiramente diferente, em vez de empilhar tudo no mesmo lugar.
+    tokenClipboard = tokenClipboard.map(snapshot => {
+      const updated = JSON.parse(JSON.stringify(snapshot));
+      if(updated.positions && state.currentPageId && updated.positions[state.currentPageId]){
+        const p = updated.positions[state.currentPageId];
+        updated.positions[state.currentPageId] = { x: Math.min(96, p.x + 4), y: Math.min(96, p.y + 4) };
+      }
+      return updated;
+    });
+    if(newIds.length === 1){
+      state.selectedTokenId = newIds[0];
+      multiSelectedTokenIds = new Set();
+    } else {
+      state.selectedTokenId = null;
+      multiSelectedTokenIds = new Set(newIds);
+    }
+    render();
+    await persistTokens();
+  }
+
   async function deleteTokenPermanently(id){
     if(!confirm('Excluir esta ficha de todas as páginas permanentemente? Essa ação não pode ser desfeita com o botão de remover desta página.')) return;
     pushUndo();
@@ -9958,6 +10110,25 @@
       closeOpenToolPanels();
       render();
       return;
+    }
+
+    // Copiar/colar fichas com Ctrl+C / Ctrl+V (ou Cmd no Mac). Ignorado enquanto a
+    // pessoa está digitando em um campo de texto, para não atrapalhar copiar/colar de texto normal.
+    if((e.ctrlKey || e.metaKey) && !typing){
+      if(key === 'c'){
+        if(state.selectedTokenId || multiSelectedTokenIds.size > 0){
+          e.preventDefault();
+          copySelectedTokensToClipboard();
+        }
+        return;
+      }
+      if(key === 'v'){
+        if(tokenClipboard && tokenClipboard.length > 0){
+          e.preventDefault();
+          await pasteTokensFromClipboard();
+        }
+        return;
+      }
     }
 
     // Nunca dispara atalhos de letra/Delete enquanto a pessoa está digitando em um campo.
