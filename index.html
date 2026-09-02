@@ -6253,6 +6253,7 @@
       t.style.zIndex = String(renderedZ);
       if(tok.isMapObject){
         t.classList.toggle('selected',tok.id===state.selectedTokenId);
+        t.classList.toggle('multi-selected',multiSelectedTokenIds.has(tok.id));
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.06)));
         const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
         const lockBadge = effectiveMaster() && tok.objectLocked ? '<div class="reference-lock-badge" title="Posição travada">🔒</div>' : '';
@@ -7349,15 +7350,15 @@
     e.stopPropagation();
     const target = e.currentTarget;
     const tok = state.tokens.find(t => t.id === target.dataset.id);
-    if(tok && tok.isMapObject && tok.objectLocked){
-      state.selectedTokenId=tok.id; state.selectedTextId=null; render(); return;
-    }
-    if(effectiveMaster() && (e.ctrlKey || e.metaKey) && tok && !tok.isMapObject){
-      // Ctrl/Cmd+clique: alterna a ficha na seleção múltipla, sem iniciar arraste.
+    if(effectiveMaster() && (e.ctrlKey || e.metaKey) && tok){
+      // Ctrl/Cmd+clique: alterna fichas, referências e objetos na seleção múltipla.
       if(multiSelectedTokenIds.has(tok.id)) multiSelectedTokenIds.delete(tok.id);
       else multiSelectedTokenIds.add(tok.id);
       render();
       return;
+    }
+    if(tok && tok.isMapObject && tok.objectLocked){
+      state.selectedTokenId=tok.id; state.selectedTextId=null; render(); return;
     }
     const now = Date.now();
     if(lastTokenTapId === target.dataset.id && (now - lastTokenTapTime) < 400){
@@ -7380,7 +7381,33 @@
       startClientX: e.clientX, startClientY: e.clientY,
       origLeft: target.style.left, origTop: target.style.top, startPos: tok ? {x:tokenPos(tok).x,y:tokenPos(tok).y} : null
     };
-    if(tok && tok.isMapObject && effectiveMaster()){
+    const draggingSelection=effectiveMaster() && tok && multiSelectedTokenIds.has(tok.id) && multiSelectedTokenIds.size>=2;
+    if(draggingSelection){
+      const selectedIds=new Set([...multiSelectedTokenIds]);
+      const groupItems=new Map();
+      selectedIds.forEach(id=>{
+        const item=state.tokens.find(t=>t.id===id);
+        if(!item || (item.isMapObject&&item.objectLocked)) return;
+        groupItems.set(id,{selected:true,riderOf:null});
+      });
+      selectedIds.forEach(id=>{
+        const platform=state.tokens.find(t=>t.id===id&&t.isMapObject&&!t.objectLocked);
+        if(!platform) return;
+        tokensRidingMapObject(platform).forEach(rider=>{
+          if(!groupItems.has(rider.id)) groupItems.set(rider.id,{selected:false,riderOf:platform.id});
+        });
+      });
+      state.dragging.group=[...groupItems.entries()].map(([id,meta])=>{
+        const t2=state.tokens.find(t=>t.id===id), el2=document.querySelector('.token[data-id="'+id+'"]');
+        if(!t2||!el2)return null;
+        const p2=tokenPos(t2);
+        el2.style.zIndex=t2.isMapObject?'999999':'1000000';
+        return {id,el:el2,startX:p2.x,startY:p2.y,liveX:p2.x,liveY:p2.y,startZ:p2.zOrder,selected:meta.selected,riderOf:meta.riderOf};
+      }).filter(Boolean);
+      const anchorPos=tokenPos(tok);
+      state.dragging.anchorStartX=anchorPos.x;
+      state.dragging.anchorStartY=anchorPos.y;
+    }else if(tok && tok.isMapObject && effectiveMaster()){
       state.dragging.riders = tokensRidingMapObject(tok).map(rider => {
         const riderEl = document.querySelector('.token[data-id="'+rider.id+'"]');
         const riderPos = tokenPos(rider);
@@ -7389,19 +7416,6 @@
       }).filter(Boolean);
       state.dragging.anchorStartX = tokenPos(tok).x;
       state.dragging.anchorStartY = tokenPos(tok).y;
-    }
-    // Se essa ficha faz parte de uma seleção múltipla (2+), arrasta o grupo inteiro junto.
-    if(effectiveMaster() && tok && !tok.isMapObject && multiSelectedTokenIds.has(tok.id) && multiSelectedTokenIds.size >= 2){
-      const anchorPos = tokenPos(tok);
-      state.dragging.group = [...multiSelectedTokenIds].map(id => {
-        const t2 = state.tokens.find(t => t.id === id);
-        const el2 = document.querySelector('.token[data-id="'+id+'"]');
-        if(!t2 || !el2) return null;
-        const p2 = tokenPos(t2);
-        return { id, el: el2, startX: p2.x, startY: p2.y, liveX: p2.x, liveY: p2.y };
-      }).filter(Boolean);
-      state.dragging.anchorStartX = anchorPos.x;
-      state.dragging.anchorStartY = anchorPos.y;
     }
     target.addEventListener('pointermove', onTokenPointerMove);
     target.addEventListener('pointerup', onTokenPointerUp);
@@ -7569,8 +7583,9 @@
           const t2 = state.tokens.find(t => t.id === g.id);
           if(!t2) return;
           if(!t2.positions) t2.positions = {};
-          t2.positions[state.currentPageId] = { x:g.liveX, y:g.liveY, zOrder: nextTokenZOrder() };
-          updateTokenPlatformMembership(t2,g.liveX,g.liveY);
+          const z=t2.isMapObject ? (Number.isFinite(Number(g.startZ))?Number(g.startZ):MAP_LAYER_FLOOR_Z) : nextTokenZOrder();
+          t2.positions[state.currentPageId] = { x:g.liveX, y:g.liveY, zOrder:z };
+          if(g.selected&&!t2.isMapObject) updateTokenPlatformMembership(t2,g.liveX,g.liveY);
         });
         persistTokens();
       } else {
@@ -7776,7 +7791,7 @@
       return;
     }
     bar.classList.add('show');
-    el('multi-select-count').textContent = n + (n === 1 ? ' ficha selecionada' : ' fichas selecionadas');
+    el('multi-select-count').textContent = n + (n === 1 ? ' item selecionado' : ' itens selecionados');
   }
 
   async function bulkRemoveSelectedFromPage(){
@@ -7786,6 +7801,8 @@
     ids.forEach(id => {
       const tok = state.tokens.find(t => t.id === id);
       if(!tok) return;
+      if(tok.isMapObject) detachTokensFromMapObject(tok.id);
+      if(tok.platformByPage) delete tok.platformByPage[state.currentPageId];
       if(!tok.removedFromPages) tok.removedFromPages = [];
       if(!tok.removedFromPages.includes(state.currentPageId)) tok.removedFromPages.push(state.currentPageId);
     });
@@ -7798,9 +7815,10 @@
     const ids = [...multiSelectedTokenIds];
     if(ids.length === 0) return;
     const names = ids.map(id => { const t = state.tokens.find(t => t.id === id); return t ? t.name : '?'; });
-    const label = ids.length === 1 ? ('a ficha "'+names[0]+'"') : (ids.length + ' fichas ('+names.join(', ')+')');
+    const label = ids.length === 1 ? ('o item "'+names[0]+'"') : (ids.length + ' itens ('+names.join(', ')+')');
     if(!confirm('Excluir '+label+' de todas as páginas permanentemente? Essa ação não pode ser desfeita.')) return;
     pushUndo();
+    ids.forEach(id=>{ const tok=state.tokens.find(t=>t.id===id); if(tok&&tok.isMapObject) detachTokensFromMapObject(id); });
     state.tokens = state.tokens.filter(t => !ids.includes(t.id));
     multiSelectedTokenIds = new Set();
     render();
