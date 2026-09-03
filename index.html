@@ -685,6 +685,14 @@
     font-size:12px; line-height:1; pointer-events:none; z-index:12;
     filter:drop-shadow(0 0 4px #ffd75a);
   }
+  .light-point-marker{
+    position:absolute; width:24px; height:24px; margin:-12px 0 0 -12px; z-index:1000002;
+    display:flex; align-items:center; justify-content:center; border:1px solid #ffd75a; border-radius:50%;
+    background:rgba(25,16,5,.88); color:#ffd75a; font-size:13px; cursor:default; pointer-events:auto;
+    box-shadow:0 0 10px rgba(255,215,90,.75); user-select:none;
+  }
+  .light-point-marker.off{ opacity:.48; box-shadow:none; filter:grayscale(1); }
+  .light-point-marker span{ position:absolute; top:27px; left:50%; transform:translateX(-50%); padding:2px 5px; border-radius:3px; background:#150f09; border:1px solid var(--amber); color:var(--parchment); font-size:9px; white-space:nowrap; }
   .token.selected .token-label, .token:hover .token-label{ display:block; }
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
@@ -1907,6 +1915,21 @@
               <select id="lantern-shape-input" style="width:120px;"><option value="cone">Cone</option><option value="circle">Circular</option></select>
             </div>
             <div class="theme-row" style="margin-top:8px;">
+              <label for="lantern-visibility-input">Visão dos jogadores</label>
+              <select id="lantern-visibility-input" style="width:170px;"><option value="all">Todas as lanternas</option><option value="own">Somente as próprias</option><option value="groups">Grupos personalizados</option></select>
+            </div>
+            <div id="lantern-groups-settings" style="margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:5px;">
+              <div style="display:flex;gap:5px;">
+                <input type="text" id="lantern-group-name" maxlength="32" placeholder="Ex.: Sala" style="min-width:0;flex:1;">
+                <button type="button" id="btn-lantern-group-add" title="Criar grupo">＋</button>
+              </div>
+              <div id="lantern-groups-list" style="display:flex;flex-direction:column;gap:5px;margin-top:6px;"></div>
+            </div>
+            <div id="light-points-settings" style="margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:5px;">
+              <button type="button" id="btn-light-point-add" style="width:100%;">💡 Adicionar ponto de luz</button>
+              <div id="light-points-list" style="display:flex;flex-direction:column;gap:5px;margin-top:6px;"></div>
+            </div>
+            <div class="theme-row" style="margin-top:8px;">
               <label for="lantern-range-input">Alcance padrão</label>
               <input type="number" id="lantern-range-input" min="1" max="5000" step="1" value="250" style="width:72px;">
               <select id="lantern-range-unit" style="width:92px;"><option value="pixels">pixels</option><option value="cells">células</option><option value="meters">metros</option></select>
@@ -1915,7 +1938,7 @@
               <label for="lantern-angle-input">Abertura <span id="lantern-angle-value">70°</span></label>
               <input type="range" id="lantern-angle-input" min="20" max="160" step="5" value="70" style="flex:1; accent-color:var(--amber);">
             </div>
-            <div class="hint">As luzes são compartilhadas. No formato cone, ele aponta na direção do último movimento. Clique com o botão direito ou mantenha o token pressionado para controlar a luz. O mestre também pode conceder visão no escuro pelo menu do token.</div>
+            <div class="hint">Em Grupos personalizados, personagens que compartilham pelo menos um grupo enxergam as lanternas uns dos outros. O mestre vê todas. Crie os grupos aqui e atribua-os pelo clique direito no token. No formato cone, ele aponta na direção do último movimento.</div>
           </div>
         </div>
       </div>
@@ -2530,6 +2553,7 @@
     fogColor:'#050402',
     fogOpacity:94,
     fogStroke:null,
+    lightPointArmed:false,
     drawMode:false,
     drawPaintMode:'pen',
     drawShape:'freehand',
@@ -4906,6 +4930,7 @@
     state.undoStack = []; state.redoStack = [];
     state.fogMode = false;
     state.drawMode = false;
+    state.lightPointArmed = false;
     state.selectedTokenId = null;
     state.previewAsPlayer = false;
     state.diceQty = {4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0};
@@ -5544,6 +5569,7 @@
         const imgEl = document.getElementById('map-img');
         const setAspect = () => {
           $canvas.style.aspectRatio = (imgEl.naturalWidth || 3) + ' / ' + (imgEl.naturalHeight || 2);
+          setupDarknessOverlay();
         };
         if(imgEl.complete && imgEl.naturalWidth > 0){ setAspect(); }
         else { imgEl.addEventListener('load', setAspect, { once:true }); }
@@ -5561,6 +5587,7 @@
       renderTexts();
       setupFogCanvas();
       setupDarknessOverlay();
+      renderLightPointMarkers();
     }
     renderMultiSelectBar();
     renderTokenList();
@@ -5620,17 +5647,29 @@
       sw.classList.toggle('active', sw.getAttribute('data-fog-color').toLowerCase() === state.fogColor.toLowerCase());
     });
     el('fog-color-picker').value = state.fogColor;
-    const lightingSettings=page?ensureLightingModel(page):{enabled:false,allowed:true,shape:'cone',range:250,unit:'pixels',angle:70};
+    const lightingSettings=page?ensureLightingModel(page):{enabled:false,allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70};
     el('btn-darkness-toggle').textContent=lightingSettings.enabled?'🌑 Escuridão total ativada':'Ativar escuridão total';
     el('btn-darkness-toggle').classList.toggle('toggle-active',!!lightingSettings.enabled);
     el('btn-lanterns-toggle').textContent=lightingSettings.allowed?'🔦 Lanternas permitidas':'🔦 Lanternas bloqueadas';
     el('btn-lanterns-toggle').classList.toggle('toggle-active',!!lightingSettings.allowed);
     el('lantern-shape-input').value=lightingSettings.shape;
+    el('lantern-visibility-input').value=lightingSettings.visibility;
     el('lantern-range-input').value=lightingSettings.range;
     el('lantern-range-unit').value=lightingSettings.unit;
     el('lantern-angle-input').value=lightingSettings.angle;
     el('lantern-angle-input').disabled=lightingSettings.shape==='circle';
     el('lantern-angle-value').textContent=lightingSettings.angle+'°';
+    el('lantern-groups-settings').style.display=effectiveMaster()?'block':'none';
+    el('lantern-groups-list').innerHTML=lightingSettings.groups.length
+      ? lightingSettings.groups.map(group=>'<div style="display:flex;align-items:center;gap:6px;"><span style="flex:1;font-size:11px;">'+escapeHtml(group.name)+'</span><button type="button" data-light-group-delete="'+group.id+'" title="Excluir grupo">✕</button></div>').join('')
+      : '<div class="hint" style="margin:0;">Nenhum grupo criado.</div>';
+    if(!effectiveMaster())state.lightPointArmed=false;
+    el('btn-light-point-add').textContent=state.lightPointArmed?'Clique no mapa para posicionar…':'💡 Adicionar ponto de luz';
+    el('btn-light-point-add').classList.toggle('toggle-active',!!state.lightPointArmed);
+    el('light-points-settings').style.display=effectiveMaster()?'block':'none';
+    el('light-points-list').innerHTML=lightingSettings.points.length
+      ? lightingSettings.points.map(point=>'<div style="display:flex;align-items:center;gap:4px;"><span style="flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">💡 '+escapeHtml(point.name)+' · '+escapeHtml(lightPointGroupLabel(point,lightingSettings))+'</span><button type="button" data-light-point-action="toggle" data-light-point-id="'+point.id+'" title="Ligar ou desligar">'+(point.enabled?'◉':'○')+'</button><button type="button" data-light-point-action="edit" data-light-point-id="'+point.id+'" title="Editar">✎</button><button type="button" data-light-point-action="delete" data-light-point-id="'+point.id+'" title="Excluir">✕</button></div>').join('')
+      : '<div class="hint" style="margin:0;">Nenhum ponto de luz.</div>';
 
     el('btn-draw-toggle').textContent = state.drawMode ? 'Desativar modo desenho' : 'Ativar modo desenho';
     el('btn-draw-toggle').classList.toggle('toggle-active', state.drawMode);
@@ -6255,6 +6294,7 @@
       if(lantern&&lantern.enabled&&ensureLightingModel(currentPage()).shape==='cone') lightActions.push(['↻ Girar cone 45°','lanternrotate']);
       if(effectiveMaster()){
         lightActions.push(['📏 Alcance individual','lanternradius']);
+        lightActions.push(['👥 Grupos de luz: '+tokenLightGroupLabel(tok),'lightgroups']);
         lightActions.push([tokenHasDarkvision(tok)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
       }
       actions=effectiveMaster()
@@ -6281,7 +6321,16 @@
     if(action==='lantern'){
       if(!canToggleTokenLantern(tok))return;
       const lantern=tokenLanternState(tok,true); lantern.enabled=!lantern.enabled;
-      render(); await persistTokens(); return;
+      const page=currentPage();
+      let lightingChanged=false;
+      if(lantern.enabled&&effectiveMaster()&&page){
+        const lighting=ensureLightingModel(page);
+        if(!lighting.enabled){ lighting.enabled=true; lightingChanged=true; }
+        if(!lighting.allowed){ lighting.allowed=true; lightingChanged=true; }
+      }
+      render();
+      await Promise.all([persistTokens(),lightingChanged?persistPageFog(page):Promise.resolve()]);
+      return;
     }
     if(action==='lanternrotate'){
       if(!canToggleTokenLantern(tok))return;
@@ -6293,6 +6342,21 @@
       const entered=prompt('Alcance individual em '+({pixels:'pixels',cells:'células',meters:'metros'}[lighting.unit])+'. Deixe vazio para usar o padrão do mapa.',lantern.range==null?'':String(lantern.range));
       if(entered===null)return;
       lantern.range=entered.trim()===''?null:Math.max(1,Number(entered)||lighting.range);
+      render(); await persistTokens(); return;
+    }
+    if(action==='lightgroups'&&effectiveMaster()&&!tok.isReference&&!tok.isMapObject){
+      const lighting=ensureLightingModel(currentPage()), groups=lighting.groups;
+      if(!groups.length){ alert('Crie primeiro um grupo em Névoa → Escuridão e lanternas.'); return; }
+      const currentIds=new Set(tokenLightGroupIds(tok));
+      const currentNumbers=groups.map((group,index)=>currentIds.has(group.id)?String(index+1):'').filter(Boolean).join(', ');
+      const list=groups.map((group,index)=>(index+1)+'. '+group.name+(currentIds.has(group.id)?' ✓':'')).join('\n');
+      const entered=prompt('GRUPOS DE ILUMINAÇÃO — '+tok.name+'\n\n'+list+'\n\nDigite os números separados por vírgula. Deixe vazio para remover de todos os grupos.',currentNumbers);
+      if(entered===null)return;
+      const chosen=new Set(entered.split(/[,;\s]+/).map(value=>Number(value)).filter(value=>Number.isInteger(value)&&value>=1&&value<=groups.length));
+      if(!tok.lightGroupsByPage)tok.lightGroupsByPage={};
+      const ids=groups.filter((group,index)=>chosen.has(index+1)).map(group=>group.id);
+      if(ids.length)tok.lightGroupsByPage[state.currentPageId]=ids;
+      else delete tok.lightGroupsByPage[state.currentPageId];
       render(); await persistTokens(); return;
     }
     if(action==='darkvision'&&effectiveMaster()&&!tok.isReference&&!tok.isMapObject){
@@ -9618,6 +9682,7 @@
     if(!state.currentSlot) return;
     if(state.pingArmed){ placePing(e); return; }
     if(state.measureArmed){ startMeasure(e); return; }
+    if(state.lightPointArmed&&effectiveMaster()){ void placeLightPoint(e); return; }
     activePointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
     if(activePointers.size >= 2){ startPinch(); return; }
     // If a sidebar text field still has focus (e.g. after typing a map label),
@@ -9680,7 +9745,7 @@
   }, { passive:false });
 
   // ---------- fog of war: freehand brush (master only, per page) ----------
-  el('btn-fog-toggle').addEventListener('click', () => { state.fogMode = !state.fogMode; if(state.fogMode) state.drawMode = false; render(); });
+  el('btn-fog-toggle').addEventListener('click', () => { state.fogMode = !state.fogMode; if(state.fogMode){ state.drawMode = false; state.lightPointArmed=false; } render(); });
   el('btn-fog-cover').addEventListener('click', () => { state.fogPaintMode = 'cover'; render(); });
   el('btn-fog-reveal').addEventListener('click', () => { state.fogPaintMode = 'reveal'; render(); });
   el('fog-brush').addEventListener('input', (e) => { state.fogBrush = Number(e.target.value); });
@@ -9708,6 +9773,64 @@
     ensureLightingModel(page).shape=e.target.value==='circle'?'circle':'cone';
     render(); await persistPageFog(page);
   });
+  el('lantern-visibility-input').addEventListener('change',async e=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    ensureLightingModel(page).visibility=['all','own','groups'].includes(e.target.value)?e.target.value:'all';
+    render(); await persistPageFog(page);
+  });
+  async function addLanternGroup(){
+    const page=currentPage(), input=el('lantern-group-name');
+    if(!page||!effectiveMaster()||!input)return;
+    const name=input.value.trim().slice(0,32);
+    if(!name)return;
+    const lighting=ensureLightingModel(page);
+    if(lighting.groups.some(group=>group.name.toLowerCase()===name.toLowerCase())){ alert('Já existe um grupo com esse nome.'); return; }
+    pushUndo();
+    lighting.groups.push({id:newId('lg'),name});
+    input.value='';
+    render(); await persistPageFog(page);
+  }
+  el('btn-lantern-group-add').addEventListener('click',addLanternGroup);
+  el('lantern-group-name').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); void addLanternGroup(); } });
+  el('lantern-groups-list').addEventListener('click',async e=>{
+    const button=e.target.closest('[data-light-group-delete]');
+    const page=currentPage();
+    if(!button||!page||!effectiveMaster())return;
+    const lighting=ensureLightingModel(page), id=button.getAttribute('data-light-group-delete');
+    const group=lighting.groups.find(item=>item.id===id);
+    if(!group||!confirm('Excluir o grupo "'+group.name+'" desta página?'))return;
+    pushUndo();
+    lighting.groups=lighting.groups.filter(item=>item.id!==id);
+    state.tokens.forEach(tok=>{
+      if(!tok.lightGroupsByPage||!Array.isArray(tok.lightGroupsByPage[state.currentPageId]))return;
+      const remaining=tok.lightGroupsByPage[state.currentPageId].filter(groupId=>groupId!==id);
+      if(remaining.length)tok.lightGroupsByPage[state.currentPageId]=remaining;
+      else delete tok.lightGroupsByPage[state.currentPageId];
+    });
+    lighting.points.forEach(point=>{ point.groupIds=(point.groupIds||[]).filter(groupId=>groupId!==id); });
+    render(); await Promise.all([persistPageFog(page),persistTokens()]);
+  });
+  el('btn-light-point-add').addEventListener('click',()=>{
+    if(!effectiveMaster()||!currentPage())return;
+    state.lightPointArmed=!state.lightPointArmed;
+    if(state.lightPointArmed){ state.fogMode=false; state.drawMode=false; }
+    render();
+  });
+  el('light-points-list').addEventListener('click',async e=>{
+    const button=e.target.closest('[data-light-point-action]'), page=currentPage();
+    if(!button||!page||!effectiveMaster())return;
+    const lighting=ensureLightingModel(page), id=button.getAttribute('data-light-point-id');
+    const point=lighting.points.find(item=>item.id===id); if(!point)return;
+    const action=button.getAttribute('data-light-point-action');
+    if(action==='toggle'){ pushUndo(); point.enabled=!point.enabled; render(); await persistPageFog(page); return; }
+    if(action==='edit'){
+      const edited=configureLightPoint(point,lighting,false); if(!edited)return;
+      pushUndo(); Object.assign(point,edited); render(); await persistPageFog(page); return;
+    }
+    if(action==='delete'&&confirm('Excluir o ponto de luz "'+point.name+'"?')){
+      pushUndo(); lighting.points=lighting.points.filter(item=>item.id!==id); render(); await persistPageFog(page);
+    }
+  });
   el('lantern-range-input').addEventListener('input',e=>{
     const page=currentPage(); if(!page||!effectiveMaster())return;
     ensureLightingModel(page).range=Math.max(1,Number(e.target.value)||1);
@@ -9725,7 +9848,7 @@
   });
   el('lantern-angle-input').addEventListener('change',()=>{const page=currentPage();if(page&&effectiveMaster())void persistPageFog(page);});
 
-  el('btn-draw-toggle').addEventListener('click', () => { state.drawMode = !state.drawMode; if(state.drawMode) state.fogMode = false; render(); });
+  el('btn-draw-toggle').addEventListener('click', () => { state.drawMode = !state.drawMode; if(state.drawMode){ state.fogMode = false; state.lightPointArmed=false; } render(); });
   el('btn-draw-pen').addEventListener('click', () => { state.drawPaintMode = 'pen'; render(); });
   el('btn-draw-erase').addEventListener('click', () => { state.drawPaintMode = 'erase'; render(); });
   el('btn-draw-move').addEventListener('click', () => { state.drawPaintMode = 'move'; render(); });
@@ -9948,12 +10071,112 @@
 
   function ensureLightingModel(page){
     const fog=ensureFogModel(page);
-    fog.lighting=Object.assign({enabled:false,allowed:true,shape:'cone',range:250,unit:'pixels',angle:70},fog.lighting||{});
+    fog.lighting=Object.assign({enabled:false,allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70},fog.lighting||{});
     fog.lighting.range=Math.max(1,Number(fog.lighting.range)||250);
     fog.lighting.angle=Math.max(20,Math.min(160,Number(fog.lighting.angle)||70));
     if(!['pixels','cells','meters'].includes(fog.lighting.unit)) fog.lighting.unit='pixels';
     if(!['cone','circle'].includes(fog.lighting.shape)) fog.lighting.shape='cone';
+    if(!['all','own','groups'].includes(fog.lighting.visibility)) fog.lighting.visibility='all';
+    if(!Array.isArray(fog.lighting.groups))fog.lighting.groups=[];
+    fog.lighting.groups=fog.lighting.groups.filter(group=>group&&group.id&&group.name).map(group=>({id:String(group.id),name:String(group.name).slice(0,32)}));
+    if(!Array.isArray(fog.lighting.points))fog.lighting.points=[];
+    const validGroupIds=new Set(fog.lighting.groups.map(group=>group.id));
+    fog.lighting.points=fog.lighting.points.filter(point=>point&&point.id).map(point=>({
+      id:String(point.id), name:String(point.name||'Ponto de luz').slice(0,40),
+      x:Math.max(0,Math.min(100,Number(point.x)||0)), y:Math.max(0,Math.min(100,Number(point.y)||0)),
+      range:Math.max(1,Number(point.range)||fog.lighting.range), enabled:point.enabled!==false,
+      groupIds:Array.isArray(point.groupIds)?point.groupIds.filter(id=>validGroupIds.has(id)):[]
+    }));
     return fog.lighting;
+  }
+
+  function tokenLightGroupIds(tok){
+    const ids=tok&&tok.lightGroupsByPage&&tok.lightGroupsByPage[state.currentPageId];
+    return Array.isArray(ids)?ids:[];
+  }
+
+  function tokenLightGroupLabel(tok){
+    const page=currentPage(); if(!page)return 'Nenhum';
+    const selected=new Set(tokenLightGroupIds(tok));
+    const names=ensureLightingModel(page).groups.filter(group=>selected.has(group.id)).map(group=>group.name);
+    return names.length?names.join(', '):'Nenhum';
+  }
+
+  function lightPointGroupLabel(point,lighting){
+    const selected=new Set(point&&Array.isArray(point.groupIds)?point.groupIds:[]);
+    if(!selected.size)return 'Todos';
+    const names=lighting.groups.filter(group=>selected.has(group.id)).map(group=>group.name);
+    return names.length?names.join(', '):'Todos';
+  }
+
+  function promptLightPointGroups(lighting,currentIds){
+    if(!lighting.groups.length)return [];
+    const current=new Set(currentIds||[]);
+    const list=lighting.groups.map((group,index)=>(index+1)+'. '+group.name+(current.has(group.id)?' ✓':'')).join('\n');
+    const defaults=lighting.groups.map((group,index)=>current.has(group.id)?String(index+1):'').filter(Boolean).join(', ');
+    const entered=prompt('QUEM ENXERGA ESTE PONTO DE LUZ?\n\n'+list+'\n\nDigite os números dos grupos separados por vírgula. Deixe vazio para todos os jogadores.',defaults);
+    if(entered===null)return null;
+    const chosen=new Set(entered.split(/[,;\s]+/).map(value=>Number(value)).filter(value=>Number.isInteger(value)&&value>=1&&value<=lighting.groups.length));
+    return lighting.groups.filter((group,index)=>chosen.has(index+1)).map(group=>group.id);
+  }
+
+  function configureLightPoint(point,lighting,isNew){
+    const name=prompt(isNew?'Nome do ponto de luz:':'Nome do ponto de luz:',point.name||'Tocha');
+    if(name===null)return null;
+    const range=prompt('Alcance em '+({pixels:'pixels',cells:'células',meters:'metros'}[lighting.unit]||lighting.unit)+':',String(point.range||lighting.range));
+    if(range===null)return null;
+    const groupIds=promptLightPointGroups(lighting,point.groupIds||[]);
+    if(groupIds===null)return null;
+    return {name:name.trim().slice(0,40)||'Ponto de luz',range:Math.max(1,Number(range)||lighting.range),groupIds};
+  }
+
+  async function placeLightPoint(e){
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    const rect=$canvas.getBoundingClientRect();
+    const xRatio=(e.clientX-rect.left)/Math.max(1,rect.width), yRatio=(e.clientY-rect.top)/Math.max(1,rect.height);
+    if(xRatio<0||xRatio>1||yRatio<0||yRatio>1)return;
+    e.preventDefault(); e.stopPropagation();
+    const lighting=ensureLightingModel(page);
+    const base={id:newId('lp'),name:'Tocha',x:xRatio*100,y:yRatio*100,range:lighting.range,enabled:true,groupIds:[]};
+    const configured=configureLightPoint(base,lighting,true); if(!configured)return;
+    pushUndo(); Object.assign(base,configured); lighting.points.push(base); lighting.enabled=true;
+    state.lightPointArmed=false;
+    render(); await persistPageFog(page);
+  }
+
+  function renderLightPointMarkers(){
+    document.querySelectorAll('.light-point-marker').forEach(node=>node.remove());
+    const page=currentPage(); if(!page||!effectiveMaster()||!document.getElementById('map-img'))return;
+    const lighting=ensureLightingModel(page);
+    lighting.points.forEach(point=>{
+      const marker=document.createElement('div');
+      marker.className='light-point-marker'+(point.enabled?'':' off');
+      marker.style.left=point.x+'%'; marker.style.top=point.y+'%';
+      marker.title=point.name+' · '+lightPointGroupLabel(point,lighting);
+      marker.innerHTML='💡<span>'+escapeHtml(point.name)+'</span>';
+      marker.addEventListener('pointerdown',event=>{ event.preventDefault(); event.stopPropagation(); });
+      $canvas.appendChild(marker);
+    });
+  }
+
+  function currentViewerLightGroups(){
+    const ids=new Set();
+    state.tokens.forEach(tok=>{
+      if(tok.isReference||tok.isMapObject||!isOwnToken(tok)||!isTokenOnPage(tok,state.currentPageId))return;
+      tokenLightGroupIds(tok).forEach(id=>ids.add(id));
+    });
+    return ids;
+  }
+
+  function viewerCanSeeLantern(tok,lighting,viewerGroups){
+    if(effectiveMaster()||lighting.visibility==='all'||isOwnToken(tok))return true;
+    if(lighting.visibility==='own')return false;
+    return tokenLightGroupIds(tok).some(id=>viewerGroups.has(id));
+  }
+
+  function viewerCanSeeLightPoint(point,lighting,viewerGroups){
+    if(effectiveMaster()||lighting.visibility!=='groups'||!point.groupIds.length)return true;
+    return point.groupIds.some(id=>viewerGroups.has(id));
   }
 
   function tokenHasDarkvision(tok){
@@ -10017,10 +10240,11 @@
     ctx.globalCompositeOperation='source-over';
     ctx.fillStyle=effectiveMaster()?'rgba(0,0,0,.78)':'rgba(0,0,0,.995)';
     ctx.fillRect(0,0,canvas.width,canvas.height);
-    if(!lighting.allowed) return;
     const scaleX=canvas.width/Math.max(1,$canvas.clientWidth), scaleY=canvas.height/Math.max(1,$canvas.clientHeight);
-    state.tokens.forEach(tok=>{
+    const viewerGroups=lighting.visibility==='groups'?currentViewerLightGroups():new Set();
+    if(lighting.allowed)state.tokens.forEach(tok=>{
       if(tok.isReference||tok.isMapObject||!isTokenOnPage(tok,state.currentPageId)) return;
+      if(!viewerCanSeeLantern(tok,lighting,viewerGroups)) return;
       const lantern=tokenLanternState(tok,false);
       if(!lantern||!lantern.enabled) return;
       const pos=liveTokenPosition(tok);
@@ -10039,9 +10263,46 @@
       if(lighting.shape==='circle') ctx.arc(x,y,range,0,Math.PI*2);
       else{ ctx.moveTo(x,y); ctx.arc(x,y,range,angle-half,angle+half); ctx.closePath(); }
       ctx.fill();
+      // Recorte sólido de segurança: alguns navegadores móveis não aplicam
+      // corretamente o destination-out com gradiente. O miolo da luz é limpo
+      // de verdade, enquanto o passe acima mantém a borda suavizada.
+      const clearRange=Math.max(1,range*.82);
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      if(lighting.shape==='circle') ctx.arc(x,y,clearRange,0,Math.PI*2);
+      else{ ctx.moveTo(x,y); ctx.arc(x,y,clearRange,angle-half,angle+half); ctx.closePath(); }
+      ctx.clip();
+      ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
+      ctx.restore();
+      ctx.save();
+      ctx.globalCompositeOperation='destination-out';
       const sourceRadius=Math.max(10,(tokenSize(tok)*.62)*Math.max(scaleX,scaleY));
       ctx.fillStyle='rgba(0,0,0,1)';
       ctx.beginPath(); ctx.arc(x,y,sourceRadius,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    });
+    lighting.points.forEach(point=>{
+      if(!point.enabled||!viewerCanSeeLightPoint(point,lighting,viewerGroups))return;
+      const x=(point.x/100)*canvas.width, y=(point.y/100)*canvas.height;
+      const range=lanternRangePixels(page,{range:point.range},canvas);
+      ctx.save();
+      ctx.globalCompositeOperation='destination-out';
+      const glow=ctx.createRadialGradient(x,y,0,x,y,range);
+      glow.addColorStop(0,'rgba(0,0,0,1)');
+      glow.addColorStop(.82,'rgba(0,0,0,1)');
+      glow.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=glow;
+      ctx.beginPath(); ctx.arc(x,y,range,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2); ctx.clip();
+      ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
+      ctx.restore();
+      ctx.save();
+      ctx.globalCompositeOperation='destination-out';
+      ctx.fillStyle='rgba(0,0,0,1)';
+      ctx.beginPath(); ctx.arc(x,y,Math.max(6,8*Math.max(scaleX,scaleY)),0,Math.PI*2); ctx.fill();
       ctx.restore();
     });
   }
