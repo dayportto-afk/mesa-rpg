@@ -4874,6 +4874,7 @@
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
     state.undoStack = []; state.redoStack = [];
     state.fogMode = false;
+    state.drawMode = false;
     state.selectedTokenId = null;
     state.previewAsPlayer = false;
     state.diceQty = {4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0};
@@ -4935,6 +4936,8 @@
     el('music-backdrop').classList.remove('open');
     el('draw-panel').classList.remove('open');
     el('draw-backdrop').classList.remove('open');
+    el('draw-panel').style.left = '';
+    el('draw-panel').style.top = '';
     closeAllFloatPanels();
     el('handout-gallery').classList.remove('show');
     el('handout-gallery-reopen').classList.remove('show');
@@ -4975,6 +4978,10 @@
   });
   el('btn-preview-toggle').addEventListener('click', () => {
     state.previewAsPlayer = !state.previewAsPlayer;
+    if(state.previewAsPlayer){
+      state.drawMode = false;
+      closeDrawPanel();
+    }
     render();
   });
 
@@ -5545,6 +5552,12 @@
     el('tokens-panel-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('music-toggle').style.display = effectiveMaster() ? 'inline-block' : 'none';
     el('draw-panel').classList.toggle('float-style', effectiveMaster());
+    if(!effectiveMaster()){
+      // Remove a posição arrastada da janela do mestre; sem isso, o painel
+      // fechado podia continuar parcialmente visível na interface do jogador.
+      el('draw-panel').style.left = '';
+      el('draw-panel').style.top = '';
+    }
     el('draw-panel-toggle').style.display = effectiveMaster() ? 'none' : 'inline-block';
     updateMusicIndicator();
     updateAmbientAudio();
