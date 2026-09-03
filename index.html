@@ -1485,7 +1485,7 @@
   .modal-error{ color:#e08787; font-size:12px; font-family:'JetBrains Mono', monospace; margin:8px 0 0; text-align:center; min-height:14px;}
   .modal-actions{ display:flex; gap:8px; margin-top:16px; }
   .modal-actions button{ flex:1; }
-  #light-point-diameter{ width:100%; accent-color:var(--amber-bright); }
+  #light-point-diameter, #light-point-aperture, #light-point-direction{ width:100%; accent-color:var(--amber-bright); }
   #light-point-diameter-value{ display:block; margin-top:6px; text-align:center; font-family:'JetBrains Mono',monospace; color:var(--amber-bright); font-size:12px; }
 
   #token-preview{ display:flex; align-items:center; gap:10px; margin-top:8px; }
@@ -2439,15 +2439,29 @@
   <div id="light-point-editor-overlay" class="modal-overlay hidden" style="z-index:2000004;">
     <div class="modal-box">
       <h2>Editar ponto de luz</h2>
-      <p class="desc">Ajuste o diâmetro total da área iluminada.</p>
+      <p class="desc">Escolha o formato e ajuste o tamanho da área iluminada.</p>
       <div class="field">
         <label for="light-point-name-edit">Nome</label>
         <input type="text" id="light-point-name-edit" maxlength="40">
       </div>
       <div class="field">
-        <label for="light-point-diameter">Diâmetro da luz</label>
-        <input type="range" id="light-point-diameter" min="2" max="4000" step="2">
+        <label for="light-point-shape">Formato</label>
+        <select id="light-point-shape"><option value="circle">Circular</option><option value="cone">Cone</option></select>
+      </div>
+      <div class="field">
+        <label for="light-point-diameter" id="light-point-size-label">Diâmetro da luz</label>
+        <input type="range" id="light-point-diameter" min="20" max="10000" step="20">
         <span id="light-point-diameter-value">500 pixels</span>
+      </div>
+      <div id="light-point-cone-controls">
+        <div class="field">
+          <label for="light-point-aperture">Abertura do cone: <span id="light-point-aperture-value">70°</span></label>
+          <input type="range" id="light-point-aperture" min="10" max="180" step="5" value="70">
+        </div>
+        <div class="field">
+          <label for="light-point-direction">Direção: <span id="light-point-direction-value">0°</span></label>
+          <input type="range" id="light-point-direction" min="0" max="355" step="5" value="0">
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" id="light-point-editor-cancel">Cancelar</button>
@@ -6330,7 +6344,7 @@
     }
     else if(type==='lightpoint'){
       const page=currentPage(), lighting=page&&ensureLightingModel(page), point=lighting&&lighting.points.find(item=>item.id===id); if(!point)return;
-      actions=[['↔ Ajustar diâmetro','editlightpoint'],['👥 Visibilidade por grupos','lightpointgroups'],[point.enabled?'○ Desligar luz':'◉ Ligar luz','togglelightpoint'],['Excluir ponto de luz','deletelightpoint','context-danger']];
+      actions=[['↔ Ajustar tamanho e formato','editlightpoint'],['👥 Visibilidade por grupos','lightpointgroups'],[point.enabled?'○ Desligar luz':'◉ Ligar luz','togglelightpoint'],['Excluir ponto de luz','deletelightpoint','context-danger']];
     }
     else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
     menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
@@ -10143,6 +10157,7 @@
       id:String(point.id), name:String(point.name||'Ponto de luz').slice(0,40),
       x:Math.max(0,Math.min(100,Number(point.x)||0)), y:Math.max(0,Math.min(100,Number(point.y)||0)),
       range:Math.max(1,Number(point.range)||fog.lighting.range), enabled:point.enabled!==false,
+      shape:point.shape==='cone'?'cone':'circle', aperture:Math.max(10,Math.min(180,Number(point.aperture)||70)), angle:Number(point.angle)||0,
       groupIds:Array.isArray(point.groupIds)?point.groupIds.filter(id=>validGroupIds.has(id)):[]
     }));
     return fog.lighting;
@@ -10190,43 +10205,68 @@
   function lightPointDiameterConfig(unit){
     if(unit==='cells')return {min:1,max:1000,step:1,label:'células'};
     if(unit==='meters')return {min:1,max:10000,step:1,label:'metros'};
-    return {min:20,max:10000,step:10,label:'pixels'};
+    return {min:20,max:10000,step:20,label:'pixels'};
   }
-  function updateLightPointDiameterPreview(){
+  function snapLightPointDiameter(value,cfg){
+    const snapped=cfg.min+Math.round((Number(value)-cfg.min)/cfg.step)*cfg.step;
+    return Math.max(cfg.min,Math.min(cfg.max,snapped));
+  }
+  function updateLightPointEditorPreview(){
     if(!lightPointEditorState)return;
     const slider=el('light-point-diameter'), cfg=lightPointDiameterConfig(lightPointEditorState.lighting.unit);
-    const diameter=Number(slider.value)||cfg.min;
-    lightPointEditorState.point.range=diameter/2;
+    const diameter=snapLightPointDiameter(slider.value,cfg);
+    slider.value=diameter;
+    const point=lightPointEditorState.point;
+    point.shape=el('light-point-shape').value==='cone'?'cone':'circle';
+    point.range=point.shape==='cone'?diameter:diameter/2;
+    point.aperture=Math.max(10,Math.min(180,Number(el('light-point-aperture').value)||70));
+    point.angle=(Math.max(0,Math.min(355,Number(el('light-point-direction').value)||0))*Math.PI)/180;
+    el('light-point-size-label').textContent=point.shape==='cone'?'Alcance do cone':'Diâmetro da luz';
     el('light-point-diameter-value').textContent=diameter+' '+cfg.label;
+    el('light-point-aperture-value').textContent=point.aperture+'°';
+    el('light-point-direction-value').textContent=Math.round((point.angle*180)/Math.PI)+'°';
+    el('light-point-cone-controls').style.display=point.shape==='cone'?'block':'none';
     setupDarknessOverlay();
   }
   function openLightPointEditor(point){
     const page=currentPage(); if(!page||!point||!effectiveMaster())return;
     const lighting=ensureLightingModel(page), cfg=lightPointDiameterConfig(lighting.unit), slider=el('light-point-diameter');
-    lightPointEditorState={page,point,lighting,originalRange:point.range};
+    lightPointEditorState={page,point,lighting,original:{range:point.range,shape:point.shape,aperture:point.aperture,angle:point.angle}};
     el('light-point-name-edit').value=point.name;
+    el('light-point-shape').value=point.shape;
+    el('light-point-aperture').value=point.aperture;
+    el('light-point-direction').value=Math.round((((point.angle*180)/Math.PI)%360+360)%360/5)*5%360;
     slider.min=cfg.min; slider.max=cfg.max; slider.step=cfg.step;
-    slider.value=Math.max(cfg.min,Math.min(cfg.max,point.range*2));
-    el('light-point-diameter-value').textContent=slider.value+' '+cfg.label;
+    slider.value=snapLightPointDiameter(point.range*(point.shape==='cone'?1:2),cfg);
+    updateLightPointEditorPreview();
     el('light-point-editor-overlay').classList.remove('hidden');
   }
   function cancelLightPointEditor(){
-    if(lightPointEditorState)lightPointEditorState.point.range=lightPointEditorState.originalRange;
+    if(lightPointEditorState)Object.assign(lightPointEditorState.point,lightPointEditorState.original);
     lightPointEditorState=null;
     el('light-point-editor-overlay').classList.add('hidden');
     render();
   }
-  el('light-point-diameter').addEventListener('input',updateLightPointDiameterPreview);
+  el('light-point-diameter').addEventListener('input',updateLightPointEditorPreview);
+  el('light-point-aperture').addEventListener('input',updateLightPointEditorPreview);
+  el('light-point-direction').addEventListener('input',updateLightPointEditorPreview);
+  el('light-point-shape').addEventListener('change',()=>{
+    if(!lightPointEditorState)return;
+    const point=lightPointEditorState.point, cfg=lightPointDiameterConfig(lightPointEditorState.lighting.unit);
+    const nextShape=el('light-point-shape').value==='cone'?'cone':'circle';
+    el('light-point-diameter').value=snapLightPointDiameter(point.range*(nextShape==='cone'?1:2),cfg);
+    updateLightPointEditorPreview();
+  });
   el('light-point-editor-cancel').addEventListener('click',cancelLightPointEditor);
   el('light-point-editor-overlay').addEventListener('pointerdown',e=>{ if(e.target===e.currentTarget)cancelLightPointEditor(); });
   el('light-point-editor-save').addEventListener('click',async()=>{
     const editor=lightPointEditorState; if(!editor)return;
-    const newRange=editor.point.range;
-    editor.point.range=editor.originalRange;
+    const updated={range:editor.point.range,shape:editor.point.shape,aperture:editor.point.aperture,angle:editor.point.angle};
+    Object.assign(editor.point,editor.original);
     pushUndo();
-    editor.point.range=newRange;
+    Object.assign(editor.point,updated);
     editor.point.name=el('light-point-name-edit').value.trim().slice(0,40)||'Ponto de luz';
-    updateLightPointDiameterPreview();
+    updateLightPointEditorPreview();
     lightPointEditorState=null;
     el('light-point-editor-overlay').classList.add('hidden');
     render(); await persistPageFog(editor.page);
@@ -10239,7 +10279,7 @@
     if(xRatio<0||xRatio>1||yRatio<0||yRatio>1)return;
     e.preventDefault(); e.stopPropagation();
     const lighting=ensureLightingModel(page);
-    const base={id:newId('lp'),name:'Tocha',x:xRatio*100,y:yRatio*100,range:lighting.range,enabled:true,groupIds:[]};
+    const base={id:newId('lp'),name:'Tocha',x:xRatio*100,y:yRatio*100,range:lighting.range,enabled:true,shape:'circle',aperture:70,angle:0,groupIds:[]};
     const configured=configureLightPoint(base,lighting,true); if(!configured)return;
     pushUndo(); Object.assign(base,configured); lighting.points.push(base); lighting.enabled=true;
     state.lightPointArmed=false;
@@ -10281,7 +10321,7 @@
       marker.className='light-point-marker'+(point.enabled?'':' off');
       marker.style.left=point.x+'%'; marker.style.top=point.y+'%';
       marker.title=point.name+' · '+lightPointGroupLabel(point,lighting);
-      marker.innerHTML='💡<span>'+escapeHtml(point.name)+'</span>';
+      marker.innerHTML=(point.shape==='cone'?'🔦':'💡')+'<span>'+escapeHtml(point.name)+'</span>';
       marker.addEventListener('pointerdown',event=>startLightPointDrag(event,point,marker));
       marker.addEventListener('contextmenu',event=>openContextMenu(event,'lightpoint',point.id));
       $canvas.appendChild(marker);
@@ -10415,6 +10455,7 @@
       if(!point.enabled||!viewerCanSeeLightPoint(point,lighting,viewerGroups))return;
       const x=(point.x/100)*canvas.width, y=(point.y/100)*canvas.height;
       const range=lanternRangePixels(page,{range:point.range},canvas);
+      const pointAngle=Number(point.angle)||0, pointHalf=((Number(point.aperture)||70)*Math.PI/180)/2;
       ctx.save();
       ctx.globalCompositeOperation='destination-out';
       const glow=ctx.createRadialGradient(x,y,0,x,y,range);
@@ -10422,10 +10463,16 @@
       glow.addColorStop(.82,'rgba(0,0,0,1)');
       glow.addColorStop(1,'rgba(0,0,0,0)');
       ctx.fillStyle=glow;
-      ctx.beginPath(); ctx.arc(x,y,range,0,Math.PI*2); ctx.fill();
+      ctx.beginPath();
+      if(point.shape==='cone'){ ctx.moveTo(x,y); ctx.arc(x,y,range,pointAngle-pointHalf,pointAngle+pointHalf); ctx.closePath(); }
+      else ctx.arc(x,y,range,0,Math.PI*2);
+      ctx.fill();
       ctx.restore();
       ctx.save();
-      ctx.beginPath(); ctx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2); ctx.clip();
+      ctx.beginPath();
+      if(point.shape==='cone'){ ctx.moveTo(x,y); ctx.arc(x,y,Math.max(1,range*.82),pointAngle-pointHalf,pointAngle+pointHalf); ctx.closePath(); }
+      else ctx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2);
+      ctx.clip();
       ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
       ctx.restore();
       ctx.save();
