@@ -1910,7 +1910,11 @@
           <button id="btn-fog-clear" class="danger" style="width:100%; margin-top:8px;">Remover toda a névoa desta página</button>
           <div id="lighting-settings" style="border-top:1px solid var(--line); margin-top:12px; padding-top:10px;">
             <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--amber-bright);margin-bottom:8px;">🌑 Escuridão e lanternas</div>
-            <button type="button" id="btn-darkness-toggle" style="width:100%;">Ativar escuridão total</button>
+            <button type="button" id="btn-darkness-toggle" style="width:100%;">Ativar escuridão</button>
+            <div class="theme-row" style="margin-top:8px;">
+              <label for="darkness-opacity-input">Opacidade <span id="darkness-opacity-value">100%</span></label>
+              <input type="range" id="darkness-opacity-input" min="0" max="100" step="5" value="100" style="flex:1; accent-color:var(--amber);">
+            </div>
             <button type="button" id="btn-lanterns-toggle" style="width:100%; margin-top:6px;">🔦 Lanternas permitidas</button>
             <div class="theme-row" style="margin-top:8px;">
               <label for="lantern-shape-input">Formato da luz</label>
@@ -5684,9 +5688,12 @@
       sw.classList.toggle('active', sw.getAttribute('data-fog-color').toLowerCase() === state.fogColor.toLowerCase());
     });
     el('fog-color-picker').value = state.fogColor;
-    const lightingSettings=page?ensureLightingModel(page):{enabled:false,allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70};
-    el('btn-darkness-toggle').textContent=lightingSettings.enabled?'🌑 Escuridão total ativada':'Ativar escuridão total';
+    const lightingSettings=page?ensureLightingModel(page):{enabled:false,opacity:100,allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70};
+    el('btn-darkness-toggle').textContent=lightingSettings.enabled?'🌑 Escuridão ativada':'Ativar escuridão';
     el('btn-darkness-toggle').classList.toggle('toggle-active',!!lightingSettings.enabled);
+    el('darkness-opacity-input').value=lightingSettings.opacity;
+    el('darkness-opacity-input').disabled=!effectiveMaster();
+    el('darkness-opacity-value').textContent=lightingSettings.opacity+'%';
     el('btn-lanterns-toggle').textContent=lightingSettings.allowed?'🔦 Lanternas permitidas':'🔦 Lanternas bloqueadas';
     el('btn-lanterns-toggle').classList.toggle('toggle-active',!!lightingSettings.allowed);
     el('lantern-shape-input').value=lightingSettings.shape;
@@ -9840,6 +9847,16 @@
     const lighting=ensureLightingModel(page); lighting.allowed=!lighting.allowed;
     render(); await persistPageFog(page);
   });
+  el('darkness-opacity-input').addEventListener('input',e=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    const opacity=Math.max(0,Math.min(100,Number(e.target.value)||0));
+    ensureLightingModel(page).opacity=opacity;
+    el('darkness-opacity-value').textContent=opacity+'%';
+    setupDarknessOverlay();
+  });
+  el('darkness-opacity-input').addEventListener('change',()=>{
+    const page=currentPage(); if(page&&effectiveMaster())void persistPageFog(page);
+  });
   el('lantern-shape-input').addEventListener('change',async e=>{
     const page=currentPage(); if(!page||!effectiveMaster())return;
     ensureLightingModel(page).shape=e.target.value==='circle'?'circle':'cone';
@@ -10141,7 +10158,9 @@
 
   function ensureLightingModel(page){
     const fog=ensureFogModel(page);
-    fog.lighting=Object.assign({enabled:false,allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70},fog.lighting||{});
+    fog.lighting=Object.assign({enabled:false,opacity:100,allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70},fog.lighting||{});
+    const opacity=Number(fog.lighting.opacity);
+    fog.lighting.opacity=Number.isFinite(opacity)?Math.max(0,Math.min(100,opacity)):100;
     fog.lighting.range=Math.max(1,Number(fog.lighting.range)||250);
     fog.lighting.angle=Math.max(20,Math.min(160,Number(fog.lighting.angle)||70));
     if(!['pixels','cells','meters'].includes(fog.lighting.unit)) fog.lighting.unit='pixels';
@@ -10414,7 +10433,9 @@
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.globalCompositeOperation='source-over';
-    ctx.fillStyle=effectiveMaster()?'rgba(0,0,0,.78)':'rgba(0,0,0,.995)';
+    const darknessAlpha=Math.max(0,Math.min(1,lighting.opacity/100));
+    const visibleAlpha=effectiveMaster()?Math.min(.78,darknessAlpha):Math.min(.995,darknessAlpha);
+    ctx.fillStyle='rgba(0,0,0,'+visibleAlpha+')';
     ctx.fillRect(0,0,canvas.width,canvas.height);
     const scaleX=canvas.width/Math.max(1,$canvas.clientWidth), scaleY=canvas.height/Math.max(1,$canvas.clientHeight);
     const viewerGroups=lighting.visibility==='groups'?currentViewerLightGroups():new Set();
