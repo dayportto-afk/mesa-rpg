@@ -1915,6 +1915,10 @@
               <label for="darkness-opacity-input">Opacidade <span id="darkness-opacity-value">100%</span></label>
               <input type="range" id="darkness-opacity-input" min="0" max="100" step="5" value="100" style="flex:1; accent-color:var(--amber);">
             </div>
+            <div class="theme-row">
+              <label for="darkness-color-input">Cor da escuridão</label>
+              <input type="color" id="darkness-color-input" value="#000000" title="Escolher cor da escuridão">
+            </div>
             <button type="button" id="btn-lanterns-toggle" style="width:100%; margin-top:6px;">🔦 Lanternas permitidas</button>
             <div class="theme-row" style="margin-top:8px;">
               <label for="lantern-shape-input">Formato da luz</label>
@@ -5688,12 +5692,14 @@
       sw.classList.toggle('active', sw.getAttribute('data-fog-color').toLowerCase() === state.fogColor.toLowerCase());
     });
     el('fog-color-picker').value = state.fogColor;
-    const lightingSettings=page?ensureLightingModel(page):{enabled:false,opacity:100,allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70};
+    const lightingSettings=page?ensureLightingModel(page):{enabled:false,opacity:100,color:'#000000',allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70};
     el('btn-darkness-toggle').textContent=lightingSettings.enabled?'🌑 Escuridão ativada':'Ativar escuridão';
     el('btn-darkness-toggle').classList.toggle('toggle-active',!!lightingSettings.enabled);
     el('darkness-opacity-input').value=lightingSettings.opacity;
     el('darkness-opacity-input').disabled=!effectiveMaster();
     el('darkness-opacity-value').textContent=lightingSettings.opacity+'%';
+    el('darkness-color-input').value=lightingSettings.color;
+    el('darkness-color-input').disabled=!effectiveMaster();
     el('btn-lanterns-toggle').textContent=lightingSettings.allowed?'🔦 Lanternas permitidas':'🔦 Lanternas bloqueadas';
     el('btn-lanterns-toggle').classList.toggle('toggle-active',!!lightingSettings.allowed);
     el('lantern-shape-input').value=lightingSettings.shape;
@@ -9857,6 +9863,14 @@
   el('darkness-opacity-input').addEventListener('change',()=>{
     const page=currentPage(); if(page&&effectiveMaster())void persistPageFog(page);
   });
+  el('darkness-color-input').addEventListener('input',e=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    ensureLightingModel(page).color=/^#[0-9a-f]{6}$/i.test(e.target.value)?e.target.value.toLowerCase():'#000000';
+    setupDarknessOverlay();
+  });
+  el('darkness-color-input').addEventListener('change',()=>{
+    const page=currentPage(); if(page&&effectiveMaster())void persistPageFog(page);
+  });
   el('lantern-shape-input').addEventListener('change',async e=>{
     const page=currentPage(); if(!page||!effectiveMaster())return;
     ensureLightingModel(page).shape=e.target.value==='circle'?'circle':'cone';
@@ -10158,9 +10172,10 @@
 
   function ensureLightingModel(page){
     const fog=ensureFogModel(page);
-    fog.lighting=Object.assign({enabled:false,opacity:100,allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70},fog.lighting||{});
+    fog.lighting=Object.assign({enabled:false,opacity:100,color:'#000000',allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70},fog.lighting||{});
     const opacity=Number(fog.lighting.opacity);
     fog.lighting.opacity=Number.isFinite(opacity)?Math.max(0,Math.min(100,opacity)):100;
+    fog.lighting.color=/^#[0-9a-f]{6}$/i.test(String(fog.lighting.color||''))?String(fog.lighting.color).toLowerCase():'#000000';
     fog.lighting.range=Math.max(1,Number(fog.lighting.range)||250);
     fog.lighting.angle=Math.max(20,Math.min(160,Number(fog.lighting.angle)||70));
     if(!['pixels','cells','meters'].includes(fog.lighting.unit)) fog.lighting.unit='pixels';
@@ -10435,7 +10450,9 @@
     ctx.globalCompositeOperation='source-over';
     const darknessAlpha=Math.max(0,Math.min(1,lighting.opacity/100));
     const visibleAlpha=effectiveMaster()?Math.min(.78,darknessAlpha):Math.min(.995,darknessAlpha);
-    ctx.fillStyle='rgba(0,0,0,'+visibleAlpha+')';
+    const darknessHex=lighting.color.slice(1);
+    const darknessRgb=[parseInt(darknessHex.slice(0,2),16),parseInt(darknessHex.slice(2,4),16),parseInt(darknessHex.slice(4,6),16)];
+    ctx.fillStyle='rgba('+darknessRgb.join(',')+','+visibleAlpha+')';
     ctx.fillRect(0,0,canvas.width,canvas.height);
     const scaleX=canvas.width/Math.max(1,$canvas.clientWidth), scaleY=canvas.height/Math.max(1,$canvas.clientHeight);
     const viewerGroups=lighting.visibility==='groups'?currentViewerLightGroups():new Set();
