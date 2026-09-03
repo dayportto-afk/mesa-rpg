@@ -612,6 +612,7 @@
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:11; }
   #object-attachment-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:900001; pointer-events:none; }
+  #darkness-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:1000001; pointer-events:none; }
   #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:9; }
 
   #empty-map{
@@ -678,6 +679,11 @@
     white-space:normal; width:max-content; max-width:180px; line-height:1.25;
     text-align:center; pointer-events:none;
     display:none;
+  }
+  .token-lantern-badge{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    font-size:12px; line-height:1; pointer-events:none; z-index:12;
+    filter:drop-shadow(0 0 4px #ffd75a);
   }
   .token.selected .token-label, .token:hover .token-label{ display:block; }
   .token-hp-track{
@@ -960,7 +966,7 @@
   .page-scale-box label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
   .page-scale-box input{ margin-top:3px; }
   .page-scale-hint{ grid-column:1/-1; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); line-height:1.4; }
-  #context-menu{ display:none; position:fixed; z-index:99999; min-width:190px; max-width:260px; background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:5px; }
+  #context-menu{ display:none; position:fixed; z-index:2000002; min-width:190px; max-width:260px; background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:5px; }
   #context-menu.open{ display:block; }
   #context-menu button{ display:block; width:100%; text-align:left; border:none; background:transparent; padding:7px 9px; text-transform:none; letter-spacing:0; font-size:11px; }
   #context-menu button:hover{ background:#2a2116; }
@@ -1892,6 +1898,25 @@
           </div>
           <div class="hint">Com o modo ativo, pinte livremente sobre o mapa para cobrir ou revelar áreas — como um pincel, sem ficar preso a retângulos. A névoa é própria de cada página do histórico.</div>
           <button id="btn-fog-clear" class="danger" style="width:100%; margin-top:8px;">Remover toda a névoa desta página</button>
+          <div id="lighting-settings" style="border-top:1px solid var(--line); margin-top:12px; padding-top:10px;">
+            <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--amber-bright);margin-bottom:8px;">🌑 Escuridão e lanternas</div>
+            <button type="button" id="btn-darkness-toggle" style="width:100%;">Ativar escuridão total</button>
+            <button type="button" id="btn-lanterns-toggle" style="width:100%; margin-top:6px;">🔦 Lanternas permitidas</button>
+            <div class="theme-row" style="margin-top:8px;">
+              <label for="lantern-shape-input">Formato da luz</label>
+              <select id="lantern-shape-input" style="width:120px;"><option value="cone">Cone</option><option value="circle">Circular</option></select>
+            </div>
+            <div class="theme-row" style="margin-top:8px;">
+              <label for="lantern-range-input">Alcance padrão</label>
+              <input type="number" id="lantern-range-input" min="1" max="5000" step="1" value="250" style="width:72px;">
+              <select id="lantern-range-unit" style="width:92px;"><option value="pixels">pixels</option><option value="cells">células</option><option value="meters">metros</option></select>
+            </div>
+            <div class="theme-row">
+              <label for="lantern-angle-input">Abertura <span id="lantern-angle-value">70°</span></label>
+              <input type="range" id="lantern-angle-input" min="20" max="160" step="5" value="70" style="flex:1; accent-color:var(--amber);">
+            </div>
+            <div class="hint">As luzes são compartilhadas. No formato cone, ele aponta na direção do último movimento. Clique com o botão direito ou mantenha o token pressionado para controlar a luz. O mestre também pode conceder visão no escuro pelo menu do token.</div>
+          </div>
         </div>
       </div>
 
@@ -2565,6 +2590,12 @@
   function canInteractWithToken(tok){
     if(tok && tok.isMapObject) return effectiveMaster();
     return effectiveMaster() || (canPlayerMoveLockedNpc(tok) || (!(tok && tok.masterLocked) && isOwnToken(tok)));
+  }
+  function canToggleTokenLantern(tok){
+    if(!tok||tok.isReference||tok.isMapObject) return false;
+    if(effectiveMaster()) return true;
+    const page=currentPage(), lighting=page&&ensureLightingModel(page);
+    return !!(lighting&&lighting.enabled&&lighting.allowed&&!tok.masterLocked&&isOwnToken(tok));
   }
   function isOwnToken(tok){
     if(!tok) return false;
@@ -5529,6 +5560,7 @@
       renderTokens();
       renderTexts();
       setupFogCanvas();
+      setupDarknessOverlay();
     }
     renderMultiSelectBar();
     renderTokenList();
@@ -5588,6 +5620,17 @@
       sw.classList.toggle('active', sw.getAttribute('data-fog-color').toLowerCase() === state.fogColor.toLowerCase());
     });
     el('fog-color-picker').value = state.fogColor;
+    const lightingSettings=page?ensureLightingModel(page):{enabled:false,allowed:true,shape:'cone',range:250,unit:'pixels',angle:70};
+    el('btn-darkness-toggle').textContent=lightingSettings.enabled?'🌑 Escuridão total ativada':'Ativar escuridão total';
+    el('btn-darkness-toggle').classList.toggle('toggle-active',!!lightingSettings.enabled);
+    el('btn-lanterns-toggle').textContent=lightingSettings.allowed?'🔦 Lanternas permitidas':'🔦 Lanternas bloqueadas';
+    el('btn-lanterns-toggle').classList.toggle('toggle-active',!!lightingSettings.allowed);
+    el('lantern-shape-input').value=lightingSettings.shape;
+    el('lantern-range-input').value=lightingSettings.range;
+    el('lantern-range-unit').value=lightingSettings.unit;
+    el('lantern-angle-input').value=lightingSettings.angle;
+    el('lantern-angle-input').disabled=lightingSettings.shape==='circle';
+    el('lantern-angle-value').textContent=lightingSettings.angle+'°';
 
     el('btn-draw-toggle').textContent = state.drawMode ? 'Desativar modo desenho' : 'Ativar modo desenho';
     el('btn-draw-toggle').classList.toggle('toggle-active', state.drawMode);
@@ -6201,11 +6244,22 @@
   let contextTarget=null;
   function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
   function openContextMenu(e,type,id){
-    if(!effectiveMaster()) return; e.preventDefault(); e.stopPropagation();
+    const tokForLantern=type==='token'?state.tokens.find(t=>t.id===id):null;
+    if(!effectiveMaster()&&!canToggleTokenLantern(tokForLantern)) return;
+    e.preventDefault(); e.stopPropagation();
     const menu=el('context-menu'); contextTarget={type,id}; let actions=[];
     if(type==='token'){
-      const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
-      actions=[['Abrir ficha','open'],['Duplicar','duplicate'],['Trazer para frente','front'],['Enviar para trás','back'],[isTokenOnPage(tok,state.currentPageId)?'Remover desta página':'+ Página','page'],['Excluir permanentemente','delete','context-danger']];
+      const tok=tokForLantern; if(!tok)return;
+      const lantern=tokenLanternState(tok,false);
+      const lightActions=[[lantern&&lantern.enabled?'🔦 Apagar lanterna':'🔦 Acender lanterna','lantern']];
+      if(lantern&&lantern.enabled&&ensureLightingModel(currentPage()).shape==='cone') lightActions.push(['↻ Girar cone 45°','lanternrotate']);
+      if(effectiveMaster()){
+        lightActions.push(['📏 Alcance individual','lanternradius']);
+        lightActions.push([tokenHasDarkvision(tok)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
+      }
+      actions=effectiveMaster()
+        ? lightActions.concat([['Abrir ficha','open'],['Duplicar','duplicate'],['Trazer para frente','front'],['Enviar para trás','back'],[isTokenOnPage(tok,state.currentPageId)?'Remover desta página':'+ Página','page'],['Excluir permanentemente','delete','context-danger']])
+        : lightActions;
     }else if(type==='reference') actions=[['Trazer para frente','front'],['Enviar para trás','back'],['Travar / destravar','lock'],['Remover desta página','page'],['Excluir permanentemente','delete','context-danger']];
     else if(type==='mapobject'){
       const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
@@ -6224,6 +6278,29 @@
       if(action==='delete'){ await deleteText(c.id); return; }
     }
     const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
+    if(action==='lantern'){
+      if(!canToggleTokenLantern(tok))return;
+      const lantern=tokenLanternState(tok,true); lantern.enabled=!lantern.enabled;
+      render(); await persistTokens(); return;
+    }
+    if(action==='lanternrotate'){
+      if(!canToggleTokenLantern(tok))return;
+      const lantern=tokenLanternState(tok,true); lantern.angle=((Number(lantern.angle)||0)+(Math.PI/4))%(Math.PI*2);
+      render(); await persistTokens(); return;
+    }
+    if(action==='lanternradius'&&effectiveMaster()){
+      const lantern=tokenLanternState(tok,true), lighting=ensureLightingModel(currentPage());
+      const entered=prompt('Alcance individual em '+({pixels:'pixels',cells:'células',meters:'metros'}[lighting.unit])+'. Deixe vazio para usar o padrão do mapa.',lantern.range==null?'':String(lantern.range));
+      if(entered===null)return;
+      lantern.range=entered.trim()===''?null:Math.max(1,Number(entered)||lighting.range);
+      render(); await persistTokens(); return;
+    }
+    if(action==='darkvision'&&effectiveMaster()&&!tok.isReference&&!tok.isMapObject){
+      if(!tok.darkvisionByPage) tok.darkvisionByPage={};
+      if(tokenHasDarkvision(tok)) delete tok.darkvisionByPage[state.currentPageId];
+      else tok.darkvisionByPage[state.currentPageId]=true;
+      render(); await persistTokens(); return;
+    }
     if(action==='open'&&!tok.isReference&&!tok.isMapObject){openTokenSheet(tok);return;}
     if(action==='duplicate'){await duplicateToken(tok.id);return;}
     if(action==='front'||action==='back'){ pushUndo(); if(!tok.positions)tok.positions={}; const pos=tokenPos(tok); tok.positions[state.currentPageId] = { x:pos.x, y:pos.y, zOrder: action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z }; await persistTokens();render();return; }
@@ -6328,6 +6405,9 @@
         qualitativeHp = pct <= 0 ? '' : (pct <= 25 ? 'Muito ferido' : (pct <= 75 ? 'Ferido' : 'Intacto'));
       }
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
+      const lantern=tokenLanternState(tok,false);
+      const lanternBadge=lantern&&lantern.enabled?'<div class="token-lantern-badge" title="Lanterna acesa">🔦</div>':'';
+      const darkvisionBadge=effectiveMaster()&&tokenHasDarkvision(tok)?'<div class="token-lantern-badge" style="left:18px" title="Visão no escuro">👁</div>':'';
       const condBadges = (tok.conditions || []).map(key => {
         const c = CONDITIONS.find(c => c.key === key);
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
@@ -6336,6 +6416,8 @@
                     (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
+                    lanternBadge +
+                    darkvisionBadge +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '') +
                     (canResizeToken(tok) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '');
@@ -7406,6 +7488,7 @@
   }
 
   function onTokenPointerDown(e){
+    if(e.button===2) return;
     e.preventDefault();
     e.stopPropagation();
     const target = e.currentTarget;
@@ -7483,6 +7566,23 @@
     target.addEventListener('pointermove', onTokenPointerMove);
     target.addEventListener('pointerup', onTokenPointerUp);
     target.addEventListener('pointercancel', onTokenPointerUp);
+    if(e.pointerType==='touch'&&tok&&!tok.isReference&&!tok.isMapObject&&canToggleTokenLantern(tok)){
+      const menuX=e.clientX, menuY=e.clientY, pointerId=e.pointerId;
+      state.dragging.longPressTimer=setTimeout(()=>{
+        const d=state.dragging;
+        if(!d||d.id!==tok.id||d.didDrag) return;
+        clearMoveDistanceLabel();
+        d.el.classList.remove('dragging');
+        d.el.removeEventListener('pointermove',onTokenPointerMove);
+        d.el.removeEventListener('pointerup',onTokenPointerUp);
+        d.el.removeEventListener('pointercancel',onTokenPointerUp);
+        try{ d.el.releasePointerCapture(pointerId); }catch(err){}
+        d.el.style.left=d.origLeft; d.el.style.top=d.origTop;
+        state.dragging=null;
+        render();
+        openContextMenu({preventDefault(){},stopPropagation(){},clientX:menuX,clientY:menuY},'token',tok.id);
+      },550);
+    }
   }
   function onRefResizeStart(e){
     e.preventDefault();
@@ -7599,7 +7699,10 @@
     state.dragging.x = xPct;
     state.dragging.y = yPct;
     const pointerDist=Math.hypot(e.clientX-state.dragging.startClientX,e.clientY-state.dragging.startClientY);
-    if(pointerDist>=6) state.dragging.didDrag=true;
+    if(pointerDist>=6){
+      state.dragging.didDrag=true;
+      if(state.dragging.longPressTimer){ clearTimeout(state.dragging.longPressTimer); state.dragging.longPressTimer=null; }
+    }
     updateMoveDistanceLabel(state.dragging,xPct,yPct);
     if(state.dragging.group){
       const dx = xPct - state.dragging.anchorStartX;
@@ -7647,10 +7750,19 @@
       state.dragging.attachedDrawMoved=state.dragging.attachedDrawMoved||moved.draw;
       state.dragging.attachedFogMoved=state.dragging.attachedFogMoved||moved.fog;
     }
+    if(state.dragging.group){
+      state.dragging.group.forEach(g=>updateLanternDirection(state.tokens.find(t=>t.id===g.id),g.startX,g.startY,g.liveX,g.liveY));
+    }else{
+      const draggedTok=state.tokens.find(t=>t.id===state.dragging.id);
+      if(state.dragging.startPos) updateLanternDirection(draggedTok,state.dragging.startPos.x,state.dragging.startPos.y,xPct,yPct);
+      (state.dragging.riders||[]).forEach(r=>updateLanternDirection(state.tokens.find(t=>t.id===r.id),r.startX,r.startY,r.liveX,r.liveY));
+    }
+    setupDarknessOverlay();
   }
   function onTokenPointerUp(e){
     if(!state.dragging) return;
     const d = state.dragging;
+    if(d.longPressTimer){ clearTimeout(d.longPressTimer); d.longPressTimer=null; }
     clearMoveDistanceLabel();
     d.el.classList.remove('dragging');
     d.el.removeEventListener('pointermove', onTokenPointerMove);
@@ -9577,6 +9689,41 @@
     sw.addEventListener('click', () => { state.fogColor = sw.getAttribute('data-fog-color'); render(); });
   });
   el('fog-color-picker').addEventListener('input', (e) => { state.fogColor = e.target.value; render(); });
+  el('btn-darkness-toggle').addEventListener('click',async()=>{
+    if(!effectiveMaster()) return;
+    const page=currentPage(); if(!page)return;
+    pushUndo();
+    const lighting=ensureLightingModel(page); lighting.enabled=!lighting.enabled;
+    render(); await persistPageFog(page);
+  });
+  el('btn-lanterns-toggle').addEventListener('click',async()=>{
+    if(!effectiveMaster()) return;
+    const page=currentPage(); if(!page)return;
+    pushUndo();
+    const lighting=ensureLightingModel(page); lighting.allowed=!lighting.allowed;
+    render(); await persistPageFog(page);
+  });
+  el('lantern-shape-input').addEventListener('change',async e=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    ensureLightingModel(page).shape=e.target.value==='circle'?'circle':'cone';
+    render(); await persistPageFog(page);
+  });
+  el('lantern-range-input').addEventListener('input',e=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    ensureLightingModel(page).range=Math.max(1,Number(e.target.value)||1);
+    setupDarknessOverlay();
+  });
+  el('lantern-range-input').addEventListener('change',()=>{const page=currentPage();if(page&&effectiveMaster())void persistPageFog(page);});
+  el('lantern-range-unit').addEventListener('change',async e=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    ensureLightingModel(page).unit=e.target.value; render(); await persistPageFog(page);
+  });
+  el('lantern-angle-input').addEventListener('input',e=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    const value=Math.max(20,Math.min(160,Number(e.target.value)||70));
+    ensureLightingModel(page).angle=value; el('lantern-angle-value').textContent=value+'°'; setupDarknessOverlay();
+  });
+  el('lantern-angle-input').addEventListener('change',()=>{const page=currentPage();if(page&&effectiveMaster())void persistPageFog(page);});
 
   el('btn-draw-toggle').addEventListener('click', () => { state.drawMode = !state.drawMode; if(state.drawMode) state.fogMode = false; render(); });
   el('btn-draw-pen').addEventListener('click', () => { state.drawPaintMode = 'pen'; render(); });
@@ -9797,6 +9944,106 @@
     if(!Array.isArray(page.fog.mapStrokes)) page.fog.mapStrokes=[];
     if(!Array.isArray(page.fog.objectStrokes)) page.fog.objectStrokes=[];
     return page.fog;
+  }
+
+  function ensureLightingModel(page){
+    const fog=ensureFogModel(page);
+    fog.lighting=Object.assign({enabled:false,allowed:true,shape:'cone',range:250,unit:'pixels',angle:70},fog.lighting||{});
+    fog.lighting.range=Math.max(1,Number(fog.lighting.range)||250);
+    fog.lighting.angle=Math.max(20,Math.min(160,Number(fog.lighting.angle)||70));
+    if(!['pixels','cells','meters'].includes(fog.lighting.unit)) fog.lighting.unit='pixels';
+    if(!['cone','circle'].includes(fog.lighting.shape)) fog.lighting.shape='cone';
+    return fog.lighting;
+  }
+
+  function tokenHasDarkvision(tok){
+    return !!(tok&&tok.darkvisionByPage&&tok.darkvisionByPage[state.currentPageId]);
+  }
+
+  function currentPlayerHasDarkvision(){
+    if(effectiveMaster()) return false;
+    return state.tokens.some(tok=>!tok.isReference&&!tok.isMapObject&&isOwnToken(tok)&&isTokenOnPage(tok,state.currentPageId)&&tokenHasDarkvision(tok));
+  }
+
+  function tokenLanternState(tok,create){
+    if(!tok || tok.isReference || tok.isMapObject || !state.currentPageId) return null;
+    if(!tok.lanternByPage){ if(!create) return null; tok.lanternByPage={}; }
+    if(!tok.lanternByPage[state.currentPageId]){
+      if(!create) return null;
+      tok.lanternByPage[state.currentPageId]={enabled:false,angle:0,range:null};
+    }
+    return tok.lanternByPage[state.currentPageId];
+  }
+
+  function lanternRangePixels(page,lantern,canvas){
+    const lighting=ensureLightingModel(page);
+    const value=Math.max(1,Number(lantern&&lantern.range)||lighting.range);
+    if(lighting.unit==='cells') return value*Math.max(1,Number(page.grid&&page.grid.size)||50);
+    if(lighting.unit==='meters'){
+      const rw=Number(page.grid&&page.grid.realWidthM), rh=Number(page.grid&&page.grid.realHeightM);
+      if(rw>0&&rh>0) return value*(((canvas.width/rw)+(canvas.height/rh))/2);
+      return value*50;
+    }
+    return value;
+  }
+
+  function liveTokenPosition(tok){
+    const node=document.querySelector('.token[data-id="'+tok.id+'"]');
+    if(node){
+      const x=parseFloat(node.style.left), y=parseFloat(node.style.top);
+      if(Number.isFinite(x)&&Number.isFinite(y)) return {x,y};
+    }
+    return tokenPos(tok);
+  }
+
+  function updateLanternDirection(tok,startX,startY,liveX,liveY){
+    const lantern=tokenLanternState(tok,false);
+    if(!lantern||!lantern.enabled) return;
+    const dx=(liveX-startX)*Math.max(1,$canvas.clientWidth);
+    const dy=(liveY-startY)*Math.max(1,$canvas.clientHeight);
+    if(Math.hypot(dx,dy)>=2) lantern.angle=Math.atan2(dy,dx);
+  }
+
+  function setupDarknessOverlay(){
+    const page=currentPage(), img=document.getElementById('map-img');
+    const lighting=page&&ensureLightingModel(page);
+    let canvas=document.getElementById('darkness-canvas');
+    if(!page||!img||!lighting.enabled||currentPlayerHasDarkvision()){ if(canvas)canvas.remove(); return; }
+    if(!canvas){ canvas=document.createElement('canvas'); canvas.id='darkness-canvas'; $canvas.appendChild(canvas); }
+    canvas.width=img.naturalWidth||1200;
+    canvas.height=img.naturalHeight||800;
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle=effectiveMaster()?'rgba(0,0,0,.78)':'rgba(0,0,0,.995)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(!lighting.allowed) return;
+    const scaleX=canvas.width/Math.max(1,$canvas.clientWidth), scaleY=canvas.height/Math.max(1,$canvas.clientHeight);
+    state.tokens.forEach(tok=>{
+      if(tok.isReference||tok.isMapObject||!isTokenOnPage(tok,state.currentPageId)) return;
+      const lantern=tokenLanternState(tok,false);
+      if(!lantern||!lantern.enabled) return;
+      const pos=liveTokenPosition(tok);
+      const x=(pos.x/100)*canvas.width, y=(pos.y/100)*canvas.height;
+      const range=lanternRangePixels(page,lantern,canvas);
+      const angle=Number(lantern.angle)||0;
+      const half=(lighting.angle*Math.PI/180)/2;
+      ctx.save();
+      ctx.globalCompositeOperation='destination-out';
+      const glow=ctx.createRadialGradient(x,y,0,x,y,range);
+      glow.addColorStop(0,'rgba(0,0,0,1)');
+      glow.addColorStop(.82,'rgba(0,0,0,1)');
+      glow.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=glow;
+      ctx.beginPath();
+      if(lighting.shape==='circle') ctx.arc(x,y,range,0,Math.PI*2);
+      else{ ctx.moveTo(x,y); ctx.arc(x,y,range,angle-half,angle+half); ctx.closePath(); }
+      ctx.fill();
+      const sourceRadius=Math.max(10,(tokenSize(tok)*.62)*Math.max(scaleX,scaleY));
+      ctx.fillStyle='rgba(0,0,0,1)';
+      ctx.beginPath(); ctx.arc(x,y,sourceRadius,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    });
   }
 
   function getObjectAttachmentCanvas(id,zIndex){
