@@ -680,10 +680,9 @@
     text-align:center; pointer-events:none;
     display:none;
   }
-  .token-lantern-badge{
-    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-    font-size:12px; line-height:1; pointer-events:none; z-index:12;
-    filter:drop-shadow(0 0 4px #ffd75a);
+  .token-condition.token-light-modifier{
+    border-color:#ffd75a; background:#201704; cursor:help;
+    filter:drop-shadow(0 0 4px rgba(255,215,90,.8));
   }
   .light-point-marker{
     position:absolute; width:24px; height:24px; margin:-12px 0 0 -12px; z-index:1000002;
@@ -1485,7 +1484,8 @@
   .modal-error{ color:#e08787; font-size:12px; font-family:'JetBrains Mono', monospace; margin:8px 0 0; text-align:center; min-height:14px;}
   .modal-actions{ display:flex; gap:8px; margin-top:16px; }
   .modal-actions button{ flex:1; }
-  #light-point-diameter, #light-point-aperture, #light-point-direction{ width:100%; accent-color:var(--amber-bright); }
+  #light-point-diameter{ width:100%; }
+  #light-point-aperture, #light-point-direction{ width:100%; accent-color:var(--amber-bright); }
   #light-point-diameter-value{ display:block; margin-top:6px; text-align:center; font-family:'JetBrains Mono',monospace; color:var(--amber-bright); font-size:12px; }
 
   #token-preview{ display:flex; align-items:center; gap:10px; margin-top:8px; }
@@ -2450,7 +2450,7 @@
       </div>
       <div class="field">
         <label for="light-point-diameter" id="light-point-size-label">Diâmetro da luz</label>
-        <input type="range" id="light-point-diameter" min="20" max="10000" step="20">
+        <input type="number" id="light-point-diameter" min="1" max="10000" step="1" inputmode="numeric">
         <span id="light-point-diameter-value">500 pixels</span>
       </div>
       <div id="light-point-cone-controls">
@@ -6525,9 +6525,9 @@
       }
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
       const lantern=tokenLanternState(tok,false);
-      const lanternBadge=lantern&&lantern.enabled?'<div class="token-lantern-badge" title="Lanterna acesa">🔦</div>':'';
-      const darkvisionBadge=effectiveMaster()&&tokenHasDarkvision(tok)?'<div class="token-lantern-badge" style="left:18px" title="Visão no escuro">👁</div>':'';
-      const condBadges = (tok.conditions || []).map(key => {
+      const lanternBadge=lantern&&lantern.enabled?'<div class="token-condition token-light-modifier" title="Lanterna acesa">🔦</div>':'';
+      const darkvisionBadge=effectiveMaster()&&tokenHasDarkvision(tok)?'<div class="token-condition token-light-modifier" title="Visão no escuro">👁</div>':'';
+      const condBadges = lanternBadge + darkvisionBadge + (tok.conditions || []).map(key => {
         const c = CONDITIONS.find(c => c.key === key);
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('') + customStatusBadgesMarkup(tok);
@@ -6535,8 +6535,6 @@
                     (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
-                    lanternBadge +
-                    darkvisionBadge +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '') +
                     (canResizeToken(tok) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '');
@@ -10153,13 +10151,22 @@
     fog.lighting.groups=fog.lighting.groups.filter(group=>group&&group.id&&group.name).map(group=>({id:String(group.id),name:String(group.name).slice(0,32)}));
     if(!Array.isArray(fog.lighting.points))fog.lighting.points=[];
     const validGroupIds=new Set(fog.lighting.groups.map(group=>group.id));
-    fog.lighting.points=fog.lighting.points.filter(point=>point&&point.id).map(point=>({
-      id:String(point.id), name:String(point.name||'Ponto de luz').slice(0,40),
-      x:Math.max(0,Math.min(100,Number(point.x)||0)), y:Math.max(0,Math.min(100,Number(point.y)||0)),
-      range:Math.max(1,Number(point.range)||fog.lighting.range), enabled:point.enabled!==false,
-      shape:point.shape==='cone'?'cone':'circle', aperture:Math.max(10,Math.min(180,Number(point.aperture)||70)), angle:Number(point.angle)||0,
-      groupIds:Array.isArray(point.groupIds)?point.groupIds.filter(id=>validGroupIds.has(id)):[]
-    }));
+    // Preserve a identidade de cada ponto. O editor e o arraste mantêm uma
+    // referência direta ao objeto; recriá-lo aqui fazia a prévia do cone editar
+    // uma cópia que já não pertencia mais à página.
+    fog.lighting.points=fog.lighting.points.filter(point=>point&&point.id);
+    fog.lighting.points.forEach(point=>{
+      point.id=String(point.id);
+      point.name=String(point.name||'Ponto de luz').slice(0,40);
+      point.x=Math.max(0,Math.min(100,Number(point.x)||0));
+      point.y=Math.max(0,Math.min(100,Number(point.y)||0));
+      point.range=Math.max(1,Number(point.range)||fog.lighting.range);
+      point.enabled=point.enabled!==false;
+      point.shape=point.shape==='cone'?'cone':'circle';
+      point.aperture=Math.max(10,Math.min(180,Number(point.aperture)||70));
+      point.angle=Number(point.angle)||0;
+      point.groupIds=Array.isArray(point.groupIds)?point.groupIds.filter(id=>validGroupIds.has(id)):[];
+    });
     return fog.lighting;
   }
 
@@ -10205,7 +10212,7 @@
   function lightPointDiameterConfig(unit){
     if(unit==='cells')return {min:1,max:1000,step:1,label:'células'};
     if(unit==='meters')return {min:1,max:10000,step:1,label:'metros'};
-    return {min:20,max:10000,step:20,label:'pixels'};
+    return {min:1,max:10000,step:1,label:'pixels'};
   }
   function snapLightPointDiameter(value,cfg){
     const snapped=cfg.min+Math.round((Number(value)-cfg.min)/cfg.step)*cfg.step;
