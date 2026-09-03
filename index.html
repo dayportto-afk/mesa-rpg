@@ -689,7 +689,7 @@
     position:absolute; width:24px; height:24px; margin:-12px 0 0 -12px; z-index:1000002;
     display:flex; align-items:center; justify-content:center; border:1px solid #ffd75a; border-radius:50%;
     background:rgba(25,16,5,.88); color:#ffd75a; font-size:13px; cursor:default; pointer-events:auto;
-    box-shadow:0 0 10px rgba(255,215,90,.75); user-select:none;
+    box-shadow:0 0 10px rgba(255,215,90,.75); user-select:none; touch-action:none;
   }
   .light-point-marker.off{ opacity:.48; box-shadow:none; filter:grayscale(1); }
   .light-point-marker span{ position:absolute; top:27px; left:50%; transform:translateX(-50%); padding:2px 5px; border-radius:3px; background:#150f09; border:1px solid var(--amber); color:var(--parchment); font-size:9px; white-space:nowrap; }
@@ -1485,6 +1485,8 @@
   .modal-error{ color:#e08787; font-size:12px; font-family:'JetBrains Mono', monospace; margin:8px 0 0; text-align:center; min-height:14px;}
   .modal-actions{ display:flex; gap:8px; margin-top:16px; }
   .modal-actions button{ flex:1; }
+  #light-point-diameter{ width:100%; accent-color:var(--amber-bright); }
+  #light-point-diameter-value{ display:block; margin-top:6px; text-align:center; font-family:'JetBrains Mono',monospace; color:var(--amber-bright); font-size:12px; }
 
   #token-preview{ display:flex; align-items:center; gap:10px; margin-top:8px; }
   #token-preview img{ width:44px; height:44px; border-radius:50%; object-fit:cover; border:1px solid var(--amber); }
@@ -1927,6 +1929,7 @@
             </div>
             <div id="light-points-settings" style="margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:5px;">
               <button type="button" id="btn-light-point-add" style="width:100%;">💡 Adicionar ponto de luz</button>
+              <div class="hint" style="margin-top:5px;">Arraste o marcador 💡 para mover. Clique com o botão direito para ajustar o diâmetro.</div>
               <div id="light-points-list" style="display:flex;flex-direction:column;gap:5px;margin-top:6px;"></div>
             </div>
             <div class="theme-row" style="margin-top:8px;">
@@ -2433,6 +2436,26 @@
   </div>
 
   <!-- ===================== MODALS ===================== -->
+  <div id="light-point-editor-overlay" class="modal-overlay hidden" style="z-index:2000004;">
+    <div class="modal-box">
+      <h2>Editar ponto de luz</h2>
+      <p class="desc">Ajuste o diâmetro total da área iluminada.</p>
+      <div class="field">
+        <label for="light-point-name-edit">Nome</label>
+        <input type="text" id="light-point-name-edit" maxlength="40">
+      </div>
+      <div class="field">
+        <label for="light-point-diameter">Diâmetro da luz</label>
+        <input type="range" id="light-point-diameter" min="2" max="4000" step="2">
+        <span id="light-point-diameter-value">500 pixels</span>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="light-point-editor-cancel">Cancelar</button>
+        <button type="button" id="light-point-editor-save" class="primary">Salvar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal-box" id="modal">
       <h2 id="modal-title">Entrar como Mestre</h2>
@@ -5313,7 +5336,7 @@
     });
   }
   async function persistPageMap(page){ await safeSet(slotKey('page-'+page.id+'-map'), page.map); }
-  async function persistPageFog(page){ await safeSet(slotKey('page-'+page.id+'-fog'), page.fog); }
+  async function persistPageFog(page){ return await safeSet(slotKey('page-'+page.id+'-fog'), page.fog); }
   async function persistPageDraw(page){ await safeSet(slotKey('page-'+page.id+'-draw'), page.draw); }
   async function persistPageTexts(page){ await safeSet(slotKey('page-'+page.id+'-texts'), { list: page.texts }); }
   async function persistPageGrid(page){ await safeSet(slotKey('page-'+page.id+'-grid'), page.grid); }
@@ -5668,7 +5691,7 @@
     el('btn-light-point-add').classList.toggle('toggle-active',!!state.lightPointArmed);
     el('light-points-settings').style.display=effectiveMaster()?'block':'none';
     el('light-points-list').innerHTML=lightingSettings.points.length
-      ? lightingSettings.points.map(point=>'<div style="display:flex;align-items:center;gap:4px;"><span style="flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">💡 '+escapeHtml(point.name)+' · '+escapeHtml(lightPointGroupLabel(point,lightingSettings))+'</span><button type="button" data-light-point-action="toggle" data-light-point-id="'+point.id+'" title="Ligar ou desligar">'+(point.enabled?'◉':'○')+'</button><button type="button" data-light-point-action="edit" data-light-point-id="'+point.id+'" title="Editar">✎</button><button type="button" data-light-point-action="delete" data-light-point-id="'+point.id+'" title="Excluir">✕</button></div>').join('')
+      ? lightingSettings.points.map(point=>'<div style="display:flex;align-items:center;gap:4px;"><span style="flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">💡 '+escapeHtml(point.name)+' · '+escapeHtml(lightPointGroupLabel(point,lightingSettings))+'</span><button type="button" data-light-point-action="toggle" data-light-point-id="'+point.id+'" title="Ligar ou desligar">'+(point.enabled?'◉':'○')+'</button><button type="button" data-light-point-action="groups" data-light-point-id="'+point.id+'" title="Visibilidade por grupos">👥</button><button type="button" data-light-point-action="edit" data-light-point-id="'+point.id+'" title="Ajustar diâmetro">↔</button><button type="button" data-light-point-action="delete" data-light-point-id="'+point.id+'" title="Excluir">✕</button></div>').join('')
       : '<div class="hint" style="margin:0;">Nenhum ponto de luz.</div>';
 
     el('btn-draw-toggle').textContent = state.drawMode ? 'Desativar modo desenho' : 'Ativar modo desenho';
@@ -6305,6 +6328,10 @@
       const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
       actions=[[tok.objectLocked?'Destravar posição':'Travar posição','objectlock'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir objeto','delete','context-danger']];
     }
+    else if(type==='lightpoint'){
+      const page=currentPage(), lighting=page&&ensureLightingModel(page), point=lighting&&lighting.points.find(item=>item.id===id); if(!point)return;
+      actions=[['↔ Ajustar diâmetro','editlightpoint'],['👥 Visibilidade por grupos','lightpointgroups'],[point.enabled?'○ Desligar luz':'◉ Ligar luz','togglelightpoint'],['Excluir ponto de luz','deletelightpoint','context-danger']];
+    }
     else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
     menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
     menu.style.left=Math.min(e.clientX,window.innerWidth-230)+'px'; menu.style.top=Math.min(e.clientY,window.innerHeight-260)+'px'; menu.classList.add('open');
@@ -6316,6 +6343,20 @@
       if(action==='edit'){ const node=document.querySelector('.map-text[data-id="'+c.id+'"]'); if(node)beginInlineTextEdit(node,c.id); return; }
       if(action==='front'||action==='back'){ pushUndo(); txt.zOrder = action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z; await persistPageTexts(page); renderTexts(); return; }
       if(action==='delete'){ await deleteText(c.id); return; }
+    }
+    if(c.type==='lightpoint'){
+      const page=currentPage(), lighting=page&&ensureLightingModel(page), point=lighting&&lighting.points.find(item=>item.id===c.id);
+      if(!page||!point||!effectiveMaster())return;
+      if(action==='editlightpoint'){ openLightPointEditor(point); return; }
+      if(action==='lightpointgroups'){
+        const groupIds=promptLightPointGroups(lighting,point.groupIds||[]); if(groupIds===null)return;
+        pushUndo(); point.groupIds=groupIds; render(); await persistPageFog(page); return;
+      }
+      if(action==='togglelightpoint'){ pushUndo(); point.enabled=!point.enabled; render(); await persistPageFog(page); return; }
+      if(action==='deletelightpoint'&&confirm('Excluir o ponto de luz "'+point.name+'"?')){
+        pushUndo(); lighting.points=lighting.points.filter(item=>item.id!==point.id); render(); await persistPageFog(page); return;
+      }
+      return;
     }
     const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
     if(action==='lantern'){
@@ -9754,12 +9795,31 @@
     sw.addEventListener('click', () => { state.fogColor = sw.getAttribute('data-fog-color'); render(); });
   });
   el('fog-color-picker').addEventListener('input', (e) => { state.fogColor = e.target.value; render(); });
+  let darknessToggleBusy=false;
   el('btn-darkness-toggle').addEventListener('click',async()=>{
-    if(!effectiveMaster()) return;
+    if(!effectiveMaster()||darknessToggleBusy)return;
     const page=currentPage(); if(!page)return;
-    pushUndo();
-    const lighting=ensureLightingModel(page); lighting.enabled=!lighting.enabled;
-    render(); await persistPageFog(page);
+    const targetEnabled=!ensureLightingModel(page).enabled;
+    pushUndo(); darknessToggleBusy=true;
+    ensureLightingModel(page).enabled=targetEnabled;
+    render();
+    const button=el('btn-darkness-toggle'); button.disabled=true;
+    try{
+      await persistPageFog(page);
+      // Confirma a intenção na instância atual da página. Um retorno atrasado
+      // do sincronismo pode ter substituído page.fog durante a primeira gravação.
+      const livePage=state.pages.find(item=>item.id===page.id);
+      if(livePage){
+        ensureLightingModel(livePage).enabled=targetEnabled;
+        await persistPageFog(livePage);
+      }
+    }finally{
+      darknessToggleBusy=false;
+      const livePage=state.pages.find(item=>item.id===page.id);
+      if(livePage)ensureLightingModel(livePage).enabled=targetEnabled;
+      render();
+      el('btn-darkness-toggle').disabled=false;
+    }
   });
   el('btn-lanterns-toggle').addEventListener('click',async()=>{
     if(!effectiveMaster()) return;
@@ -9823,10 +9883,8 @@
     const point=lighting.points.find(item=>item.id===id); if(!point)return;
     const action=button.getAttribute('data-light-point-action');
     if(action==='toggle'){ pushUndo(); point.enabled=!point.enabled; render(); await persistPageFog(page); return; }
-    if(action==='edit'){
-      const edited=configureLightPoint(point,lighting,false); if(!edited)return;
-      pushUndo(); Object.assign(point,edited); render(); await persistPageFog(page); return;
-    }
+    if(action==='groups'){ const groupIds=promptLightPointGroups(lighting,point.groupIds||[]); if(groupIds===null)return; pushUndo(); point.groupIds=groupIds; render(); await persistPageFog(page); return; }
+    if(action==='edit'){ openLightPointEditor(point); return; }
     if(action==='delete'&&confirm('Excluir o ponto de luz "'+point.name+'"?')){
       pushUndo(); lighting.points=lighting.points.filter(item=>item.id!==id); render(); await persistPageFog(page);
     }
@@ -10123,12 +10181,56 @@
   function configureLightPoint(point,lighting,isNew){
     const name=prompt(isNew?'Nome do ponto de luz:':'Nome do ponto de luz:',point.name||'Tocha');
     if(name===null)return null;
-    const range=prompt('Alcance em '+({pixels:'pixels',cells:'células',meters:'metros'}[lighting.unit]||lighting.unit)+':',String(point.range||lighting.range));
-    if(range===null)return null;
     const groupIds=promptLightPointGroups(lighting,point.groupIds||[]);
     if(groupIds===null)return null;
-    return {name:name.trim().slice(0,40)||'Ponto de luz',range:Math.max(1,Number(range)||lighting.range),groupIds};
+    return {name:name.trim().slice(0,40)||'Ponto de luz',groupIds};
   }
+
+  let lightPointEditorState=null;
+  function lightPointDiameterConfig(unit){
+    if(unit==='cells')return {min:1,max:1000,step:1,label:'células'};
+    if(unit==='meters')return {min:1,max:10000,step:1,label:'metros'};
+    return {min:20,max:10000,step:10,label:'pixels'};
+  }
+  function updateLightPointDiameterPreview(){
+    if(!lightPointEditorState)return;
+    const slider=el('light-point-diameter'), cfg=lightPointDiameterConfig(lightPointEditorState.lighting.unit);
+    const diameter=Number(slider.value)||cfg.min;
+    lightPointEditorState.point.range=diameter/2;
+    el('light-point-diameter-value').textContent=diameter+' '+cfg.label;
+    setupDarknessOverlay();
+  }
+  function openLightPointEditor(point){
+    const page=currentPage(); if(!page||!point||!effectiveMaster())return;
+    const lighting=ensureLightingModel(page), cfg=lightPointDiameterConfig(lighting.unit), slider=el('light-point-diameter');
+    lightPointEditorState={page,point,lighting,originalRange:point.range};
+    el('light-point-name-edit').value=point.name;
+    slider.min=cfg.min; slider.max=cfg.max; slider.step=cfg.step;
+    slider.value=Math.max(cfg.min,Math.min(cfg.max,point.range*2));
+    el('light-point-diameter-value').textContent=slider.value+' '+cfg.label;
+    el('light-point-editor-overlay').classList.remove('hidden');
+  }
+  function cancelLightPointEditor(){
+    if(lightPointEditorState)lightPointEditorState.point.range=lightPointEditorState.originalRange;
+    lightPointEditorState=null;
+    el('light-point-editor-overlay').classList.add('hidden');
+    render();
+  }
+  el('light-point-diameter').addEventListener('input',updateLightPointDiameterPreview);
+  el('light-point-editor-cancel').addEventListener('click',cancelLightPointEditor);
+  el('light-point-editor-overlay').addEventListener('pointerdown',e=>{ if(e.target===e.currentTarget)cancelLightPointEditor(); });
+  el('light-point-editor-save').addEventListener('click',async()=>{
+    const editor=lightPointEditorState; if(!editor)return;
+    const newRange=editor.point.range;
+    editor.point.range=editor.originalRange;
+    pushUndo();
+    editor.point.range=newRange;
+    editor.point.name=el('light-point-name-edit').value.trim().slice(0,40)||'Ponto de luz';
+    updateLightPointDiameterPreview();
+    lightPointEditorState=null;
+    el('light-point-editor-overlay').classList.add('hidden');
+    render(); await persistPageFog(editor.page);
+  });
 
   async function placeLightPoint(e){
     const page=currentPage(); if(!page||!effectiveMaster())return;
@@ -10142,6 +10244,32 @@
     pushUndo(); Object.assign(base,configured); lighting.points.push(base); lighting.enabled=true;
     state.lightPointArmed=false;
     render(); await persistPageFog(page);
+    const created=ensureLightingModel(page).points.find(point=>point.id===base.id);
+    if(created)openLightPointEditor(created);
+  }
+
+  function startLightPointDrag(e,point,marker){
+    if(e.button===2||!effectiveMaster())return;
+    e.preventDefault(); e.stopPropagation();
+    const page=currentPage(), rect=$canvas.getBoundingClientRect(); if(!page)return;
+    const drag={startX:e.clientX,startY:e.clientY,moved:false,undo:false};
+    marker.setPointerCapture(e.pointerId);
+    const move=event=>{
+      const dist=Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY);
+      if(dist<3&&!drag.moved)return;
+      if(!drag.undo){ pushUndo(); drag.undo=true; }
+      drag.moved=true;
+      point.x=Math.max(0,Math.min(100,((event.clientX-rect.left)/Math.max(1,rect.width))*100));
+      point.y=Math.max(0,Math.min(100,((event.clientY-rect.top)/Math.max(1,rect.height))*100));
+      marker.style.left=point.x+'%'; marker.style.top=point.y+'%';
+      setupDarknessOverlay();
+    };
+    const end=async()=>{
+      marker.removeEventListener('pointermove',move); marker.removeEventListener('pointerup',end); marker.removeEventListener('pointercancel',end);
+      if(drag.moved)await persistPageFog(page);
+      render();
+    };
+    marker.addEventListener('pointermove',move); marker.addEventListener('pointerup',end); marker.addEventListener('pointercancel',end);
   }
 
   function renderLightPointMarkers(){
@@ -10154,7 +10282,8 @@
       marker.style.left=point.x+'%'; marker.style.top=point.y+'%';
       marker.title=point.name+' · '+lightPointGroupLabel(point,lighting);
       marker.innerHTML='💡<span>'+escapeHtml(point.name)+'</span>';
-      marker.addEventListener('pointerdown',event=>{ event.preventDefault(); event.stopPropagation(); });
+      marker.addEventListener('pointerdown',event=>startLightPointDrag(event,point,marker));
+      marker.addEventListener('contextmenu',event=>openContextMenu(event,'lightpoint',point.id));
       $canvas.appendChild(marker);
     });
   }
