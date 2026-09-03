@@ -9612,7 +9612,8 @@
     const canvas = document.getElementById('fog-canvas');
     if(!canvas || !page) return;
     const ctx = canvas.getContext('2d');
-    let hasContent = false;
+    const fogModel=ensureFogModel(page);
+    let hasContent = fogModel.mapStrokes.length>0 || fogModel.objectStrokes.length>0;
     try{
       const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
       for(let i=3;i<data.length;i+=4*997){ if(data[i] !== 0){ hasContent = true; break; } }
@@ -9621,7 +9622,8 @@
     if(!confirm('Remover toda a névoa desta página?')) return;
     pushUndo();
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    ensureFogModel(page).objectStrokes = [];
+    fogModel.mapStrokes = [];
+    fogModel.objectStrokes = [];
     page.fog.image = canvas.toDataURL('image/png');
     canvas._baseFogImageData = ctx.getImageData(0,0,canvas.width,canvas.height);
     redrawObjectAttachmentCanvases(page);
@@ -9777,8 +9779,9 @@
 
   let fogBuildId = 0;
   function ensureFogModel(page){
-    if(typeof page.fog==='string') page.fog={image:page.fog,objectStrokes:[]};
-    else if(!page.fog || typeof page.fog!=='object') page.fog={image:'',objectStrokes:[]};
+    if(typeof page.fog==='string') page.fog={image:page.fog,mapStrokes:[],objectStrokes:[]};
+    else if(!page.fog || typeof page.fog!=='object') page.fog={image:'',mapStrokes:[],objectStrokes:[]};
+    if(!Array.isArray(page.fog.mapStrokes)) page.fog.mapStrokes=[];
     if(!Array.isArray(page.fog.objectStrokes)) page.fog.objectStrokes=[];
     return page.fog;
   }
@@ -9808,10 +9811,11 @@
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const layers=[];
+    ensureFogModel(page).mapStrokes.forEach(stroke=>layers.push({kind:'fog',stroke}));
     ensureFogModel(page).objectStrokes.forEach(stroke=>layers.push({kind:'fog',stroke}));
-    ((page.draw&&page.draw.strokes)||[]).filter(stroke=>stroke.platformId).forEach(stroke=>layers.push({kind:'draw',stroke}));
-    if(inProgressFog&&inProgressFog.platformId) layers.push({kind:'fog',stroke:inProgressFog});
-    if(inProgressDraw&&inProgressDraw.platformId) layers.push({kind:'draw',stroke:inProgressDraw});
+    ((page.draw&&page.draw.strokes)||[]).forEach(stroke=>layers.push({kind:'draw',stroke}));
+    if(inProgressFog) layers.push({kind:'fog',stroke:inProgressFog});
+    if(inProgressDraw) layers.push({kind:'draw',stroke:inProgressDraw});
     layers.sort((a,b)=>(Number(a.stroke.createdAt)||0)-(Number(b.stroke.createdAt)||0));
     layers.forEach(layer=>{
       if(layer.kind==='fog') renderFogStrokeOnCtx(ctx,layer.stroke);
@@ -10031,8 +10035,8 @@
   function redrawDrawCanvas(canvas, page, inProgressStroke){
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    (page.draw.strokes || []).filter(stroke=>!stroke.platformId).forEach(stroke => drawStrokeOnCtx(ctx, stroke));
-    if(inProgressStroke&&!inProgressStroke.platformId) drawStrokeOnCtx(ctx, inProgressStroke);
+    // O canvas da ferramenta recebe os eventos; a exibição de todos os traços
+    // ocorre na camada cronológica compartilhada com a névoa.
     redrawObjectAttachmentCanvases(page,inProgressStroke);
   }
 
@@ -10233,12 +10237,11 @@
       brush: session.brush,
       points: session.points
     };
-    if(session.platformId){
-      redrawObjectAttachmentCanvases(session.page,null,liveStroke);
-    }else{
+    // Uma revelação comum também perfura a névoa raster antiga durante a prévia.
+    if(!session.platformId&&session.mode==='reveal'){
       renderFogStrokeOnCtx(session.ctx,liveStroke);
-      redrawObjectAttachmentCanvases(session.page);
     }
+    redrawObjectAttachmentCanvases(session.page,null,liveStroke);
   }
 
   function startFogPaint(e){
@@ -10283,16 +10286,16 @@
       id:newId('fg'), createdAt:s.createdAt, platformId:s.platformId, mode:s.mode, color:s.color,
       opacity:s.opacity, brush:s.brush, points:s.points
     };
-    if(s.platformId){
-      ensureFogModel(page).objectStrokes.push(stroke);
-      redrawFogCanvasFromModel(s.canvas,page);
-    }else{
+    const fogModel=ensureFogModel(page);
+    if(s.platformId) fogModel.objectStrokes.push(stroke);
+    else fogModel.mapStrokes.push(stroke);
+    if(!s.platformId&&s.mode==='reveal'){
       s.ctx.putImageData(s.baseFogImageData,0,0);
       renderFogStrokeOnCtx(s.ctx,stroke);
       s.canvas._baseFogImageData=s.ctx.getImageData(0,0,s.canvas.width,s.canvas.height);
       page.fog.image=s.canvas.toDataURL('image/png');
-      redrawFogCanvasFromModel(s.canvas,page);
     }
+    redrawFogCanvasFromModel(s.canvas,page);
     state.fogStroke = null;
     await persistPageFog(page);
     flushPendingPageUpdates('fog');
