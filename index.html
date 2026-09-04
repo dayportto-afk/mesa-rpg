@@ -316,9 +316,15 @@
   .lock-toggle{ width:28px; height:28px; padding:0; font-size:13px; flex-shrink:0; }
   .lock-toggle.toggle-active{ background:var(--wax); border-color:var(--wax); }
   .token-lock-badge{
-    position:absolute; right:-2px; top:2px; transform:translateX(100%);
-    width:18px; height:18px; border-radius:50%; background:#150f09; border:1px solid var(--wax);
-    display:flex; align-items:center; justify-content:center; font-size:10px; z-index:5;
+    position:absolute;
+    right:calc(var(--token-lock-size,18px) * -.1);
+    top:calc(var(--token-lock-size,18px) * .1);
+    transform:translateX(100%);
+    width:var(--token-lock-size,18px); height:var(--token-lock-size,18px);
+    border-radius:50%; background:#150f09;
+    border:max(1px,calc(var(--token-lock-size,18px) * .06)) solid var(--wax);
+    display:flex; align-items:center; justify-content:center;
+    font-size:var(--token-lock-font,10px); line-height:1; z-index:5;
   }
 
   .token-row-hp, .token-row-size{ display:flex; align-items:center; gap:8px; padding-left:2px; margin-top:4px; }
@@ -336,8 +342,11 @@
   .token-row-hp .hp-max-input:focus{ border-color:var(--amber); }
   .token-row-hp .hp-max-label{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; margin-left:auto;}
   .token-conditions{
-    position:absolute; left:-2px; top:2px; transform:translateX(-100%);
-    display:flex; flex-direction:column; gap:2px; z-index:5;
+    position:absolute;
+    left:calc(var(--token-status-size,18px) * -.1);
+    top:calc(var(--token-status-size,18px) * .1);
+    transform:translateX(-100%);
+    display:flex; flex-direction:column; gap:var(--token-status-gap,2px); z-index:5;
   }
   .token-condition{
     width:var(--token-status-size,18px); height:var(--token-status-size,18px); border-radius:50%;
@@ -6840,14 +6849,20 @@
       t.style.marginLeft = (-dims.width/2) + 'px';
       t.style.marginTop = (-dims.height/2) + 'px';
       if(!tok.isReference){
-        const statusSize = Math.max(8, Math.min(30, Math.round(size * 0.28)));
-        const statusFont = Math.max(5, Math.min(19, Math.round(statusSize * 0.62)));
-        const customStatusSize = Math.max(5, Math.min(20, Math.round(size * 0.14)));
-        const customStatusFont = Math.max(4, Math.min(13, Math.round(customStatusSize * 0.64)));
+        const statusSize = Math.max(7, Math.min(52, Math.round(size * 0.26)));
+        const statusFont = Math.max(5, Math.min(32, Math.round(statusSize * 0.62)));
+        const customStatusSize = Math.max(6, Math.min(38, Math.round(size * 0.19)));
+        const customStatusFont = Math.max(4, Math.min(25, Math.round(customStatusSize * 0.64)));
+        const lockSize = Math.max(7, Math.min(52, Math.round(size * 0.26)));
+        const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
+        const statusGap = Math.max(1, Math.min(6, Math.round(size * 0.025)));
         t.style.setProperty('--token-status-size', statusSize + 'px');
         t.style.setProperty('--token-status-font', statusFont + 'px');
         t.style.setProperty('--token-custom-status-size', customStatusSize + 'px');
         t.style.setProperty('--token-custom-status-font', customStatusFont + 'px');
+        t.style.setProperty('--token-lock-size', lockSize + 'px');
+        t.style.setProperty('--token-lock-font', lockFont + 'px');
+        t.style.setProperty('--token-status-gap', statusGap + 'px');
       }
       let renderedZ=clampStageZOrder(typeof pos.zOrder === 'number' ? pos.zOrder : MAP_LAYER_FLOOR_Z);
       if(!tok.isMapObject && tok.platformByPage && tok.platformByPage[state.currentPageId]){
