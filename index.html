@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Mesa RPG</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -804,6 +804,10 @@
   }
   #zoom-controls button{ width:36px; height:36px; padding:0; font-size:16px; }
 
+  /* Mobile-only navigation. Kept out of the desktop layout by default. */
+  #mobile-bottom-nav, #mobile-more-sheet, #mobile-more-backdrop, #mobile-token-actions, #mobile-mode-indicator, #mobile-connection-status{ display:none; }
+  .mobile-sheet-size-toggle{ display:none; }
+
   /* Dice roller (available to master and players alike, opened from the topbar) */
   #dice-backdrop{
     display:none; position:fixed; inset:0; z-index:149; background:rgba(8,6,3,0.55);
@@ -1536,6 +1540,143 @@
     #topbar{ padding:8px 10px; }
     #topbar-right{ gap:6px; }
     #topbar-right button{ padding:6px 9px; font-size:10px; }
+
+    /* Mobile app shell: the desktop top bar and icon rail stay unchanged above 760px. */
+    #app-screen{ min-height:100dvh; }
+    #main{ padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
+    #topbar{
+      min-height:52px; padding:6px 9px; gap:7px; overflow:visible;
+      padding-top:max(6px, env(safe-area-inset-top));
+    }
+    #title-wrap{ flex:1 1 auto; overflow:hidden; }
+    #slot-eyebrow{ display:none; }
+    #campaign-title{ max-width:none; width:100%; font-size:15px; padding:3px 5px; }
+    #topbar-token-name{ display:none; }
+    #topbar-right{ flex:0 0 auto; margin-left:auto; gap:4px; }
+    #topbar-right > :not(#btn-undo):not(#btn-redo){ display:none !important; }
+    #btn-undo, #btn-redo{ width:44px; min-width:44px; height:44px; }
+    #mobile-connection-status{
+      flex:0 0 auto; align-items:center; gap:4px; padding:4px 6px; border-radius:12px;
+      background:rgba(21,15,9,.7); font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--parchment-dim);
+    }
+    #mobile-connection-status.show{ display:flex; }
+    #mobile-connection-status::before{ content:''; width:7px; height:7px; border-radius:50%; background:#d4a62a; box-shadow:0 0 5px currentColor; }
+    #mobile-connection-status.online::before{ background:#44cc66; }
+    #mobile-connection-status.offline::before{ background:#e05757; }
+    #icon-rail{ display:none !important; }
+    #zoom-controls{ bottom:76px; right:10px; gap:5px; }
+    #zoom-controls button{ width:42px; height:42px; }
+    #initiative-hud{ top:8px; left:8px; max-width:170px; padding:6px 8px; }
+    .hud-avatar{ width:27px; height:27px; }
+    #multi-select-bar{ bottom:76px; }
+    #toast-container{ bottom:calc(76px + env(safe-area-inset-bottom)); }
+
+    #mobile-bottom-nav{
+      display:grid; grid-template-columns:repeat(5,1fr); position:fixed;
+      left:0; right:0; bottom:0; z-index:205; min-height:62px;
+      padding:5px 6px calc(5px + env(safe-area-inset-bottom)); gap:3px;
+      background:linear-gradient(180deg, var(--topbar-bg-1), var(--topbar-bg-2));
+      border-top:1px solid var(--line); box-shadow:0 -5px 18px rgba(0,0,0,.45);
+    }
+    .mobile-nav-btn{
+      min-width:0; min-height:50px; padding:4px 2px; border:none; background:transparent;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+      color:var(--parchment-dim); border-radius:8px; font-size:19px;
+    }
+    .mobile-nav-btn span{ font-family:'JetBrains Mono',monospace; font-size:8px; line-height:1; }
+    .mobile-nav-btn.active{ color:var(--amber-bright); background:rgba(226,165,63,.13); }
+
+    #mobile-more-backdrop{
+      position:fixed; inset:0; z-index:188; background:rgba(8,6,3,.52);
+    }
+    #mobile-more-backdrop.open{ display:block; }
+    #mobile-more-sheet{
+      position:fixed; left:8px; right:8px; bottom:calc(69px + env(safe-area-inset-bottom)); z-index:195;
+      max-height:72dvh; overflow-y:auto; padding:12px; background:var(--bg-panel);
+      border:1px solid var(--amber); border-radius:14px; box-shadow:0 10px 32px rgba(0,0,0,.65);
+    }
+    #mobile-more-sheet.open{ display:block; }
+    .mobile-more-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+    .mobile-more-head strong{ font-family:'Cinzel',serif; color:var(--amber-bright); font-size:13px; }
+    .mobile-more-head button{ width:44px; height:44px; padding:0; }
+    .mobile-action-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+    .mobile-action-grid button{ min-width:0; min-height:52px; padding:7px 4px; font-size:10px; line-height:1.15; }
+    .mobile-action-grid button.toggle-active{ background:var(--amber); color:#1a1206; }
+    #mobile-master-tools{ border-top:1px solid var(--line); margin-top:10px; padding-top:10px; }
+    #mobile-master-tools > div:first-child{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); margin-bottom:7px; text-transform:uppercase; }
+
+    #mobile-token-actions{
+      position:fixed; left:50%; bottom:calc(70px + env(safe-area-inset-bottom)); transform:translateX(-50%);
+      z-index:180; align-items:center; gap:5px; padding:6px;
+      max-width:calc(100vw - 20px); background:rgba(21,15,9,.96);
+      border:1px solid var(--amber); border-radius:12px; box-shadow:0 5px 20px rgba(0,0,0,.55);
+    }
+    #mobile-token-actions.show{ display:flex; }
+    #mobile-token-actions button{ min-height:44px; padding:7px 9px; white-space:nowrap; font-size:10px; }
+    #mobile-mode-indicator{
+      position:absolute; left:50%; top:8px; transform:translateX(-50%); z-index:75;
+      align-items:center; gap:5px; padding:5px 6px 5px 10px; max-width:70vw;
+      background:rgba(21,15,9,.94); border:1px solid var(--amber); border-radius:18px;
+      box-shadow:0 3px 12px rgba(0,0,0,.5); color:var(--amber-bright);
+      font-family:'JetBrains Mono',monospace; font-size:9px; white-space:nowrap;
+    }
+    #mobile-mode-indicator.show{ display:flex; }
+    #mobile-mode-cancel{ width:34px; height:34px; min-width:34px; padding:0; border-radius:50%; }
+
+    /* All working windows become bottom sheets only on phones. */
+    .float-panel{
+      position:fixed !important; left:0 !important; right:0 !important; top:auto !important;
+      bottom:calc(62px + env(safe-area-inset-bottom)) !important; width:auto !important; max-width:none !important;
+      max-height:68dvh; border-radius:16px 16px 0 0; box-shadow:0 -8px 28px rgba(0,0,0,.55);
+    }
+    #dice-panel, #initiative-panel, #journal-panel, #my-sheet-panel, #music-panel, #draw-panel, #tokens-panel, #send-panel{
+      bottom:calc(62px + env(safe-area-inset-bottom)); top:auto;
+    }
+    #tokens-panel{ max-height:68dvh; }
+    #tokens-panel-body #token-list{ flex-direction:column; }
+    #draw-panel.float-style{
+      position:fixed !important; left:0 !important; right:0 !important; top:auto !important;
+      bottom:calc(62px + env(safe-area-inset-bottom)) !important; width:auto !important; max-width:none !important;
+      max-height:68dvh; border-radius:16px 16px 0 0;
+    }
+    .mobile-sheet-size-toggle{ display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0; margin-left:auto; margin-right:5px; }
+    #dice-panel.mobile-sheet-small, #initiative-panel.mobile-sheet-small, #journal-panel.mobile-sheet-small,
+    #my-sheet-panel.mobile-sheet-small, #music-panel.mobile-sheet-small, #draw-panel.mobile-sheet-small,
+    #tokens-panel.mobile-sheet-small, #send-panel.mobile-sheet-small{ max-height:42dvh !important; }
+    .float-panel.mobile-sheet-small{ max-height:42dvh !important; }
+    #dice-panel.mobile-sheet-medium, #initiative-panel.mobile-sheet-medium, #journal-panel.mobile-sheet-medium,
+    #my-sheet-panel.mobile-sheet-medium, #music-panel.mobile-sheet-medium, #draw-panel.mobile-sheet-medium,
+    #tokens-panel.mobile-sheet-medium, #send-panel.mobile-sheet-medium{ max-height:68dvh !important; }
+    .float-panel.mobile-sheet-medium{ max-height:68dvh !important; }
+    #dice-panel.mobile-sheet-full, #initiative-panel.mobile-sheet-full, #journal-panel.mobile-sheet-full,
+    #my-sheet-panel.mobile-sheet-full, #music-panel.mobile-sheet-full, #draw-panel.mobile-sheet-full,
+    #tokens-panel.mobile-sheet-full, #send-panel.mobile-sheet-full{ max-height:calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important; }
+    .float-panel.mobile-sheet-full{ max-height:calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important; }
+
+    /* Touch and keyboard comfort. */
+    .float-panel-close, #dice-panel-close, #initiative-panel-close, #journal-panel-close,
+    #my-sheet-panel-close, #music-panel-close, #draw-panel-close, #tokens-panel-close, #send-panel-close{
+      min-width:40px; min-height:40px;
+    }
+    body.mobile-map-gesture #map-viewport{ touch-action:none; }
+  }
+
+  @media (max-width:760px) and (orientation:landscape){
+    #main{ padding-bottom:0; padding-left:64px; }
+    #mobile-bottom-nav{
+      left:0; right:auto; top:0; bottom:0; width:64px; min-height:0;
+      grid-template-columns:1fr; grid-template-rows:repeat(5,1fr);
+      padding:calc(54px + env(safe-area-inset-top)) 4px max(4px,env(safe-area-inset-bottom));
+      border-top:none; border-right:1px solid var(--line);
+    }
+    .mobile-nav-btn{ min-height:0; }
+    #mobile-more-sheet{ left:72px; bottom:8px; max-height:calc(100dvh - 70px); }
+    #mobile-token-actions{ left:calc(50% + 32px); bottom:10px; }
+    #zoom-controls{ bottom:10px; }
+    .float-panel, #dice-panel, #initiative-panel, #journal-panel, #my-sheet-panel,
+    #music-panel, #draw-panel, #tokens-panel, #send-panel{
+      left:64px !important; bottom:0 !important;
+    }
   }
 </style>
 </head>
@@ -1586,6 +1727,7 @@
           <input id="campaign-title" type="text" value="Campanha sem nome" disabled>
         </div>
       </div>
+      <div id="mobile-connection-status" aria-live="polite">Conectando</div>
       <div id="topbar-token-name"></div>
       <div id="topbar-right">
         <button id="btn-undo" style="display:none;" title="Desfazer">↩</button>
@@ -2148,6 +2290,10 @@
           </div>
         </div>
         <div id="dice-roll-notification-host" aria-live="polite" aria-atomic="true"></div>
+        <div id="mobile-mode-indicator" aria-live="polite">
+          <span id="mobile-mode-label">Navegar</span>
+          <button type="button" id="mobile-mode-cancel" title="Voltar ao modo navegar">✕</button>
+        </div>
         <div id="freeze-banner" style="display:none;">
           <span>🔒 Jogadores congelados — eles não veem suas mudanças ainda</span>
           <button type="button" id="btn-freeze-banner-release">Liberar agora</button>
@@ -2169,6 +2315,61 @@
         </div>
       </div>
     </div>
+
+    <div id="mobile-more-backdrop"></div>
+    <section id="mobile-more-sheet" aria-label="Mais ferramentas">
+      <div class="mobile-more-head">
+        <strong>Ferramentas rápidas</strong>
+        <button type="button" id="mobile-more-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="mobile-action-grid">
+        <button type="button" data-mobile-action="pan">✋<br>Navegar</button>
+        <button type="button" data-mobile-action="draw">✏️<br>Desenhar</button>
+        <button type="button" data-mobile-action="fog" data-mobile-master-only>🌫️<br>Névoa</button>
+        <button type="button" data-mobile-action="measure">📏<br>Medir</button>
+        <button type="button" data-mobile-action="ping">📍<br>Apontar</button>
+        <button type="button" data-mobile-action="fit">⤢<br>Enquadrar</button>
+        <button type="button" data-mobile-action="center">🎯<br>Meu token</button>
+        <button type="button" data-mobile-action="journal">📖<br>Diário</button>
+        <button type="button" data-mobile-action="send">💬<br>Conversas</button>
+        <button type="button" data-mobile-action="music" data-mobile-master-only>🎵<br>Música</button>
+        <button type="button" data-mobile-action="preview" data-mobile-owner-only>👁️<br>Visão jogador</button>
+        <button type="button" data-mobile-action="freeze" data-mobile-master-only>🔒<br>Congelar</button>
+        <button type="button" data-mobile-action="sound">🔊<br>Sons</button>
+        <button type="button" data-mobile-action="musicmute">🎧<br>Áudio local</button>
+        <button type="button" data-mobile-action="tutorial">❓<br>Tutorial</button>
+        <button type="button" data-mobile-action="leave">🚪<br>Campanhas</button>
+      </div>
+      <div id="mobile-master-tools">
+        <div>Ferramentas do mestre</div>
+        <div class="mobile-action-grid">
+          <button type="button" data-mobile-panel="float-maps">🗺️<br>Mapas</button>
+          <button type="button" data-mobile-panel="float-mapobjects">⛵<br>Objetos</button>
+          <button type="button" data-mobile-panel="float-newtoken">➕<br>Nova ficha</button>
+          <button type="button" data-mobile-panel="float-images">🖼️<br>Imagens</button>
+          <button type="button" data-mobile-panel="float-grid">🔲<br>Grade</button>
+          <button type="button" data-mobile-panel="float-text">📝<br>Texto</button>
+          <button type="button" data-mobile-panel="float-appearance">🎨<br>Visual</button>
+          <button type="button" data-mobile-panel="float-oracle">🔮<br>Oráculo</button>
+          <button type="button" data-mobile-panel="float-danger">⚠️<br>Perigo</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="mobile-token-actions" aria-label="Ações do token selecionado">
+      <button type="button" data-mobile-token-action="sheet">🎴 Ficha</button>
+      <button type="button" data-mobile-token-action="lantern">🔦 Lanterna</button>
+      <button type="button" data-mobile-token-action="turn">➡ Vez</button>
+      <button type="button" data-mobile-token-action="close" aria-label="Fechar ações">✕</button>
+    </div>
+
+    <nav id="mobile-bottom-nav" aria-label="Navegação principal">
+      <button type="button" class="mobile-nav-btn active" data-mobile-nav="map">🗺️<span>Mapa</span></button>
+      <button type="button" class="mobile-nav-btn" data-mobile-nav="sheets">🎴<span id="mobile-sheets-label">Fichas</span></button>
+      <button type="button" class="mobile-nav-btn" data-mobile-nav="initiative">⚔️<span>Iniciativa</span></button>
+      <button type="button" class="mobile-nav-btn" data-mobile-nav="dice">🎲<span>Dados</span></button>
+      <button type="button" class="mobile-nav-btn" data-mobile-nav="more">☰<span>Mais</span></button>
+    </nav>
 
     <div id="draw-backdrop"></div>
     <div id="draw-panel">
@@ -5760,6 +5961,7 @@
     renderJournalList();
 
     updateHistoryButtons();
+    renderMobileUI();
   }
 
 
@@ -7696,7 +7898,9 @@
     target.addEventListener('pointermove', onTokenPointerMove);
     target.addEventListener('pointerup', onTokenPointerUp);
     target.addEventListener('pointercancel', onTokenPointerUp);
-    if(e.pointerType==='touch'&&tok&&!tok.isReference&&!tok.isMapObject&&canToggleTokenLantern(tok)){
+    const mobileContextType=tok&&(tok.isMapObject?'mapobject':tok.isReference?'reference':'token');
+    const mobileContextAllowed=tok&&(effectiveMaster()||(mobileContextType==='token'&&canToggleTokenLantern(tok)));
+    if(e.pointerType==='touch'&&isMobileLayout()&&mobileContextAllowed){
       const menuX=e.clientX, menuY=e.clientY, pointerId=e.pointerId;
       state.dragging.longPressTimer=setTimeout(()=>{
         const d=state.dragging;
@@ -7710,7 +7914,8 @@
         d.el.style.left=d.origLeft; d.el.style.top=d.origTop;
         state.dragging=null;
         render();
-        openContextMenu({preventDefault(){},stopPropagation(){},clientX:menuX,clientY:menuY},'token',tok.id);
+        if(navigator.vibrate)navigator.vibrate(12);
+        openContextMenu({preventDefault(){},stopPropagation(){},clientX:menuX,clientY:menuY},mobileContextType,tok.id);
       },550);
     }
   }
@@ -10338,6 +10543,7 @@
     const move=event=>{
       const dist=Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY);
       if(dist<3&&!drag.moved)return;
+      if(drag.longPressTimer){ clearTimeout(drag.longPressTimer); drag.longPressTimer=null; }
       if(!drag.undo){ pushUndo(); drag.undo=true; }
       drag.moved=true;
       point.x=Math.max(0,Math.min(100,((event.clientX-rect.left)/Math.max(1,rect.width))*100));
@@ -10346,11 +10552,22 @@
       setupDarknessOverlay();
     };
     const end=async()=>{
+      if(drag.longPressTimer){ clearTimeout(drag.longPressTimer); drag.longPressTimer=null; }
       marker.removeEventListener('pointermove',move); marker.removeEventListener('pointerup',end); marker.removeEventListener('pointercancel',end);
       if(drag.moved)await persistPageFog(page);
       render();
     };
     marker.addEventListener('pointermove',move); marker.addEventListener('pointerup',end); marker.addEventListener('pointercancel',end);
+    if(e.pointerType==='touch'&&isMobileLayout()){
+      const menuX=e.clientX, menuY=e.clientY, pointerId=e.pointerId;
+      drag.longPressTimer=setTimeout(()=>{
+        if(drag.moved)return;
+        marker.removeEventListener('pointermove',move); marker.removeEventListener('pointerup',end); marker.removeEventListener('pointercancel',end);
+        try{ marker.releasePointerCapture(pointerId); }catch(err){}
+        if(navigator.vibrate)navigator.vibrate(12);
+        openContextMenu({preventDefault(){},stopPropagation(){},clientX:menuX,clientY:menuY},'lightpoint',point.id);
+      },550);
+    }
   }
 
   function renderLightPointMarkers(){
@@ -11332,7 +11549,210 @@
       if(panel) panel.classList.remove('open');
       if(backdrop) backdrop.classList.remove('open');
     });
+    closeMobileMore();
   }
+
+  // ---------- mobile-only navigation and compact controls ----------
+  const MOBILE_LAYOUT_QUERY='(max-width: 760px)';
+  function isMobileLayout(){ return !!(window.matchMedia&&window.matchMedia(MOBILE_LAYOUT_QUERY).matches); }
+  function closeMobileMore(){
+    const sheet=el('mobile-more-sheet'), backdrop=el('mobile-more-backdrop');
+    if(sheet)sheet.classList.remove('open');
+    if(backdrop)backdrop.classList.remove('open');
+  }
+  function toggleMobileMore(){
+    if(!isMobileLayout())return;
+    const sheet=el('mobile-more-sheet'), backdrop=el('mobile-more-backdrop');
+    const open=!sheet.classList.contains('open');
+    sheet.classList.toggle('open',open); backdrop.classList.toggle('open',open);
+    updateMobileNavActive();
+  }
+  function updateMobileNavActive(){
+    const openKey=el('mobile-more-sheet').classList.contains('open')?'more':
+      (el('tokens-panel').classList.contains('open')||el('my-sheet-panel').classList.contains('open'))?'sheets':
+      el('initiative-panel').classList.contains('open')?'initiative':
+      el('dice-panel').classList.contains('open')?'dice':'map';
+    document.querySelectorAll('[data-mobile-nav]').forEach(btn=>btn.classList.toggle('active',btn.getAttribute('data-mobile-nav')===openKey));
+  }
+  function ensureMobileSheetControls(){
+    if(!isMobileLayout())return;
+    const panels=[...document.querySelectorAll('.float-panel'),...['dice-panel','initiative-panel','journal-panel','my-sheet-panel','music-panel','draw-panel','tokens-panel','send-panel'].map(el).filter(Boolean)];
+    panels.forEach(panel=>{
+      if(!panel.classList.contains('mobile-sheet-small')&&!panel.classList.contains('mobile-sheet-medium')&&!panel.classList.contains('mobile-sheet-full'))panel.classList.add('mobile-sheet-medium');
+      const header=panel.querySelector('.float-panel-header, #dice-panel-header, #initiative-panel-header, #journal-panel-header, #my-sheet-panel-header, #music-panel-header, #draw-panel-header, #tokens-panel-header, #send-panel-header');
+      if(!header||header.querySelector('.mobile-sheet-size-toggle'))return;
+      const button=document.createElement('button');
+      button.type='button'; button.className='mobile-sheet-size-toggle'; button.textContent='↕'; button.title='Alterar tamanho do painel';
+      button.addEventListener('pointerdown',e=>e.stopPropagation());
+      button.addEventListener('click',e=>{
+        e.preventDefault(); e.stopPropagation();
+        const sizes=['mobile-sheet-small','mobile-sheet-medium','mobile-sheet-full'];
+        const current=sizes.findIndex(name=>panel.classList.contains(name));
+        sizes.forEach(name=>panel.classList.remove(name));
+        const next=sizes[(current+1)%sizes.length]; panel.classList.add(next);
+        button.title=next==='mobile-sheet-small'?'Expandir painel':next==='mobile-sheet-medium'?'Expandir para tela inteira':'Reduzir painel';
+      });
+      const close=header.querySelector('button:last-child');
+      if(close)header.insertBefore(button,close); else header.appendChild(button);
+    });
+  }
+  let mobileConnectionWatcherStarted=false;
+  function setMobileConnectionState(connected){
+    const status=el('mobile-connection-status'); if(!status)return;
+    status.classList.remove('online','offline');
+    if(connected===true){ status.classList.add('online'); status.textContent='Online'; status.title='Sincronização conectada'; }
+    else if(connected===false){ status.classList.add('offline'); status.textContent='Offline'; status.title='Sem conexão; as mudanças podem demorar para sincronizar'; }
+    else{ status.textContent='Conectando'; status.title='Conectando à mesa'; }
+  }
+  function setupMobileConnectionStatus(){
+    if(mobileConnectionWatcherStarted)return;
+    mobileConnectionWatcherStarted=true; setMobileConnectionState(null);
+    window.addEventListener('online',()=>setMobileConnectionState(true));
+    window.addEventListener('offline',()=>setMobileConnectionState(false));
+    if(db){
+      try{ db.ref('.info/connected').on('value',snap=>setMobileConnectionState(snap.val()===true)); }
+      catch(err){ setMobileConnectionState(navigator.onLine); }
+    }else setMobileConnectionState(navigator.onLine);
+  }
+  function currentMobileMode(){
+    if(state.lightPointArmed)return '💡 Posicionar luz';
+    if(effectiveMaster()&&state.fogMode)return state.fogPaintMode==='reveal'?'🌫️ Apagar névoa':'🌫️ Cobrir com névoa';
+    if(state.drawMode)return state.drawPaintMode==='erase'?'🧽 Apagar desenho':state.drawPaintMode==='move'?'✋ Mover desenho':'✏️ Desenhar';
+    if(state.measureArmed)return '📏 Medir distância';
+    if(state.pingArmed)return '📍 Apontar no mapa';
+    return '✋ Navegar';
+  }
+  function renderMobileUI(){
+    const mobile=isMobileLayout();
+    document.body.classList.toggle('mobile-map-gesture',mobile);
+    if(!mobile){ closeMobileMore(); return; }
+    setupMobileConnectionStatus();
+    el('mobile-connection-status').classList.add('show');
+    ensureMobileSheetControls();
+    el('mobile-sheets-label').textContent=effectiveMaster()?'Fichas':'Minha ficha';
+    el('mobile-master-tools').style.display=effectiveMaster()?'block':'none';
+    document.querySelectorAll('[data-mobile-master-only]').forEach(node=>node.style.display=effectiveMaster()?'':'none');
+    document.querySelectorAll('[data-mobile-owner-only]').forEach(node=>node.style.display=state.isMaster?'':'none');
+    const previewButton=el('mobile-more-sheet').querySelector('[data-mobile-action="preview"]');
+    if(previewButton)previewButton.innerHTML=state.previewAsPlayer?'👁️<br>Voltar ao mestre':'👁️<br>Visão jogador';
+    const measure=el('mobile-more-sheet').querySelector('[data-mobile-action="measure"]');
+    const ping=el('mobile-more-sheet').querySelector('[data-mobile-action="ping"]');
+    const draw=el('mobile-more-sheet').querySelector('[data-mobile-action="draw"]');
+    const fog=el('mobile-more-sheet').querySelector('[data-mobile-action="fog"]');
+    if(measure)measure.classList.toggle('toggle-active',state.measureArmed);
+    if(ping)ping.classList.toggle('toggle-active',state.pingArmed);
+    if(draw)draw.classList.toggle('toggle-active',state.drawMode);
+    if(fog)fog.classList.toggle('toggle-active',effectiveMaster()&&state.fogMode);
+    const modeLabel=currentMobileMode();
+    el('mobile-mode-label').textContent=modeLabel;
+    el('mobile-mode-indicator').classList.add('show');
+    el('mobile-mode-cancel').style.display=modeLabel==='✋ Navegar'?'none':'';
+
+    const bar=el('mobile-token-actions');
+    const tok=state.tokens.find(item=>item.id===state.selectedTokenId);
+    const panelOpen=!!document.querySelector('.float-panel.open, #dice-panel.open, #initiative-panel.open, #journal-panel.open, #my-sheet-panel.open, #music-panel.open, #draw-panel.open, #tokens-panel.open, #send-panel.open');
+    const show=!!(tok&&isTokenOnPage(tok,state.currentPageId)&&(effectiveMaster()||(!tok.isReference&&!tok.isMapObject))&&!panelOpen&&!el('mobile-more-sheet').classList.contains('open'));
+    bar.classList.toggle('show',show);
+    if(show){
+      const lanternBtn=bar.querySelector('[data-mobile-token-action="lantern"]');
+      const sheetBtn=bar.querySelector('[data-mobile-token-action="sheet"]');
+      const turnBtn=bar.querySelector('[data-mobile-token-action="turn"]');
+      if(tok.isMapObject){
+        sheetBtn.style.display=''; sheetBtn.textContent='✏️ Editar';
+        lanternBtn.style.display=''; lanternBtn.textContent=tok.objectLocked?'🔓 Destravar':'🔒 Travar';
+        turnBtn.style.display='none';
+      }else if(tok.isReference){
+        sheetBtn.style.display='none';
+        lanternBtn.style.display=''; lanternBtn.textContent=tok.referenceLocked?'🔓 Destravar':'🔒 Travar';
+        turnBtn.style.display='none';
+      }else{
+        const lantern=tokenLanternState(tok,false);
+        sheetBtn.style.display=(effectiveMaster()||isOwnToken(tok))?'':'none'; sheetBtn.textContent='🎴 Ficha';
+        lanternBtn.style.display=canToggleTokenLantern(tok)?'':'none';
+        lanternBtn.textContent=lantern&&lantern.enabled?'🔦 Apagar':'🔦 Lanterna';
+        turnBtn.style.display=el('btn-pass-turn').style.display==='none'?'none':'';
+      }
+    }
+    updateMobileNavActive();
+  }
+
+  el('mobile-more-close').addEventListener('click',()=>{ closeMobileMore(); updateMobileNavActive(); });
+  el('mobile-mode-cancel').addEventListener('click',()=>{
+    state.drawMode=false; state.fogMode=false; state.measureArmed=false; state.pingArmed=false; state.lightPointArmed=false;
+    closeOpenToolPanels(); render();
+  });
+  el('mobile-more-backdrop').addEventListener('click',()=>{ closeMobileMore(); updateMobileNavActive(); });
+  document.querySelectorAll('[data-mobile-nav]').forEach(button=>button.addEventListener('click',()=>{
+    if(!isMobileLayout())return;
+    const action=button.getAttribute('data-mobile-nav');
+    if(action==='map'){ closeOpenToolPanels(); }
+    if(action==='sheets'){ closeOpenToolPanels(); effectiveMaster()?openTokensPanel():openMySheet(); }
+    if(action==='initiative'){ closeOpenToolPanels(); openInitiativePanel(); }
+    if(action==='dice'){ closeOpenToolPanels(); openDicePanel(); }
+    if(action==='more'){
+      const willOpen=!el('mobile-more-sheet').classList.contains('open');
+      if(willOpen)closeOpenToolPanels();
+      toggleMobileMore();
+    }
+    updateMobileNavActive();
+  }));
+  document.querySelectorAll('[data-mobile-panel]').forEach(button=>button.addEventListener('click',()=>{
+    if(!isMobileLayout()||!effectiveMaster())return;
+    const id=button.getAttribute('data-mobile-panel'); closeMobileMore(); openFloatPanel(id); updateMobileNavActive();
+  }));
+  el('mobile-more-sheet').querySelectorAll('[data-mobile-action]').forEach(button=>button.addEventListener('click',()=>{
+    if(!isMobileLayout())return;
+    const action=button.getAttribute('data-mobile-action');
+    if(button.hasAttribute('data-mobile-master-only')&&!effectiveMaster())return;
+    if(action==='pan'){
+      state.drawMode=false; state.fogMode=false; state.measureArmed=false; state.pingArmed=false; state.lightPointArmed=false;
+      closeOpenToolPanels(); render(); return;
+    }
+    closeOpenToolPanels();
+    if(action==='draw'){
+      if(!canPlayerDraw(currentPage())){ showToast('O mestre desativou o desenho nesta cena.'); return; }
+      state.drawMode=true; state.fogMode=false; state.measureArmed=false; state.pingArmed=false; state.drawPaintMode='pen'; openDrawPanel(); render();
+    }
+    if(action==='fog'){
+      state.fogMode=true; state.drawMode=false; state.measureArmed=false; state.pingArmed=false; openFloatPanel('float-fog'); render();
+    }
+    if(action==='measure'){ el('measure-toggle').click(); }
+    if(action==='ping'){ el('ping-toggle').click(); }
+    if(action==='fit'){ el('zoom-reset').click(); }
+    if(action==='center'){
+      const tok=effectiveMaster()?state.tokens.find(item=>item.id===state.selectedTokenId):findMyToken();
+      if(tok&&isTokenOnPage(tok,state.currentPageId))jumpToToken(tok.id); else showToast('Seu token não está nesta página.');
+    }
+    if(action==='journal')openJournalPanel();
+    if(action==='send')openSendPanel();
+    if(action==='music')openMusicPanel();
+    if(action==='preview')el('btn-preview-toggle').click();
+    if(action==='freeze')el('btn-freeze-toggle').click();
+    if(action==='sound')el('sound-mute-toggle').click();
+    if(action==='musicmute')el('music-mute-toggle').click();
+    if(action==='tutorial')el('btn-tutorial-open').click();
+    if(action==='leave')el('btn-leave-campaign').click();
+    updateMobileNavActive();
+  }));
+  el('mobile-token-actions').querySelectorAll('[data-mobile-token-action]').forEach(button=>button.addEventListener('click',async()=>{
+    const tok=state.tokens.find(item=>item.id===state.selectedTokenId); if(!tok)return;
+    const action=button.getAttribute('data-mobile-token-action');
+    if(action==='sheet'){
+      if(tok.isMapObject&&effectiveMaster())openMapObjectEditor(tok.id);
+      else if(!tok.isReference)openTokenSheet(tok);
+    }
+    if(action==='lantern'){
+      if(tok.isMapObject&&effectiveMaster()){ contextTarget={type:'mapobject',id:tok.id}; await executeContextAction('objectlock'); }
+      else if(tok.isReference&&effectiveMaster()){ contextTarget={type:'reference',id:tok.id}; await executeContextAction('lock'); }
+      else if(canToggleTokenLantern(tok)){ contextTarget={type:'token',id:tok.id}; await executeContextAction('lantern'); }
+    }
+    if(action==='turn')el('btn-pass-turn').click();
+    if(action==='close'){ state.selectedTokenId=null; render(); }
+    updateMobileNavActive();
+  }));
+  window.addEventListener('resize',()=>{ renderMobileUI(); });
+  window.addEventListener('orientationchange',()=>setTimeout(renderMobileUI,120));
+  document.addEventListener('click',()=>setTimeout(()=>{ updateMobileNavActive(); if(isMobileLayout())renderMobileUI(); },0));
 
   document.addEventListener('keydown', async (e) => {
     const key = e.key.toLowerCase();
