@@ -1776,6 +1776,80 @@
       left:64px !important; bottom:0 !important;
     }
   }
+
+  /* Mobile tool workspace: panels are true full-screen views. Keeping this
+     block after the landscape rules prevents older drawer dimensions from
+     winning and makes vertical touch scrolling deterministic. */
+  @media (max-width:760px){
+    body.mobile-tool-open{ overflow:hidden; }
+    body.mobile-tool-open #mobile-bottom-nav,
+    body.mobile-tool-open #mobile-token-actions,
+    body.mobile-tool-open #handout-gallery,
+    body.mobile-tool-open #handout-gallery-reopen,
+    body.mobile-tool-open #multi-select-bar{
+      display:none !important;
+    }
+
+    #mobile-more-backdrop.open,
+    #dice-backdrop.open, #initiative-backdrop.open, #journal-backdrop.open,
+    #my-sheet-backdrop.open, #music-backdrop.open, #draw-backdrop.open,
+    #tokens-backdrop.open, #send-backdrop.open{
+      display:none !important;
+    }
+
+    body.mobile-tool-open #mobile-more-sheet{
+      position:fixed; inset:0 !important; width:100vw; height:100dvh;
+      max-width:none; max-height:none; border:0; border-radius:0;
+      padding:max(12px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom));
+      overflow-y:auto; touch-action:pan-y; z-index:195;
+    }
+
+    body.mobile-tool-open .float-panel,
+    body.mobile-tool-open #dice-panel, body.mobile-tool-open #initiative-panel,
+    body.mobile-tool-open #journal-panel, body.mobile-tool-open #my-sheet-panel,
+    body.mobile-tool-open #music-panel, body.mobile-tool-open #draw-panel,
+    body.mobile-tool-open #tokens-panel, body.mobile-tool-open #send-panel{
+      position:fixed !important; inset:0 !important;
+      width:100vw !important; height:100dvh !important;
+      min-width:0 !important; max-width:none !important;
+      min-height:0 !important; max-height:none !important;
+      border:0; border-radius:0; z-index:190 !important;
+      overflow:hidden !important;
+    }
+
+    body.mobile-tool-open .mobile-sheet-size-toggle{ display:none !important; }
+    body.mobile-tool-open .float-panel-header,
+    body.mobile-tool-open #dice-panel-header, body.mobile-tool-open #initiative-panel-header,
+    body.mobile-tool-open #journal-panel-header, body.mobile-tool-open #my-sheet-panel-header,
+    body.mobile-tool-open #music-panel-header, body.mobile-tool-open #draw-panel-header,
+    body.mobile-tool-open #tokens-panel-header, body.mobile-tool-open #send-panel-header{
+      flex:0 0 auto; min-height:58px;
+      padding-top:max(10px,env(safe-area-inset-top));
+      background:var(--bg-panel); position:relative; z-index:2;
+    }
+
+    body.mobile-tool-open .float-panel-body,
+    body.mobile-tool-open #dice-panel-body, body.mobile-tool-open #initiative-panel-body,
+    body.mobile-tool-open #journal-panel-body, body.mobile-tool-open #my-sheet-panel-body,
+    body.mobile-tool-open #music-panel-body, body.mobile-tool-open #draw-panel-body,
+    body.mobile-tool-open #tokens-panel-body,
+    body.mobile-tool-open #thread-list-view, body.mobile-tool-open #thread-compose-view{
+      flex:1 1 auto !important; min-height:0 !important; max-height:none !important;
+      overflow-x:hidden !important; overflow-y:auto !important;
+      touch-action:pan-y !important; overscroll-behavior-y:contain;
+      -webkit-overflow-scrolling:touch;
+      padding-bottom:max(24px,calc(16px + env(safe-area-inset-bottom))) !important;
+    }
+
+    body.mobile-tool-open #thread-compose-view{ overflow:hidden !important; }
+    body.mobile-tool-open #thread-messages{
+      min-height:0; overflow-y:auto; touch-action:pan-y;
+      overscroll-behavior-y:contain; -webkit-overflow-scrolling:touch;
+    }
+    body.mobile-tool-open #thread-compose-bar{
+      flex:0 0 auto; padding-bottom:max(10px,env(safe-area-inset-bottom));
+    }
+  }
 </style>
 </head>
 <body>
@@ -11856,6 +11930,16 @@
   window.addEventListener('resize',()=>{ renderMobileUI(); });
   window.addEventListener('orientationchange',()=>setTimeout(renderMobileUI,120));
   document.addEventListener('click',()=>setTimeout(()=>{ updateMobileNavActive(); if(isMobileLayout())renderMobileUI(); },0));
+
+  /* Some panels also open from token cards, keyboard shortcuts and context
+     menus. Observe their open state so the mobile chrome is updated even when
+     no bottom-navigation button was involved. */
+  const mobileChromeObserver=new MutationObserver(()=>{
+    if(isMobileLayout())requestAnimationFrame(renderMobileUI);
+  });
+  document.querySelectorAll('#mobile-more-sheet, .float-panel, #dice-panel, #initiative-panel, #journal-panel, #my-sheet-panel, #music-panel, #draw-panel, #tokens-panel, #send-panel').forEach(panel=>{
+    mobileChromeObserver.observe(panel,{attributes:true,attributeFilter:['class']});
+  });
 
   document.addEventListener('keydown', async (e) => {
     const key = e.key.toLowerCase();
