@@ -2134,7 +2134,7 @@
             </div>
             <div class="map-object-opacity-row" style="margin-top:10px;">
               <label for="map-object-new-opacity">Opacidade</label>
-              <input type="range" id="map-object-new-opacity" min="10" max="100" step="5" value="100">
+              <input type="range" id="map-object-new-opacity" min="0" max="100" step="5" value="100">
               <span id="map-object-new-opacity-value" class="map-object-opacity-value">100%</span>
             </div>
             <button type="submit" class="primary" style="width:100%; margin-top:10px;">Adicionar objeto ao mapa</button>
@@ -3018,6 +3018,10 @@
   let listenersForPageId = undefined;
   let openPageAccessRows = new Set();
   let pendingTokensRaw = null;
+  let tokenWritesQueued = 0;
+  let tokenWriteQueue = Promise.resolve(true);
+  let latestLocalTokensRaw = '';
+  const locallyProtectedTokenIds = new Set();
   let pendingPageUpdates = {};
   let pendingSlot = null;
 
@@ -5747,7 +5751,30 @@
   async function persistPageDraw(page){ await safeSet(slotKey('page-'+page.id+'-draw'), page.draw); }
   async function persistPageTexts(page){ await safeSet(slotKey('page-'+page.id+'-texts'), { list: page.texts }); }
   async function persistPageGrid(page){ await safeSet(slotKey('page-'+page.id+'-grid'), page.grid); }
-  async function persistTokens(){ await safeSet(slotKey('tokens'), { list: state.tokens }); }
+  async function persistTokens(){
+    /* Token writes used to overlap: a delayed remote snapshot could arrive
+       between adding an object and saving it, replacing the local list and
+       making the new object vanish. Capture and serialize every write. */
+    const payload = JSON.parse(JSON.stringify({ list:state.tokens }));
+    const raw = JSON.stringify(payload);
+    latestLocalTokensRaw = raw;
+    lastTokensSnapshot = raw;
+    tokenWritesQueued++;
+    const run = () => safeSet(slotKey('tokens'), payload);
+    const task = tokenWriteQueue.then(run, run);
+    tokenWriteQueue = task.catch(() => false);
+    const saved = await task;
+    tokenWritesQueued = Math.max(0, tokenWritesQueued - 1);
+    if(saved){
+      const savedIds = new Set(payload.list.map(t => t.id));
+      [...locallyProtectedTokenIds].forEach(id => { if(savedIds.has(id)) locallyProtectedTokenIds.delete(id); });
+      if(raw === latestLocalTokensRaw) lastTokensSnapshot = raw;
+      if(tokenWritesQueued === 0) pendingTokensRaw = null;
+    }else if(raw === latestLocalTokensRaw){
+      lastTokensSnapshot = '';
+    }
+    return saved;
+  }
 
   // Mescla uma atualização remota sem perder tamanhos já definidos localmente.
   // Isso evita que um eco atrasado do Firebase restaure o tamanho padrão de
@@ -5755,7 +5782,8 @@
   function mergeIncomingTokensPreservingLocalSizes(incoming, protectedIds){
     const localById = new Map(state.tokens.map(t => [t.id, t]));
     const protectedSet = new Set(protectedIds || []);
-    return (incoming || []).map(remoteTok => {
+    locallyProtectedTokenIds.forEach(id=>protectedSet.add(id));
+    const mergedList = (incoming || []).map(remoteTok => {
       const localTok = localById.get(remoteTok.id);
       if(!localTok) return remoteTok;
       if(protectedSet.has(remoteTok.id)) return localTok;
@@ -5766,6 +5794,12 @@
       if(localTok.size != null) merged.size = localTok.size;
       return merged;
     });
+    protectedSet.forEach(id=>{
+      if(mergedList.some(tok=>tok.id===id))return;
+      const localTok=localById.get(id);
+      if(localTok)mergedList.push(localTok);
+    });
+    return mergedList;
   }
 
   function adoptPendingTokensPreservingSizes(protectedIds){
@@ -5811,9 +5845,20 @@
           let w=img.width,h=img.height;
           if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;}
           else if(h>=w&&h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}
-          const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
-          const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
-          resolve(canvas.toDataURL('image/png'));
+          let canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+          let ctx=canvas.getContext('2d'); ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+          let encoded=canvas.toDataURL('image/png');
+          /* Detailed PNGs can become too large for a reliable realtime write.
+             Reduce only as much as necessary, preserving transparency. */
+          while(encoded.length>2800000&&Math.max(w,h)>480){
+            const ratio=.82;
+            const nw=Math.max(1,Math.round(w*ratio)), nh=Math.max(1,Math.round(h*ratio));
+            const smaller=document.createElement('canvas'); smaller.width=nw; smaller.height=nh;
+            const smallerCtx=smaller.getContext('2d');
+            smallerCtx.clearRect(0,0,nw,nh); smallerCtx.drawImage(canvas,0,0,w,h,0,0,nw,nh);
+            canvas=smaller; ctx=smallerCtx; w=nw; h=nh; encoded=canvas.toDataURL('image/png');
+          }
+          resolve(encoded);
         };
         img.onerror=reject; img.src=reader.result;
       };
@@ -6514,7 +6559,16 @@
   }
 
   function stagePositionByType(tok, indexInType){
-    if(tok.isMapObject) return { x:50, y:50 };
+    if(tok.isMapObject){
+      const slot=indexInType%6;
+      const band=Math.floor(indexInType/6);
+      const ring=Math.floor(band/4)*28;
+      const side=band%4;
+      if(side===0)return {x:-28-ring,y:10+slot*16};
+      if(side===1)return {x:128+ring,y:10+slot*16};
+      if(side===2)return {x:10+slot*16,y:-28-ring};
+      return {x:10+slot*16,y:128+ring};
+    }
     if(tok.isReference) return { x:-18, y: 8 + (indexInType % 6) * 16 };
     if(tok.masterLocked) return { x:112, y: 8 + (indexInType % 8) * 12 };
     return { x: 8 + (indexInType % 8) * 12, y: 112 };
@@ -6541,6 +6595,13 @@
     return max + 1;
   }
   function nextTokenZOrder(){ return nextStageZOrder(); }
+  function bringMapObjectToTopOfObjectStack(tok){
+    if(!tok||!tok.isMapObject)return;
+    const index=state.tokens.indexOf(tok);
+    if(index<0||index===state.tokens.length-1)return;
+    state.tokens.splice(index,1);
+    state.tokens.push(tok);
+  }
   function tokenSize(tok){
     return (tok.sizes && tok.sizes[state.currentPageId]) || tok.size || 64;
   }
@@ -6878,7 +6939,7 @@
         const lockBadge = effectiveMaster() && tok.objectLocked ? '<div class="reference-lock-badge" title="Posição travada">🔒</div>' : '';
         const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
         const shadowFilter=shadow.enabled ? 'drop-shadow(0 '+Math.max(0,Number(shadow.offset)||0)+'px '+Math.max(0,Number(shadow.blur)||0)+'px '+hexToRgbaTheme(shadow.color||'#000000',Math.max(0,Math.min(1,Number(shadow.opacity)||0)))+')' : 'none';
-        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(.1,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';filter:'+shadowFilter+';">' +
+        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(0,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';filter:'+shadowFilter+';">' +
                       (effectiveMaster() ? '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' : '') + lockBadge + handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
         t.addEventListener('contextmenu', e=>openContextMenu(e,'mapobject',tok.id));
@@ -7591,12 +7652,12 @@
     const objects=state.tokens.filter(t=>t.isMapObject && (!t.pageId || t.pageId===state.currentPageId));
     if(!objects.length){ root.innerHTML='<div class="hint">Nenhum objeto nesta página.</div>'; return; }
     root.innerHTML=objects.map(tok=>{
-      const opacity=Math.round(Math.max(.1,Math.min(1,Number(tok.opacity==null?1:tok.opacity)))*100);
+      const opacity=Math.round(Math.max(0,Math.min(1,Number(tok.opacity==null?1:tok.opacity)))*100);
       const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
       const shadowOpacity=Math.round(Math.max(0,Math.min(1,Number(shadow.opacity)||0))*100);
       return '<div class="map-object-card" id="map-object-card-'+tok.id+'">'+
         '<div class="map-object-card-top"><img class="map-object-thumb" src="'+tok.image+'" alt=""><input type="text" value="'+escapeHtml(tok.name)+'" data-map-object-name="'+tok.id+'"><button type="button" class="danger" data-map-object-delete="'+tok.id+'" title="Excluir objeto">✕</button></div>'+
-        '<div class="map-object-opacity-row"><label>Opacidade</label><input type="range" min="10" max="100" step="5" value="'+opacity+'" data-map-object-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+opacity+'%</span></div>'+
+        '<div class="map-object-opacity-row"><label>Opacidade</label><input type="range" min="0" max="100" step="5" value="'+opacity+'" data-map-object-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+opacity+'%</span></div>'+
         '<button type="button" class="'+(tok.objectLocked?'toggle-active':'')+'" data-map-object-lock="'+tok.id+'">'+(tok.objectLocked?'🔒 Posição travada':'🔓 Travar posição')+'</button>'+
         '<button type="button" class="'+(shadow.enabled?'toggle-active':'')+'" data-map-object-shadow-toggle="'+tok.id+'">'+(shadow.enabled?'☁ Sombra ativada':'☁ Ativar sombra')+'</button>'+
         (shadow.enabled?'<div class="map-object-opacity-row"><label>Intens.</label><input type="range" min="0" max="100" step="5" value="'+shadowOpacity+'" data-map-object-shadow-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+shadowOpacity+'%</span></div>'+
@@ -7634,7 +7695,7 @@
     root.querySelectorAll('[data-map-object-delete]').forEach(btn=>btn.addEventListener('click',async()=>{
       const id=btn.getAttribute('data-map-object-delete'); const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
       if(!confirm('Excluir o objeto “'+tok.name+'”?')) return;
-      pushUndo(); detachTokensFromMapObject(id); state.tokens=state.tokens.filter(t=>t.id!==id); render(); await persistTokens();
+      pushUndo(); detachTokensFromMapObject(id); locallyProtectedTokenIds.delete(id); state.tokens=state.tokens.filter(t=>t.id!==id); render(); await persistTokens();
     }));
   }
 
@@ -8311,6 +8372,7 @@
           if(!t2.positions) t2.positions = {};
           const z=t2.isMapObject ? (Number.isFinite(Number(g.startZ))?Number(g.startZ):MAP_LAYER_FLOOR_Z) : nextTokenZOrder();
           t2.positions[state.currentPageId] = { x:g.liveX, y:g.liveY, zOrder:z };
+          if(t2.isMapObject){ locallyProtectedTokenIds.add(t2.id); bringMapObjectToTopOfObjectStack(t2); }
           if(g.selected&&!t2.isMapObject) updateTokenPlatformMembership(t2,g.liveX,g.liveY);
         });
         persistTokens();
@@ -8319,6 +8381,7 @@
         if(tok){
           if(!tok.positions) tok.positions = {};
           tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: tok.isMapObject ? MAP_LAYER_FLOOR_Z : nextTokenZOrder() };
+          if(tok.isMapObject){ locallyProtectedTokenIds.add(tok.id); bringMapObjectToTopOfObjectStack(tok); }
           if(!tok.isMapObject) updateTokenPlatformMembership(tok,d.x,d.y);
           (d.riders||[]).forEach(r => {
             const rider = state.tokens.find(t=>t.id===r.id); if(!rider) return;
@@ -9930,6 +9993,9 @@
     e.preventDefault();
     if(!state.currentPageId){ alert('Abra um mapa antes de adicionar o objeto.'); return; }
     if(!pendingMapObjectImage){ el('map-object-upload').click(); return; }
+    const submitButton=e.currentTarget.querySelector('button[type="submit"]');
+    if(submitButton.disabled)return;
+    submitButton.disabled=true; submitButton.textContent='Adicionando...';
     pushUndo();
     const count=state.tokens.filter(t=>t.isMapObject&&t.pageId===state.currentPageId).length;
     const pos=stagePositionByType({isMapObject:true},count); pos.zOrder=MAP_LAYER_FLOOR_Z;
@@ -9940,9 +10006,19 @@
       shadow:{enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},
       size:360, sizes:{}, positions:{[state.currentPageId]:pos}
     };
-    state.tokens.push(tok); render(); await persistTokens();
+    locallyProtectedTokenIds.add(tok.id);
+    state.tokens.push(tok); state.selectedTokenId=tok.id; render();
+    let saved=false;
+    for(let attempt=0;attempt<3&&!saved;attempt++){
+      saved=await persistTokens();
+      if(!saved&&attempt<2)await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));
+    }
     el('map-object-form').reset(); el('map-object-new-opacity').value=100; el('map-object-new-opacity-value').textContent='100%';
     pendingMapObjectImage=null; pendingMapObjectAspectRatio=1; el('map-object-preview').style.display='none'; el('map-object-preview-img').removeAttribute('src');
+    submitButton.disabled=false; submitButton.textContent='Adicionar objeto ao mapa';
+    jumpToToken(tok.id);
+    if(saved)showToast('Objeto adicionado ao mapa.');
+    else showToast('O objeto continuará visível e tentará sincronizar na próxima alteração.',{duration:7000});
   });
 
   // ---------- reference images ----------
@@ -11491,6 +11567,13 @@
     try{
       const oldDamageById = new Map(state.tokens.map(t => [t.id, t.damageTrack || 0]));
       const newTokens = JSON.parse(raw).list || [];
+      /* Preserve newly-created objects while their write is still being
+         confirmed. Older snapshots must never be allowed to erase them. */
+      locallyProtectedTokenIds.forEach(id => {
+        if(newTokens.some(t => t.id === id)) return;
+        const local = state.tokens.find(t => t.id === id);
+        if(local) newTokens.push(local);
+      });
       newTokens.forEach(t => {
         const oldVal = oldDamageById.has(t.id) ? oldDamageById.get(t.id) : (t.damageTrack || 0);
         if((t.damageTrack || 0) > oldVal) maybePlayDamageMarkerSound(t);
@@ -11712,7 +11795,7 @@
     watchKey(slotKey('tokens'), (raw) => {
       if(!raw || raw === lastTokensSnapshot) return;
       if(!state.isMaster && state.meta.playersFrozen) return;
-      if(state.dragging || state.refResizing){ pendingTokensRaw = raw; return; }
+      if(state.dragging || state.refResizing || tokenWritesQueued>0){ pendingTokensRaw = raw; return; }
       applyTokensUpdate(raw);
     });
 
