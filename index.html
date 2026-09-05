@@ -682,11 +682,11 @@
   .token.selected{ box-shadow:0 0 0 2px var(--amber-bright), 0 3px 10px var(--shadow); }
   .token.multi-selected{ box-shadow:0 0 0 3px #4fc3f7, 0 3px 10px var(--shadow); }
   .token-label{
-    position:absolute; top:100%; margin-top:6px; left:50%; transform:translateX(-50%);
+    position:absolute; top:100%; margin-top:var(--token-label-gap,6px); left:50%; transform:translateX(-50%);
     font-family:'IM Fell English', serif; font-size:13px; color:var(--parchment);
     background:#150f09; border:1px solid var(--amber); border-radius:3px;
-    padding:2px 6px; box-sizing:border-box;
-    white-space:normal; width:max-content; max-width:180px; line-height:1.25;
+    padding:var(--token-label-pad-y,2px) var(--token-label-pad-x,6px); box-sizing:border-box;
+    white-space:normal; width:max-content; max-width:var(--token-label-max-width,180px); line-height:1.25;
     text-align:center; pointer-events:none;
     display:none;
   }
@@ -706,13 +706,13 @@
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
     width:100%; box-sizing:border-box;
-    height:var(--token-hp-bar-height,6px); border-radius:var(--token-hp-bar-radius,3px);
+    height:var(--token-hp-bar-height,9px); border-radius:var(--token-hp-bar-radius,5px);
     background:rgba(0,0,0,0.55); border:var(--token-hp-border,1px) solid rgba(0,0,0,0.6);
     overflow:hidden; pointer-events:none;
   }
   .token-hp-fill{ height:100%; border-radius:var(--token-hp-fill-radius,2px); transition:width .25s ease, background-color .25s ease; }
   .token-hp-status{
-    position:absolute; left:50%; transform:translateX(-50%);
+    position:absolute; left:50%; bottom:calc(100% + var(--token-hp-status-gap,4px)); transform:translateX(-50%);
     width:max-content; max-width:none; box-sizing:border-box; text-align:center;
     padding:var(--token-hp-pad-y,2px) var(--token-hp-pad-x,7px);
     border-radius:var(--token-hp-status-radius,10px); border:var(--token-hp-border,1px) solid var(--amber);
@@ -721,11 +721,8 @@
     white-space:nowrap; pointer-events:none; z-index:7;
     box-shadow:0 2px 6px rgba(0,0,0,0.45);
   }
-  .token-hp-status.icon-only{
-    width:auto; padding:0; border:0; border-radius:0;
-    background:transparent; box-shadow:none;
-    font-size:var(--token-hp-icon-size,6px); line-height:1;
-  }
+  .token-hp-status.hover-only{ display:none; }
+  .token.selected .token-hp-status.hover-only, .token:hover .token-hp-status.hover-only{ display:block; }
   .token.token-current-turn{
     outline:var(--token-turn-ring-width,3px) solid var(--amber-bright);
     outline-offset:var(--token-turn-ring-offset,4px);
@@ -7049,9 +7046,9 @@
         const lockSize = Math.max(7, Math.min(52, Math.round(size * 0.26)));
         const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
         const statusGap = Math.max(1, Math.min(6, Math.round(size * 0.025)));
-        const hpBarHeight = Math.max(2, Math.min(20, Math.round(size * 0.075)));
-        const hpStatusFont = Math.max(5, Math.min(32, Math.round(size * 0.12)));
-        const hpIconSize = Math.max(4, Math.min(17, Math.round(size * (0.22 / 3))));
+        const hpBarHeight = Math.max(2, Math.min(20, Math.round(size * 0.075))) + 3;
+        const hpStatusFont = Math.max(7, Math.min(30, Math.round(size * 0.13)));
+        const hpStatusGap = Math.max(3, Math.min(14, Math.round(size * 0.04)));
         const hpPadY = Math.max(1, Math.min(8, Math.round(size * 0.025)));
         const hpPadX = Math.max(3, Math.min(24, Math.round(size * 0.075)));
         const hpStatusRadius = Math.max(4, Math.min(28, Math.round(size * 0.12)));
@@ -7069,7 +7066,7 @@
         t.style.setProperty('--token-hp-bar-radius', Math.max(1,Math.round(hpBarHeight/2)) + 'px');
         t.style.setProperty('--token-hp-fill-radius', Math.max(1,Math.round(hpBarHeight/2)-1) + 'px');
         t.style.setProperty('--token-hp-status-font', hpStatusFont + 'px');
-        t.style.setProperty('--token-hp-icon-size', hpIconSize + 'px');
+        t.style.setProperty('--token-hp-status-gap', hpStatusGap + 'px');
         t.style.setProperty('--token-hp-pad-y', hpPadY + 'px');
         t.style.setProperty('--token-hp-pad-x', hpPadX + 'px');
         t.style.setProperty('--token-hp-status-radius', hpStatusRadius + 'px');
@@ -7138,7 +7135,7 @@
       const enemyHpPrivate = !effectiveMaster() && !!tok.masterLocked;
       let qualitativeHp = '';
       let qualitativeHpTitle = '';
-      let qualitativeHpIconOnly = false;
+      let qualitativeHpHoverOnly = false;
       if(enemyHpPrivate && inCombat){
         const pct = Math.max(0,Math.min(100,Math.round(Math.max(0,frac)*100)));
         const hpMode=npcHpDisplayMode(currentPage());
@@ -7146,14 +7143,22 @@
           qualitativeHp=pct+'%';
           qualitativeHpTitle=pct+'% de vida';
         }else if(hpMode==='descriptive'){
-          qualitativeHpIconOnly=true;
-          if(pct<=0){ qualitativeHp='❌️'; qualitativeHpTitle='Morto'; }
-          else if(pct<=25){ qualitativeHp='🔴'; qualitativeHpTitle='Muito ferido'; }
-          else if(pct<=75){ qualitativeHp='🟠'; qualitativeHpTitle='Ferido'; }
-          else{ qualitativeHp='🟢'; qualitativeHpTitle='Intacto'; }
+          qualitativeHpHoverOnly=true;
+          if(pct<=0){ qualitativeHp='Morto'; qualitativeHpTitle='Morto'; }
+          else if(pct<=25){ qualitativeHp='Muito ferido'; qualitativeHpTitle='Muito ferido'; }
+          else if(pct<=75){ qualitativeHp='Ferido'; qualitativeHpTitle='Ferido'; }
+          else{ qualitativeHp='Intacto'; qualitativeHpTitle='Intacto'; }
         }
       }
-      const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
+      const labelFontSize = Math.max(8, Math.min(36, Math.round(size * 0.16)));
+      const labelGap = Math.max(3, Math.min(16, Math.round(size * 0.045)));
+      const labelPadY = Math.max(1, Math.min(8, Math.round(size * 0.022)));
+      const labelPadX = Math.max(4, Math.min(22, Math.round(size * 0.06)));
+      const labelMaxWidth = Math.max(72, Math.min(420, Math.round(size * 2.2)));
+      t.style.setProperty('--token-label-gap',labelGap+'px');
+      t.style.setProperty('--token-label-pad-y',labelPadY+'px');
+      t.style.setProperty('--token-label-pad-x',labelPadX+'px');
+      t.style.setProperty('--token-label-max-width',labelMaxWidth+'px');
       const lantern=tokenLanternState(tok,false);
       const lanternBadge=lantern&&lantern.enabled?'<div class="token-condition token-light-modifier" title="Lanterna acesa">🔦</div>':'';
       const darkvisionBadge=effectiveMaster()&&tokenHasDarkvision(tok)?'<div class="token-condition token-light-modifier" title="Visão no escuro">👁</div>':'';
@@ -7161,10 +7166,9 @@
         const c = CONDITIONS.find(c => c.key === key);
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('') + customStatusBadgesMarkup(tok);
-      const hpStatusTop=qualitativeHpIconOnly?(-Math.max(4,Math.min(17,Math.round(size*(0.22/3))))-4):barTop;
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
                     (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
-                    (qualitativeHp ? '<div class="token-hp-status'+(qualitativeHpIconOnly?' icon-only':'')+'" style="top:'+hpStatusTop+'px;" title="'+qualitativeHpTitle+'">'+qualitativeHp+'</div>' : '') +
+                    (qualitativeHp ? '<div class="token-hp-status'+(qualitativeHpHoverOnly?' hover-only':'')+'" title="'+qualitativeHpTitle+'">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '') +
@@ -8429,10 +8433,14 @@
 
   function onTokenPointerDown(e){
     if(e.button===2) return;
-    e.preventDefault();
-    e.stopPropagation();
     const target = e.currentTarget;
     const tok = state.tokens.find(t => t.id === target.dataset.id);
+    // Para jogadores, objetos do mapa funcionam como parte do próprio cenário:
+    // o gesto continua até o viewport e move a visão. Tokens continuam capturando
+    // o gesto normalmente para nunca arrastar o mapa por engano.
+    if(tok&&tok.isMapObject&&!effectiveMaster())return;
+    e.preventDefault();
+    e.stopPropagation();
     if(effectiveMaster() && (e.ctrlKey || e.metaKey) && tok){
       // Ctrl/Cmd+clique: alterna fichas, referências e objetos na seleção múltipla.
       if(multiSelectedTokenIds.has(tok.id)) multiSelectedTokenIds.delete(tok.id);
@@ -8576,7 +8584,16 @@
     el.style.marginTop = (-dims.height / 2) + 'px';
     const label = el.querySelector('.token-label');
     if(label){
-      label.style.fontSize = Math.max(11, Math.min(16, Math.round(newSize * 0.12))) + 'px';
+      const labelFontSize=Math.max(8,Math.min(36,Math.round(newSize*0.16)));
+      const labelGap=Math.max(3,Math.min(16,Math.round(newSize*0.045)));
+      const labelPadY=Math.max(1,Math.min(8,Math.round(newSize*0.022)));
+      const labelPadX=Math.max(4,Math.min(22,Math.round(newSize*0.06)));
+      const labelMaxWidth=Math.max(72,Math.min(420,Math.round(newSize*2.2)));
+      label.style.fontSize=labelFontSize+'px';
+      el.style.setProperty('--token-label-gap',labelGap+'px');
+      el.style.setProperty('--token-label-pad-y',labelPadY+'px');
+      el.style.setProperty('--token-label-pad-x',labelPadX+'px');
+      el.style.setProperty('--token-label-max-width',labelMaxWidth+'px');
     }
     if(tok && !tok.isReference){
       const statusSize = Math.max(7, Math.min(52, Math.round(newSize * 0.26)));
@@ -8586,9 +8603,9 @@
       const lockSize = Math.max(7, Math.min(52, Math.round(newSize * 0.26)));
       const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
       const statusGap = Math.max(1, Math.min(6, Math.round(newSize * 0.025)));
-      const hpBarHeight = Math.max(2, Math.min(20, Math.round(newSize * 0.075)));
-      const hpStatusFont = Math.max(5, Math.min(32, Math.round(newSize * 0.12)));
-      const hpIconSize = Math.max(4, Math.min(17, Math.round(newSize * (0.22 / 3))));
+      const hpBarHeight = Math.max(2, Math.min(20, Math.round(newSize * 0.075))) + 3;
+      const hpStatusFont = Math.max(7, Math.min(30, Math.round(newSize * 0.13)));
+      const hpStatusGap = Math.max(3, Math.min(14, Math.round(newSize * 0.04)));
       const hpPadY = Math.max(1, Math.min(8, Math.round(newSize * 0.025)));
       const hpPadX = Math.max(3, Math.min(24, Math.round(newSize * 0.075)));
       const hpStatusRadius = Math.max(4, Math.min(28, Math.round(newSize * 0.12)));
@@ -8606,7 +8623,7 @@
       el.style.setProperty('--token-hp-bar-radius', Math.max(1,Math.round(hpBarHeight/2)) + 'px');
       el.style.setProperty('--token-hp-fill-radius', Math.max(1,Math.round(hpBarHeight/2)-1) + 'px');
       el.style.setProperty('--token-hp-status-font', hpStatusFont + 'px');
-      el.style.setProperty('--token-hp-icon-size', hpIconSize + 'px');
+      el.style.setProperty('--token-hp-status-gap', hpStatusGap + 'px');
       el.style.setProperty('--token-hp-pad-y', hpPadY + 'px');
       el.style.setProperty('--token-hp-pad-x', hpPadX + 'px');
       el.style.setProperty('--token-hp-status-radius', hpStatusRadius + 'px');
@@ -8616,8 +8633,6 @@
       const hpTop=-Math.round(newSize*0.16)-6;
       const hpTrack=el.querySelector('.token-hp-track');
       if(hpTrack) hpTrack.style.top=hpTop+'px';
-      const hpStatus=el.querySelector('.token-hp-status');
-      if(hpStatus) hpStatus.style.top=(hpStatus.classList.contains('icon-only')?(-hpIconSize-4):hpTop)+'px';
     }
   }
   function onRefResizeMove(e){
