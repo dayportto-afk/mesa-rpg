@@ -705,22 +705,23 @@
   .token.selected .token-label, .token:hover .token-label{ display:block; }
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
-    height:6px; border-radius:3px;
-    background:rgba(0,0,0,0.55); border:1px solid rgba(0,0,0,0.6);
+    height:var(--token-hp-bar-height,6px); border-radius:var(--token-hp-bar-radius,3px);
+    background:rgba(0,0,0,0.55); border:var(--token-hp-border,1px) solid rgba(0,0,0,0.6);
     overflow:hidden; pointer-events:none;
   }
-  .token-hp-fill{ height:100%; border-radius:2px; transition:width .25s ease, background-color .25s ease; }
+  .token-hp-fill{ height:100%; border-radius:var(--token-hp-fill-radius,2px); transition:width .25s ease, background-color .25s ease; }
   .token-hp-status{
     position:absolute; left:50%; transform:translateX(-50%);
-    padding:2px 7px; border-radius:10px; border:1px solid var(--amber);
+    padding:var(--token-hp-pad-y,2px) var(--token-hp-pad-x,7px);
+    border-radius:var(--token-hp-status-radius,10px); border:var(--token-hp-border,1px) solid var(--amber);
     background:#150f09; color:var(--parchment);
-    font-family:'JetBrains Mono', monospace; font-size:9px; line-height:1.2;
+    font-family:'JetBrains Mono', monospace; font-size:var(--token-hp-status-font,9px); line-height:1.2;
     white-space:nowrap; pointer-events:none; z-index:7;
     box-shadow:0 2px 6px rgba(0,0,0,0.45);
   }
   .token.token-current-turn{
-    outline:3px solid var(--amber-bright);
-    outline-offset:4px;
+    outline:var(--token-turn-ring-width,3px) solid var(--amber-bright);
+    outline-offset:var(--token-turn-ring-offset,4px);
   }
 
   .map-text{
@@ -6962,6 +6963,14 @@
         const lockSize = Math.max(7, Math.min(52, Math.round(size * 0.26)));
         const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
         const statusGap = Math.max(1, Math.min(6, Math.round(size * 0.025)));
+        const hpBarHeight = Math.max(2, Math.min(20, Math.round(size * 0.075)));
+        const hpStatusFont = Math.max(5, Math.min(32, Math.round(size * 0.12)));
+        const hpPadY = Math.max(1, Math.min(8, Math.round(size * 0.025)));
+        const hpPadX = Math.max(3, Math.min(24, Math.round(size * 0.075)));
+        const hpStatusRadius = Math.max(4, Math.min(28, Math.round(size * 0.12)));
+        const hpBorder = Math.max(1, Math.min(3, Math.round(size * 0.015)));
+        const turnRingWidth = Math.max(2, Math.min(10, Math.round(size * 0.035)));
+        const turnRingOffset = Math.max(2, Math.min(16, Math.round(size * 0.06)));
         t.style.setProperty('--token-status-size', statusSize + 'px');
         t.style.setProperty('--token-status-font', statusFont + 'px');
         t.style.setProperty('--token-custom-status-size', customStatusSize + 'px');
@@ -6969,6 +6978,16 @@
         t.style.setProperty('--token-lock-size', lockSize + 'px');
         t.style.setProperty('--token-lock-font', lockFont + 'px');
         t.style.setProperty('--token-status-gap', statusGap + 'px');
+        t.style.setProperty('--token-hp-bar-height', hpBarHeight + 'px');
+        t.style.setProperty('--token-hp-bar-radius', Math.max(1,Math.round(hpBarHeight/2)) + 'px');
+        t.style.setProperty('--token-hp-fill-radius', Math.max(1,Math.round(hpBarHeight/2)-1) + 'px');
+        t.style.setProperty('--token-hp-status-font', hpStatusFont + 'px');
+        t.style.setProperty('--token-hp-pad-y', hpPadY + 'px');
+        t.style.setProperty('--token-hp-pad-x', hpPadX + 'px');
+        t.style.setProperty('--token-hp-status-radius', hpStatusRadius + 'px');
+        t.style.setProperty('--token-hp-border', hpBorder + 'px');
+        t.style.setProperty('--token-turn-ring-width', turnRingWidth + 'px');
+        t.style.setProperty('--token-turn-ring-offset', turnRingOffset + 'px');
       }
       let renderedZ=clampStageZOrder(typeof pos.zOrder === 'number' ? pos.zOrder : MAP_LAYER_FLOOR_Z);
       if(!tok.isMapObject && tok.platformByPage && tok.platformByPage[state.currentPageId]){
@@ -8460,14 +8479,43 @@
       label.style.fontSize = Math.max(11, Math.min(16, Math.round(newSize * 0.12))) + 'px';
     }
     if(tok && !tok.isReference){
-      const statusSize = Math.max(8, Math.min(30, Math.round(newSize * 0.28)));
-      const statusFont = Math.max(5, Math.min(19, Math.round(statusSize * 0.62)));
-      const customStatusSize = Math.max(5, Math.min(20, Math.round(newSize * 0.14)));
-      const customStatusFont = Math.max(4, Math.min(13, Math.round(customStatusSize * 0.64)));
+      const statusSize = Math.max(7, Math.min(52, Math.round(newSize * 0.26)));
+      const statusFont = Math.max(5, Math.min(32, Math.round(statusSize * 0.62)));
+      const customStatusSize = Math.max(6, Math.min(38, Math.round(newSize * 0.19)));
+      const customStatusFont = Math.max(4, Math.min(25, Math.round(customStatusSize * 0.64)));
+      const lockSize = Math.max(7, Math.min(52, Math.round(newSize * 0.26)));
+      const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
+      const statusGap = Math.max(1, Math.min(6, Math.round(newSize * 0.025)));
+      const hpBarHeight = Math.max(2, Math.min(20, Math.round(newSize * 0.075)));
+      const hpStatusFont = Math.max(5, Math.min(32, Math.round(newSize * 0.12)));
+      const hpPadY = Math.max(1, Math.min(8, Math.round(newSize * 0.025)));
+      const hpPadX = Math.max(3, Math.min(24, Math.round(newSize * 0.075)));
+      const hpStatusRadius = Math.max(4, Math.min(28, Math.round(newSize * 0.12)));
+      const hpBorder = Math.max(1, Math.min(3, Math.round(newSize * 0.015)));
+      const turnRingWidth = Math.max(2, Math.min(10, Math.round(newSize * 0.035)));
+      const turnRingOffset = Math.max(2, Math.min(16, Math.round(newSize * 0.06)));
       el.style.setProperty('--token-status-size', statusSize + 'px');
       el.style.setProperty('--token-status-font', statusFont + 'px');
       el.style.setProperty('--token-custom-status-size', customStatusSize + 'px');
       el.style.setProperty('--token-custom-status-font', customStatusFont + 'px');
+      el.style.setProperty('--token-lock-size', lockSize + 'px');
+      el.style.setProperty('--token-lock-font', lockFont + 'px');
+      el.style.setProperty('--token-status-gap', statusGap + 'px');
+      el.style.setProperty('--token-hp-bar-height', hpBarHeight + 'px');
+      el.style.setProperty('--token-hp-bar-radius', Math.max(1,Math.round(hpBarHeight/2)) + 'px');
+      el.style.setProperty('--token-hp-fill-radius', Math.max(1,Math.round(hpBarHeight/2)-1) + 'px');
+      el.style.setProperty('--token-hp-status-font', hpStatusFont + 'px');
+      el.style.setProperty('--token-hp-pad-y', hpPadY + 'px');
+      el.style.setProperty('--token-hp-pad-x', hpPadX + 'px');
+      el.style.setProperty('--token-hp-status-radius', hpStatusRadius + 'px');
+      el.style.setProperty('--token-hp-border', hpBorder + 'px');
+      el.style.setProperty('--token-turn-ring-width', turnRingWidth + 'px');
+      el.style.setProperty('--token-turn-ring-offset', turnRingOffset + 'px');
+      const hpTop=-Math.round(newSize*0.16)-6;
+      const hpTrack=el.querySelector('.token-hp-track');
+      if(hpTrack){ hpTrack.style.width=Math.max(28,Math.round(newSize*0.82))+'px'; hpTrack.style.top=hpTop+'px'; }
+      const hpStatus=el.querySelector('.token-hp-status');
+      if(hpStatus) hpStatus.style.top=hpTop+'px';
     }
   }
   function onRefResizeMove(e){
