@@ -3045,6 +3045,18 @@
   let pendingPageUpdates = {};
   let pendingSlot = null;
 
+  function tokenSheetFieldIsActive(){
+    const active = document.activeElement;
+    return !!(active && active.matches && active.matches('input, textarea, select') && active.closest('#token-list, #my-sheet-panel-body'));
+  }
+  function flushPendingTokensWhenIdle(){
+    if(!pendingTokensRaw || state.dragging || state.refResizing || tokenWritesQueued>0 || tokenSheetFieldIsActive()) return;
+    const raw = pendingTokensRaw;
+    pendingTokensRaw = null;
+    applyTokensUpdate(raw);
+  }
+  document.addEventListener('focusout', () => setTimeout(flushPendingTokensWhenIdle, 0));
+
   // Canal efêmero e leve para movimento contínuo. Cada aba escreve somente
   // id/x/y dos elementos em movimento; imagens e fichas nunca passam por ele.
   const LIVE_MOVE_INTERVAL_MS = 100;
@@ -5050,6 +5062,78 @@
       return true;
     }catch(e){ console.error('storage set failed', key, e); return false; }
   }
+  function tokenPatchOperations(before, after, path, out){
+    path = path || [];
+    out = out || [];
+    if(JSON.stringify(before) === JSON.stringify(after)) return out;
+    const beforeObject = before && typeof before === 'object' && !Array.isArray(before);
+    const afterObject = after && typeof after === 'object' && !Array.isArray(after);
+    if(beforeObject && afterObject){
+      const keys = new Set(Object.keys(before).concat(Object.keys(after)));
+      keys.forEach(key => {
+        if(!Object.prototype.hasOwnProperty.call(after, key)) out.push({ path:path.concat(key), remove:true });
+        else tokenPatchOperations(before[key], after[key], path.concat(key), out);
+      });
+      return out;
+    }
+    out.push({ path:path, value:JSON.parse(JSON.stringify(after)) });
+    return out;
+  }
+  function applyTokenPatchOperations(target, operations){
+    operations.forEach(op => {
+      if(!op.path.length) return;
+      let parent = target;
+      for(let i=0;i<op.path.length-1;i++){
+        const key = op.path[i];
+        if(!parent[key] || typeof parent[key] !== 'object' || Array.isArray(parent[key])) parent[key] = {};
+        parent = parent[key];
+      }
+      const key = op.path[op.path.length-1];
+      if(op.remove) delete parent[key];
+      else parent[key] = JSON.parse(JSON.stringify(op.value));
+    });
+    return target;
+  }
+  function buildTokenChangeSet(baselineRaw, localList){
+    let baseline = [];
+    try{ baseline = JSON.parse(baselineRaw || '').list || []; }catch(e){}
+    const beforeById = new Map(baseline.map(t => [t.id, t]));
+    const localById = new Map((localList || []).map(t => [t.id, t]));
+    const added = [], removed = [], updated = [];
+    localById.forEach((tok, id) => {
+      const before = beforeById.get(id);
+      if(!before) added.push(JSON.parse(JSON.stringify(tok)));
+      else {
+        const operations = tokenPatchOperations(before, tok);
+        if(operations.length) updated.push({ id, operations, fallback:JSON.parse(JSON.stringify(tok)) });
+      }
+    });
+    beforeById.forEach((tok, id) => { if(!localById.has(id)) removed.push(id); });
+    return { added, removed, updated };
+  }
+  async function safeMergeTokens(key, changes){
+    if(!db) return null;
+    try{
+      const result = await withTimeout(db.ref(key).transaction(currentRaw => {
+        let remote = [];
+        try{ remote = JSON.parse(currentRaw || '').list || []; }catch(e){}
+        const byId = new Map(remote.map(t => [t.id, t]));
+        changes.removed.forEach(id => byId.delete(id));
+        changes.added.forEach(tok => {
+          if(!byId.has(tok.id)) byId.set(tok.id, JSON.parse(JSON.stringify(tok)));
+          else byId.set(tok.id, Object.assign({}, byId.get(tok.id), JSON.parse(JSON.stringify(tok))));
+        });
+        changes.updated.forEach(change => {
+          const target = byId.get(change.id) || JSON.parse(JSON.stringify(change.fallback));
+          byId.set(change.id, applyTokenPatchOperations(target, change.operations));
+        });
+        return JSON.stringify({ list:Array.from(byId.values()) });
+      }, undefined, false), 15000);
+      if(!result || !result.committed) return null;
+      const value = result.snapshot && result.snapshot.val();
+      return typeof value === 'string' ? value : JSON.stringify({ list:[] });
+    }catch(e){ console.error('token merge failed', key, e); return null; }
+  }
   async function safeDelete(key){
     if(!db) return;
     try{ await withTimeout(db.ref(key).remove(), 8000); }catch(e){}
@@ -5792,28 +5876,36 @@
   async function persistPageTexts(page){ await safeSet(slotKey('page-'+page.id+'-texts'), { list: page.texts }); }
   async function persistPageGrid(page){ await safeSet(slotKey('page-'+page.id+'-grid'), page.grid); }
   async function persistTokens(){
-    /* Token writes used to overlap: a delayed remote snapshot could arrive
-       between adding an object and saving it, replacing the local list and
-       making the new object vanish. Capture and serialize every write. */
+    /* Cada alteração é calculada em relação à última versão recebida e
+       mesclada por campo no Firebase. Isso impede que outra aba restaure uma
+       ficha inteira antiga e apague PM, perícias ou posições recém-salvas. */
     const payload = JSON.parse(JSON.stringify({ list:state.tokens }));
     const raw = JSON.stringify(payload);
+    const changes = buildTokenChangeSet(lastTokensSnapshot, payload.list);
     latestLocalTokensRaw = raw;
-    lastTokensSnapshot = raw;
     tokenWritesQueued++;
-    const run = () => safeSet(slotKey('tokens'), payload);
+    const run = () => safeMergeTokens(slotKey('tokens'), changes);
     const task = tokenWriteQueue.then(run, run);
-    tokenWriteQueue = task.catch(() => false);
-    const saved = await task;
+    tokenWriteQueue = task.catch(() => null);
+    const savedRaw = await task;
     tokenWritesQueued = Math.max(0, tokenWritesQueued - 1);
-    if(saved){
+    if(savedRaw){
       const savedIds = new Set(payload.list.map(t => t.id));
       [...locallyProtectedTokenIds].forEach(id => { if(savedIds.has(id)) locallyProtectedTokenIds.delete(id); });
-      if(raw === latestLocalTokensRaw) lastTokensSnapshot = raw;
-      if(tokenWritesQueued === 0) pendingTokensRaw = null;
+      lastTokensSnapshot = savedRaw;
+      if(tokenWritesQueued === 0){
+        const newestRaw = pendingTokensRaw || savedRaw;
+        if(tokenSheetFieldIsActive()) pendingTokensRaw = newestRaw;
+        else {
+          pendingTokensRaw = null;
+          applyTokensUpdate(newestRaw);
+        }
+      }
     }else if(raw === latestLocalTokensRaw){
       lastTokensSnapshot = '';
+      showToast('Não foi possível confirmar o salvamento da ficha. Verifique a conexão antes de fechar a página.', { type:'usage-warning', duration:9000 });
     }
-    return saved;
+    return !!savedRaw;
   }
 
   // Mescla uma atualização remota sem perder tamanhos já definidos localmente.
@@ -5971,7 +6063,7 @@
         if(pos) t.positions[state.currentPageId] = JSON.parse(JSON.stringify(pos));
       });
       const page = currentPage();
-      const jobs = [ safeSet(slotKey('tokens'), { list: state.tokens }) ];
+      const jobs = [ persistTokens() ];
       if(page){
         if(!page.draw) page.draw = { strokes:[] };
         const others = (page.draw.strokes || []).filter(st => (st.author || '').trim().toLowerCase() !== me);
@@ -5995,7 +6087,7 @@
       page.texts = snap.texts;
     }
     render();
-    const jobs = [ safeSet(slotKey('tokens'), { list: state.tokens }), persistPagesIndex() ];
+    const jobs = [ persistTokens(), persistPagesIndex() ];
     if(page){ jobs.push(persistPageMap(page), persistPageFog(page), persistPageDraw(page), persistPageTexts(page)); }
     await Promise.all(jobs);
     updateHistoryButtons();
@@ -12322,7 +12414,7 @@
     watchKey(slotKey('tokens'), (raw) => {
       if(!raw || raw === lastTokensSnapshot) return;
       if(!state.isMaster && state.meta.playersFrozen) return;
-      if(state.dragging || state.refResizing || tokenWritesQueued>0){ pendingTokensRaw = raw; return; }
+      if(state.dragging || state.refResizing || tokenWritesQueued>0 || tokenSheetFieldIsActive()){ pendingTokensRaw = raw; return; }
       applyTokensUpdate(raw);
     });
 
