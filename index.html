@@ -3126,7 +3126,7 @@
     if(!tok) return false;
     return (tok.name||'').trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
   }
-  function canResizeToken(tok){ return effectiveMaster() || (!tok.isReference && !tok.isMapObject && !tok.masterLocked && isOwnToken(tok)); }
+  function canResizeToken(tok){ return effectiveMaster() || (!tok.isReference && !tok.isMapObject && !tok.masterLocked && !tok.sizeLocked && isOwnToken(tok)); }
   function canPlayerSeePage(page){
     if(!page) return true;
     if(!page.allowedPlayers || page.allowedPlayers.length === 0) return true;
@@ -7018,15 +7018,19 @@
   function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
   function openContextMenu(e,type,id){
     const tokForLantern=type==='token'?state.tokens.find(t=>t.id===id):null;
-    if(!effectiveMaster()&&!canToggleTokenLantern(tokForLantern)) return;
+    if(!effectiveMaster()&&!canToggleTokenLantern(tokForLantern)&&!(type==='token'&&canResizeToken(tokForLantern))) return;
     e.preventDefault(); e.stopPropagation();
     const menu=el('context-menu'); contextTarget={type,id}; let actions=[];
     if(type==='token'){
       const tok=tokForLantern; if(!tok)return;
-      const lantern=tokenLanternState(tok,false);
-      const lightActions=[[lantern&&lantern.enabled?'🔦 Apagar lanterna':'🔦 Acender lanterna','lantern']];
-      if(lantern&&lantern.enabled&&ensureLightingModel(currentPage()).shape==='cone') lightActions.push(['↻ Girar cone 45°','lanternrotate']);
+      let lightActions=[];
+      if(canToggleTokenLantern(tok)){
+        const lantern=tokenLanternState(tok,false);
+        lightActions=[[lantern&&lantern.enabled?'🔦 Apagar lanterna':'🔦 Acender lanterna','lantern']];
+        if(lantern&&lantern.enabled&&ensureLightingModel(currentPage()).shape==='cone') lightActions.push(['↻ Girar cone 45°','lanternrotate']);
+      }
       if(effectiveMaster()){
+        lightActions.push([tok.sizeLocked?'🔓 Destravar tamanho':'🔒 Travar tamanho','sizelock']);
         lightActions.push(['📏 Alcance individual','lanternradius']);
         lightActions.push(['👥 Grupos de luz: '+tokenLightGroupLabel(tok),'lightgroups']);
         lightActions.push([tokenHasDarkvision(tok)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
@@ -7051,6 +7055,30 @@
     }
     else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
     menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
+    if(type==='token'){
+      const tok=state.tokens.find(t=>t.id===id&&!t.isReference&&!t.isMapObject);
+      if(tok&&canResizeToken(tok)){
+        const size=tokenSize(tok);
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↔ Tamanho</span><span class="context-range-value" data-context-size-value>'+size+'px</span></div><input type="range" min="10" max="500" step="1" value="'+size+'" aria-label="Tamanho do token" data-context-token-size></div>');
+        const slider=menu.querySelector('[data-context-token-size]');
+        const valueLabel=menu.querySelector('[data-context-size-value]');
+        let undoCaptured=false;
+        slider.addEventListener('input',()=>{
+          const t2=state.tokens.find(x=>x.id===id); if(!t2)return;
+          if(!undoCaptured){ pushUndo(); undoCaptured=true; }
+          const newSize=Math.max(10,Math.min(500,Number(slider.value)||size));
+          if(!t2.sizes) t2.sizes={};
+          t2.sizes[state.currentPageId]=newSize;
+          valueLabel.textContent=newSize+'px';
+          renderTokens();
+        });
+        slider.addEventListener('change',async()=>{
+          if(!undoCaptured)return;
+          undoCaptured=false;
+          await persistTokens();
+        });
+      }
+    }
     if(type==='mapobject'){
       const object=state.tokens.find(t=>t.id===id&&t.isMapObject);
       const rotation=Math.round(((Number(object&&object.rotation)||0)%360+360)%360);
@@ -7113,6 +7141,9 @@
       render();
       await persistPagesIndex();
       return;
+    }
+    if(action==='sizelock'&&effectiveMaster()){
+      pushUndo(); tok.sizeLocked=!tok.sizeLocked; render(); await persistTokens(); return;
     }
     if(action==='lantern'){
       if(!canToggleTokenLantern(tok))return;
@@ -7323,13 +7354,10 @@
                     (qualitativeHp ? '<div class="token-hp-status'+(qualitativeHpHoverOnly?' hover-only':'')+'" title="'+qualitativeHpTitle+'">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
-                    (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '') +
-                    (canResizeToken(tok) ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '');
+                    (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
       t.addEventListener('contextmenu', e=>openContextMenu(e,'token',tok.id));
       $canvas.appendChild(t);
-      const resizeHandle = t.querySelector('[data-resize-handle]');
-      if(resizeHandle) resizeHandle.addEventListener('pointerdown', onRefResizeStart);
     });
     applyAllRemoteLiveMoves();
   }
@@ -8122,6 +8150,7 @@
             '<input type="number" class="size-input" min="10" max="500" value="'+size+'" data-size-input="'+tok.id+'">' +
             '<span class="size-unit">px</span>' +
             '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
+            '<button type="button" class="'+(tok.sizeLocked?'toggle-active':'')+'" data-size-lock-toggle="'+tok.id+'" title="'+(tok.sizeLocked?'Destravar tamanho (jogador poderá redimensionar)':'Travar tamanho (jogador não poderá redimensionar)')+'">'+(tok.sizeLocked?'🔒':'🔓')+'</button>' +
           '</div>' +
           '<div class="token-row-actions">' +
             '<button type="button" data-duplicate="'+tok.id+'" title="Cria uma cópia idêntica, só renomear">Duplicar</button>' +
@@ -8232,6 +8261,9 @@
     });
     $tokenList.querySelectorAll('[data-size-input]').forEach(inp=>{
       inp.addEventListener('change', () => setTokenSize(inp.getAttribute('data-size-input'), inp.value));
+    });
+    $tokenList.querySelectorAll('[data-size-lock-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => toggleTokenSizeLock(btn.getAttribute('data-size-lock-toggle')));
     });
     $tokenList.querySelectorAll('[data-duplicate]').forEach(btn=>{
       btn.addEventListener('click', () => duplicateToken(btn.getAttribute('data-duplicate')));
@@ -10513,6 +10545,16 @@
     pushUndo();
     if(!tok.sizes) tok.sizes = {};
     tok.sizes[state.currentPageId] = size;
+    render();
+    await persistTokens();
+  }
+
+  async function toggleTokenSizeLock(id){
+    if(!effectiveMaster()) return;
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    tok.sizeLocked = !tok.sizeLocked;
     render();
     await persistTokens();
   }
