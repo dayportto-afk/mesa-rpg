@@ -706,9 +706,9 @@
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
     width:100%; box-sizing:border-box;
-    height:var(--token-hp-bar-height,9px); border-radius:var(--token-hp-bar-radius,5px);
+    height:var(--token-hp-bar-height,8px); border-radius:var(--token-hp-bar-radius,4px);
     background:rgba(0,0,0,0.55); border:var(--token-hp-border,1px) solid rgba(0,0,0,0.6);
-    overflow:hidden; pointer-events:none;
+    overflow:hidden; pointer-events:none; opacity:.8;
   }
   .token-hp-fill{ height:100%; border-radius:var(--token-hp-fill-radius,2px); transition:width .25s ease, background-color .25s ease; }
   .token-hp-status{
@@ -7046,7 +7046,7 @@
         const lockSize = Math.max(7, Math.min(52, Math.round(size * 0.26)));
         const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
         const statusGap = Math.max(1, Math.min(6, Math.round(size * 0.025)));
-        const hpBarHeight = Math.max(2, Math.min(20, Math.round(size * 0.075))) + 3;
+        const hpBarHeight = Math.max(2, Math.min(20, Math.round(size * 0.075))) + 2;
         const hpStatusFont = Math.max(7, Math.min(30, Math.round(size * 0.13)));
         const hpStatusGap = Math.max(3, Math.min(14, Math.round(size * 0.04)));
         const hpPadY = Math.max(1, Math.min(8, Math.round(size * 0.025)));
@@ -8603,7 +8603,7 @@
       const lockSize = Math.max(7, Math.min(52, Math.round(newSize * 0.26)));
       const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
       const statusGap = Math.max(1, Math.min(6, Math.round(newSize * 0.025)));
-      const hpBarHeight = Math.max(2, Math.min(20, Math.round(newSize * 0.075))) + 3;
+      const hpBarHeight = Math.max(2, Math.min(20, Math.round(newSize * 0.075))) + 2;
       const hpStatusFont = Math.max(7, Math.min(30, Math.round(newSize * 0.13)));
       const hpStatusGap = Math.max(3, Math.min(14, Math.round(newSize * 0.04)));
       const hpPadY = Math.max(1, Math.min(8, Math.round(newSize * 0.025)));
