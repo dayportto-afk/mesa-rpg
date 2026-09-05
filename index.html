@@ -8343,10 +8343,18 @@
     delete target.dataset.remoteLiveSource;
     target.style.zIndex = tok&&tok.isMapObject ? 899999 : 1000000;
     const canvasRect = $canvas.getBoundingClientRect();
+    const savedPos=tok?tokenPos(tok):{x:0,y:0};
+    const displayedX=parseFloat(target.style.left), displayedY=parseFloat(target.style.top);
+    const startX=Number.isFinite(displayedX)?displayedX:savedPos.x;
+    const startY=Number.isFinite(displayedY)?displayedY:savedPos.y;
+    const pointerStartX=((e.clientX-canvasRect.left)/Math.max(1,canvasRect.width))*100;
+    const pointerStartY=((e.clientY-canvasRect.top)/Math.max(1,canvasRect.height))*100;
     state.dragging = {
       id: target.dataset.id, el: target, canvasRect,
       startClientX: e.clientX, startClientY: e.clientY,
-      origLeft: target.style.left, origTop: target.style.top, startPos: tok ? {x:tokenPos(tok).x,y:tokenPos(tok).y} : null
+      origLeft: target.style.left, origTop: target.style.top,
+      grabOffsetX:startX-pointerStartX, grabOffsetY:startY-pointerStartY,
+      startPos: tok ? {x:startX,y:startY} : null
     };
     const draggingSelection=effectiveMaster() && tok && multiSelectedTokenIds.has(tok.id) && multiSelectedTokenIds.size>=2;
     if(draggingSelection){
@@ -8371,7 +8379,7 @@
         el2.style.zIndex=t2.isMapObject?'899999':'1000000';
         return {id,el:el2,startX:p2.x,startY:p2.y,liveX:p2.x,liveY:p2.y,attachmentX:p2.x,attachmentY:p2.y,startZ:p2.zOrder,selected:meta.selected,riderOf:meta.riderOf};
       }).filter(Boolean);
-      const anchorPos=tokenPos(tok);
+      const anchorPos=state.dragging.startPos;
       state.dragging.anchorStartX=anchorPos.x;
       state.dragging.anchorStartY=anchorPos.y;
     }else if(tok && tok.isMapObject && effectiveMaster()){
@@ -8381,10 +8389,10 @@
         if(riderEl) riderEl.style.zIndex='1000000';
         return riderEl ? { id:rider.id, el:riderEl, startX:riderPos.x, startY:riderPos.y, liveX:riderPos.x, liveY:riderPos.y } : null;
       }).filter(Boolean);
-      state.dragging.anchorStartX = tokenPos(tok).x;
-      state.dragging.anchorStartY = tokenPos(tok).y;
-      state.dragging.attachmentX = tokenPos(tok).x;
-      state.dragging.attachmentY = tokenPos(tok).y;
+      state.dragging.anchorStartX = startX;
+      state.dragging.anchorStartY = startY;
+      state.dragging.attachmentX = startX;
+      state.dragging.attachmentY = startY;
     }
     target.addEventListener('pointermove', onTokenPointerMove);
     target.addEventListener('pointerup', onTokenPointerUp);
@@ -8514,8 +8522,16 @@
   function onTokenPointerMove(e){
     if(!state.dragging) return;
     const rect = state.dragging.canvasRect;
-    let xPct = ((e.clientX - rect.left) / rect.width) * 100;
-    let yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    const pointerDist=Math.hypot(e.clientX-state.dragging.startClientX,e.clientY-state.dragging.startClientY);
+    // Pequenas oscilações naturais do mouse/toque continuam sendo um clique.
+    // O objeto só entra em movimento depois de atravessar este limite.
+    if(!state.dragging.didDrag&&pointerDist<6) return;
+    if(!state.dragging.didDrag){
+      state.dragging.didDrag=true;
+      if(state.dragging.longPressTimer){ clearTimeout(state.dragging.longPressTimer); state.dragging.longPressTimer=null; }
+    }
+    let xPct = ((e.clientX - rect.left) / rect.width) * 100 + (Number(state.dragging.grabOffsetX)||0);
+    let yPct = ((e.clientY - rect.top) / rect.height) * 100 + (Number(state.dragging.grabOffsetY)||0);
     const min = effectiveMaster() ? -240 : 0;
     const max = effectiveMaster() ? 340 : 100;
     xPct = Math.max(min, Math.min(max, xPct));
@@ -8524,11 +8540,6 @@
     state.dragging.el.style.top = yPct + '%';
     state.dragging.x = xPct;
     state.dragging.y = yPct;
-    const pointerDist=Math.hypot(e.clientX-state.dragging.startClientX,e.clientY-state.dragging.startClientY);
-    if(pointerDist>=6){
-      state.dragging.didDrag=true;
-      if(state.dragging.longPressTimer){ clearTimeout(state.dragging.longPressTimer); state.dragging.longPressTimer=null; }
-    }
     updateMoveDistanceLabel(state.dragging,xPct,yPct);
     if(state.dragging.group){
       const dx = xPct - state.dragging.anchorStartX;
