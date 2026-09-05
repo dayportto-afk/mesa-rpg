@@ -668,7 +668,6 @@
   .map-object-opacity-row{ display:flex; align-items:center; gap:8px; }
   .map-object-opacity-row label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); text-transform:uppercase; letter-spacing:.5px; }
   .map-object-opacity-row input[type=range]{ flex:1; accent-color:var(--amber); }
-  .map-object-opacity-row input[type=number]{ flex:1; min-width:0; }
   .map-object-opacity-value{ min-width:34px; text-align:right; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment-dim); }
   .token-resize-handle{
     position:absolute; right:-2px; bottom:-2px; width:5px; height:5px;
@@ -6816,7 +6815,8 @@
     }else if(type==='reference') actions=[['Trazer para frente','front'],['Enviar para trás','back'],['Travar / destravar','lock'],['Remover desta página','page'],['Excluir permanentemente','delete','context-danger']];
     else if(type==='mapobject'){
       const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
-      actions=[[tok.objectLocked?'Destravar posição':'Travar posição','objectlock'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir objeto','delete','context-danger']];
+      const rotation=Math.round(((Number(tok.rotation)||0)%360+360)%360);
+      actions=[['↻ Girar objeto ('+rotation+'°)','objectrotate'],[tok.objectLocked?'Destravar posição':'Travar posição','objectlock'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir objeto','delete','context-danger']];
     }
     else if(type==='lightpoint'){
       const page=currentPage(), lighting=page&&ensureLightingModel(page), point=lighting&&lighting.points.find(item=>item.id===id); if(!point)return;
@@ -6849,6 +6849,22 @@
       return;
     }
     const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
+    if(action==='objectrotate'&&tok.isMapObject&&effectiveMaster()){
+      const current=Math.round(((Number(tok.rotation)||0)%360+360)%360);
+      const entered=prompt('Rotação do objeto em graus (0 a 359):',String(current));
+      if(entered===null)return;
+      const value=Number(String(entered).replace(',','.'));
+      if(!Number.isFinite(value)){ alert('Digite um número válido para a rotação.'); return; }
+      pushUndo();
+      const moved=rotateMapObjectAndContents(tok,value), page=currentPage();
+      render();
+      await Promise.allSettled([
+        persistTokens(),
+        page&&moved.draw?persistPageDraw(page):Promise.resolve(),
+        page&&moved.fog?persistPageFog(page):Promise.resolve()
+      ]);
+      return;
+    }
     if(action==='lantern'){
       if(!canToggleTokenLantern(tok))return;
       const lantern=tokenLanternState(tok,true); lantern.enabled=!lantern.enabled;
@@ -7671,13 +7687,11 @@
     if(!objects.length){ root.innerHTML='<div class="hint">Nenhum objeto nesta página.</div>'; return; }
     root.innerHTML=objects.map(tok=>{
       const opacity=Math.round(Math.max(0,Math.min(1,Number(tok.opacity==null?1:tok.opacity)))*100);
-      const rotation=Math.round(((Number(tok.rotation)||0)%360+360)%360);
       const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
       const shadowOpacity=Math.round(Math.max(0,Math.min(1,Number(shadow.opacity)||0))*100);
       return '<div class="map-object-card" id="map-object-card-'+tok.id+'">'+
         '<div class="map-object-card-top"><img class="map-object-thumb" src="'+tok.image+'" alt=""><input type="text" value="'+escapeHtml(tok.name)+'" data-map-object-name="'+tok.id+'"><button type="button" class="danger" data-map-object-delete="'+tok.id+'" title="Excluir objeto">✕</button></div>'+
         '<div class="map-object-opacity-row"><label>Opacidade</label><input type="range" min="0" max="100" step="5" value="'+opacity+'" data-map-object-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+opacity+'%</span></div>'+
-        '<div class="map-object-opacity-row"><label>Girar</label><input type="number" min="0" max="359" step="1" inputmode="numeric" value="'+rotation+'" data-map-object-rotation="'+tok.id+'"><span class="map-object-opacity-value">°</span></div>'+
         '<button type="button" class="'+(tok.objectLocked?'toggle-active':'')+'" data-map-object-lock="'+tok.id+'">'+(tok.objectLocked?'🔒 Posição travada':'🔓 Travar posição')+'</button>'+
         '<button type="button" class="'+(shadow.enabled?'toggle-active':'')+'" data-map-object-shadow-toggle="'+tok.id+'">'+(shadow.enabled?'☁ Sombra ativada':'☁ Ativar sombra')+'</button>'+
         (shadow.enabled?'<div class="map-object-opacity-row"><label>Intens.</label><input type="range" min="0" max="100" step="5" value="'+shadowOpacity+'" data-map-object-shadow-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+shadowOpacity+'%</span></div>'+
@@ -7692,24 +7706,6 @@
         tok.opacity=Number(inp.value)/100; inp.nextElementSibling.textContent=inp.value+'%'; renderTokens();
       });
       inp.addEventListener('change',()=>persistTokens());
-    });
-    root.querySelectorAll('[data-map-object-rotation]').forEach(inp=>{
-      let attachedDrawMoved=false, attachedFogMoved=false;
-      inp.addEventListener('input',()=>{
-        const tok=state.tokens.find(t=>t.id===inp.getAttribute('data-map-object-rotation')); if(!tok)return;
-        const moved=rotateMapObjectAndContents(tok,Number(inp.value)||0);
-        attachedDrawMoved=attachedDrawMoved||moved.draw;
-        attachedFogMoved=attachedFogMoved||moved.fog;
-        renderTokens();
-        refreshLiveMoveDependentLayers();
-      });
-      inp.addEventListener('change',async()=>{
-        const page=currentPage(), tasks=[persistTokens()];
-        if(page&&attachedDrawMoved) tasks.push(persistPageDraw(page));
-        if(page&&attachedFogMoved) tasks.push(persistPageFog(page));
-        attachedDrawMoved=false; attachedFogMoved=false;
-        await Promise.allSettled(tasks);
-      });
     });
     root.querySelectorAll('[data-map-object-lock]').forEach(btn=>btn.addEventListener('click',()=>toggleMapObjectLock(btn.getAttribute('data-map-object-lock'))));
     root.querySelectorAll('[data-map-object-shadow-toggle]').forEach(btn=>btn.addEventListener('click',async()=>{
