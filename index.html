@@ -705,6 +705,7 @@
   .token.selected .token-label, .token:hover .token-label{ display:block; }
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
+    width:100%; box-sizing:border-box;
     height:var(--token-hp-bar-height,6px); border-radius:var(--token-hp-bar-radius,3px);
     background:rgba(0,0,0,0.55); border:var(--token-hp-border,1px) solid rgba(0,0,0,0.6);
     overflow:hidden; pointer-events:none;
@@ -712,6 +713,7 @@
   .token-hp-fill{ height:100%; border-radius:var(--token-hp-fill-radius,2px); transition:width .25s ease, background-color .25s ease; }
   .token-hp-status{
     position:absolute; left:50%; transform:translateX(-50%);
+    width:100%; box-sizing:border-box; text-align:center;
     padding:var(--token-hp-pad-y,2px) var(--token-hp-pad-x,7px);
     border-radius:var(--token-hp-status-radius,10px); border:var(--token-hp-border,1px) solid var(--amber);
     background:#150f09; color:var(--parchment);
@@ -988,10 +990,11 @@
   .page-scale-box label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
   .page-scale-box input{ margin-top:3px; }
   .page-scale-hint{ grid-column:1/-1; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); line-height:1.4; }
-  #context-menu{ display:none; position:fixed; z-index:2000002; min-width:190px; max-width:260px; background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:5px; }
+  #context-menu{ display:none; position:fixed; z-index:2000002; min-width:190px; max-width:260px; max-height:calc(100dvh - 16px); overflow-y:auto; overscroll-behavior:contain; background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:5px; }
   #context-menu.open{ display:block; }
   #context-menu button{ display:block; width:100%; text-align:left; border:none; background:transparent; padding:7px 9px; text-transform:none; letter-spacing:0; font-size:11px; }
   #context-menu button:hover{ background:#2a2116; }
+  #context-menu button.context-section-start{ border-top:1px solid var(--line); margin-top:4px; padding-top:10px; }
   #context-menu .context-danger{ color:#e9a0a0; }
   #context-menu .context-range-control{ padding:7px 9px 9px; border-bottom:1px solid var(--line); margin-bottom:4px; }
   #context-menu .context-range-title{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment); }
@@ -1579,6 +1582,9 @@
     #mobile-connection-status.online::before{ background:#44cc66; }
     #mobile-connection-status.offline::before{ background:#e05757; }
     #icon-rail{ display:none !important; }
+    /* O mapa móvel usa o mesmo quadro proporcional do desktop. As dimensões
+       exatas são calculadas pela imagem original, evitando cortes ou deformação. */
+    #map-canvas{ flex:none; max-width:none; max-height:none; }
     /* Keep map HUDs in separate rows so they never compete with the bottom actions. */
     #zoom-controls{ top:58px; bottom:auto; right:10px; gap:5px; }
     #zoom-controls button{ width:42px; height:42px; }
@@ -4990,6 +4996,12 @@
   });
   el('btn-tutorial-open').addEventListener('click', () => openTutorial(state.isMaster ? 'master' : 'player'));
 
+  function normalizeNpcHpDisplayMode(mode){
+    return mode==='percentage'||mode==='hidden'?mode:'descriptive';
+  }
+  function npcHpDisplayMode(page){
+    return normalizeNpcHpDisplayMode(page&&page.npcHpDisplayMode);
+  }
   function currentPage(){ return state.pages.find(p => p.id === state.currentPageId) || null; }
 
   // ---------- Firebase setup ----------
@@ -5752,7 +5764,7 @@
       if(drawRaw){ try{ draw = JSON.parse(drawRaw); }catch(e){} }
       if(textsRaw){ try{ texts = JSON.parse(textsRaw).list || []; }catch(e){} }
       if(gridRaw){ try{ grid = Object.assign(grid, JSON.parse(gridRaw)); }catch(e){} }
-      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], map, fog, draw, texts, grid };
+      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], npcHpDisplayMode: normalizeNpcHpDisplayMode(stub.npcHpDisplayMode), map, fog, draw, texts, grid };
     }));
     state.pages = pages;
     state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
@@ -5762,7 +5774,7 @@
 
   async function persistPagesIndex(){
     await safeSet(slotKey('pages-index'), {
-      list: state.pages.map(p => ({ id:p.id, name:p.name, allowedPlayers: p.allowedPlayers || [] })),
+      list: state.pages.map(p => ({ id:p.id, name:p.name, allowedPlayers: p.allowedPlayers || [], npcHpDisplayMode: normalizeNpcHpDisplayMode(p.npcHpDisplayMode) })),
       currentPageId: state.currentPageId
     });
   }
@@ -6013,6 +6025,55 @@
     else undoLast();
   });
 
+  // ---------- map framing ----------
+  function syncMobileMapFrame(){
+    const mapImg=document.getElementById('map-img');
+    const hadMobileFrame=$canvas.dataset.mobileFrame==='1';
+    if(!isMobileLayout()||!mapImg||!mapImg.naturalWidth||!mapImg.naturalHeight){
+      if(hadMobileFrame){
+        $canvas.style.width='';
+        $canvas.style.height='';
+        delete $canvas.dataset.mobileFrame;
+        delete $canvas.dataset.mobileFrameSize;
+        return true;
+      }
+      return false;
+    }
+    const viewportRect=$mapViewport.getBoundingClientRect();
+    const availableWidth=Math.max(1,viewportRect.width-6);
+    const availableHeight=Math.max(1,viewportRect.height-6);
+    const mapAspect=mapImg.naturalWidth/mapImg.naturalHeight;
+    let fittedWidth=availableWidth;
+    let fittedHeight=fittedWidth/mapAspect;
+    if(fittedHeight>availableHeight){
+      fittedHeight=availableHeight;
+      fittedWidth=fittedHeight*mapAspect;
+    }
+    fittedWidth=Math.max(1,Math.floor(fittedWidth));
+    fittedHeight=Math.max(1,Math.floor(fittedHeight));
+    const frameSize=fittedWidth+'x'+fittedHeight;
+    if(hadMobileFrame&&$canvas.dataset.mobileFrameSize===frameSize)return false;
+    $canvas.style.width=fittedWidth+'px';
+    $canvas.style.height=fittedHeight+'px';
+    $canvas.dataset.mobileFrame='1';
+    $canvas.dataset.mobileFrameSize=frameSize;
+    return true;
+  }
+  function refreshMapGeometryForViewport(force){
+    const changed=syncMobileMapFrame();
+    if(!force&&!changed)return;
+    const page=currentPage();
+    if(!page||!page.map||!page.map.image||!document.getElementById('map-img'))return;
+    setupGridOverlay();
+    setupDrawCanvas();
+    renderTokens();
+    renderTexts();
+    setupFogCanvas();
+    setupDarknessOverlay();
+    renderLightPointMarkers();
+    applyTransform();
+  }
+
   // ---------- render ----------
   function render(){
     if(state.currentPageId !== listenersForPageId){
@@ -6057,6 +6118,7 @@
         $canvas.style.aspectRatio = '';
         $canvas.innerHTML = '<div id="scene-blocked">✦ Você não está nesta cena agora ✦<small>Aguarde o mestre trazer você de volta ao mapa.</small></div>';
       }
+      syncMobileMapFrame();
     } else if(page && page.map.image){
       const existingImg = document.getElementById('map-img');
       if(!existingImg || existingImg.src !== page.map.image){
@@ -6064,7 +6126,7 @@
         const imgEl = document.getElementById('map-img');
         const setAspect = () => {
           $canvas.style.aspectRatio = (imgEl.naturalWidth || 3) + ' / ' + (imgEl.naturalHeight || 2);
-          setupDarknessOverlay();
+          refreshMapGeometryForViewport(true);
         };
         if(imgEl.complete && imgEl.naturalWidth > 0){ setAspect(); }
         else { imgEl.addEventListener('load', setAspect, { once:true }); }
@@ -6076,6 +6138,7 @@
       }
     }
     if(!blockedFromScene){
+      syncMobileMapFrame();
       setupGridOverlay();
       setupDrawCanvas();
       renderTokens();
@@ -6813,6 +6876,12 @@
         lightActions.push(['📏 Alcance individual','lanternradius']);
         lightActions.push(['👥 Grupos de luz: '+tokenLightGroupLabel(tok),'lightgroups']);
         lightActions.push([tokenHasDarkvision(tok)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
+        if(tok.masterLocked){
+          const hpMode=npcHpDisplayMode(currentPage());
+          lightActions.push([(hpMode==='descriptive'?'✓ ':'')+'NPCs: status descritivo','npchpdescriptive','context-section-start']);
+          lightActions.push([(hpMode==='percentage'?'✓ ':'')+'NPCs: porcentagem exata','npchppercentage']);
+          lightActions.push([(hpMode==='hidden'?'✓ ':'')+'NPCs: ocultar status','npchphidden']);
+        }
       }
       actions=effectiveMaster()
         ? lightActions.concat([['Abrir ficha','open'],['Duplicar','duplicate'],['Trazer para frente','front'],['Enviar para trás','back'],[isTokenOnPage(tok,state.currentPageId)?'Remover desta página':'+ Página','page'],['Excluir permanentemente','delete','context-danger']])
@@ -6854,7 +6923,11 @@
         drawMoved=false; fogMoved=false; undoCaptured=false;
       });
     }
-    menu.style.left=Math.min(e.clientX,window.innerWidth-230)+'px'; menu.style.top=Math.min(e.clientY,window.innerHeight-260)+'px'; menu.classList.add('open');
+    menu.style.left='8px'; menu.style.top='8px'; menu.classList.add('open');
+    const menuWidth=Math.min(menu.offsetWidth||230,window.innerWidth-16);
+    const menuHeight=Math.min(menu.scrollHeight||260,window.innerHeight-16);
+    menu.style.left=Math.max(8,Math.min(e.clientX,window.innerWidth-menuWidth-8))+'px';
+    menu.style.top=Math.max(8,Math.min(e.clientY,window.innerHeight-menuHeight-8))+'px';
   }
   async function executeContextAction(action){
     const c=contextTarget; closeContextMenu(); if(!c)return;
@@ -6879,6 +6952,14 @@
       return;
     }
     const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
+    if((action==='npchpdescriptive'||action==='npchppercentage'||action==='npchphidden')&&effectiveMaster()&&tok.masterLocked){
+      const page=currentPage(); if(!page)return;
+      pushUndo();
+      page.npcHpDisplayMode=action==='npchppercentage'?'percentage':action==='npchphidden'?'hidden':'descriptive';
+      render();
+      await persistPagesIndex();
+      return;
+    }
     if(action==='lantern'){
       if(!canToggleTokenLantern(tok))return;
       const lantern=tokenLanternState(tok,true); lantern.enabled=!lantern.enabled;
@@ -7046,13 +7127,22 @@
       const inCombat = !!(state.initiative && state.initiative.list && state.initiative.list.length > 0);
       const activeEntry = inCombat ? state.initiative.list.find(e => e.id === state.initiative.activeId) : null;
       t.classList.toggle('token-current-turn', !!(activeEntry && activeEntry.tokenId === tok.id));
-      const barW = Math.max(28, Math.round(size * 0.82));
       const barTop = -Math.round(size * 0.16) - 6;
       const enemyHpPrivate = !effectiveMaster() && !!tok.masterLocked;
       let qualitativeHp = '';
+      let qualitativeHpTitle = '';
       if(enemyHpPrivate && inCombat){
-        const pct = Math.max(0, frac) * 100;
-        qualitativeHp = pct <= 0 ? '' : (pct <= 25 ? 'Muito ferido' : (pct <= 75 ? 'Ferido' : 'Intacto'));
+        const pct = Math.max(0,Math.min(100,Math.round(Math.max(0,frac)*100)));
+        const hpMode=npcHpDisplayMode(currentPage());
+        if(hpMode==='percentage'){
+          qualitativeHp=pct+'%';
+          qualitativeHpTitle=pct+'% de vida';
+        }else if(hpMode==='descriptive'){
+          if(pct<=0){ qualitativeHp='❌️'; qualitativeHpTitle='Morto'; }
+          else if(pct<=25){ qualitativeHp='🔴'; qualitativeHpTitle='Muito ferido'; }
+          else if(pct<=75){ qualitativeHp='🟠'; qualitativeHpTitle='Ferido'; }
+          else{ qualitativeHp='🟢'; qualitativeHpTitle='Intacto'; }
+        }
       }
       const labelFontSize = Math.max(11, Math.min(18, Math.round(size * 0.2)));
       const lantern=tokenLanternState(tok,false);
@@ -7063,8 +7153,8 @@
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('') + customStatusBadgesMarkup(tok);
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                    (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
-                    (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
+                    (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
+                    (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;" title="'+qualitativeHpTitle+'">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
                     (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '') +
@@ -8513,7 +8603,7 @@
       el.style.setProperty('--token-turn-ring-offset', turnRingOffset + 'px');
       const hpTop=-Math.round(newSize*0.16)-6;
       const hpTrack=el.querySelector('.token-hp-track');
-      if(hpTrack){ hpTrack.style.width=Math.max(28,Math.round(newSize*0.82))+'px'; hpTrack.style.top=hpTop+'px'; }
+      if(hpTrack) hpTrack.style.top=hpTop+'px';
       const hpStatus=el.querySelector('.token-hp-status');
       if(hpStatus) hpStatus.style.top=hpTop+'px';
     }
@@ -10147,7 +10237,7 @@
   el('btn-open-new-map').addEventListener('click', async () => {
     if(!pendingNewMapDataUrl) return;
     pushUndo();
-    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers: pendingNewMapAllowedPlayers.slice(), map:{ image:pendingNewMapDataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' } };
+    const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers: pendingNewMapAllowedPlayers.slice(), npcHpDisplayMode:'descriptive', map:{ image:pendingNewMapDataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' } };
     state.pages.push(page);
     state.currentPageId = page.id;
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
@@ -12408,8 +12498,14 @@
     if(action==='close'){ state.selectedTokenId=null; render(); }
     updateMobileNavActive();
   }));
-  window.addEventListener('resize',()=>{ renderMobileUI(); });
-  window.addEventListener('orientationchange',()=>setTimeout(renderMobileUI,120));
+  let mobileMapResizeFrame=0;
+  function handleResponsiveViewportChange(){
+    renderMobileUI();
+    cancelAnimationFrame(mobileMapResizeFrame);
+    mobileMapResizeFrame=requestAnimationFrame(()=>refreshMapGeometryForViewport(false));
+  }
+  window.addEventListener('resize',handleResponsiveViewportChange);
+  window.addEventListener('orientationchange',()=>setTimeout(handleResponsiveViewportChange,120));
   document.addEventListener('click',()=>setTimeout(()=>{ updateMobileNavActive(); if(isMobileLayout())renderMobileUI(); },0));
 
   /* Some panels also open from token cards, keyboard shortcuts and context
