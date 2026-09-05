@@ -724,7 +724,7 @@
   .token-hp-status.icon-only{
     width:auto; padding:0; border:0; border-radius:0;
     background:transparent; box-shadow:none;
-    font-size:var(--token-hp-icon-size,18px); line-height:1;
+    font-size:var(--token-hp-icon-size,6px); line-height:1;
   }
   .token.token-current-turn{
     outline:var(--token-turn-ring-width,3px) solid var(--amber-bright);
@@ -7051,7 +7051,7 @@
         const statusGap = Math.max(1, Math.min(6, Math.round(size * 0.025)));
         const hpBarHeight = Math.max(2, Math.min(20, Math.round(size * 0.075)));
         const hpStatusFont = Math.max(5, Math.min(32, Math.round(size * 0.12)));
-        const hpIconSize = Math.max(10, Math.min(52, Math.round(size * 0.22)));
+        const hpIconSize = Math.max(4, Math.min(17, Math.round(size * (0.22 / 3))));
         const hpPadY = Math.max(1, Math.min(8, Math.round(size * 0.025)));
         const hpPadX = Math.max(3, Math.min(24, Math.round(size * 0.075)));
         const hpStatusRadius = Math.max(4, Math.min(28, Math.round(size * 0.12)));
@@ -7161,7 +7161,7 @@
         const c = CONDITIONS.find(c => c.key === key);
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('') + customStatusBadgesMarkup(tok);
-      const hpStatusTop=qualitativeHpIconOnly?(-Math.max(10,Math.min(52,Math.round(size*0.22)))-4):barTop;
+      const hpStatusTop=qualitativeHpIconOnly?(-Math.max(4,Math.min(17,Math.round(size*(0.22/3))))-4):barTop;
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
                     (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     (qualitativeHp ? '<div class="token-hp-status'+(qualitativeHpIconOnly?' icon-only':'')+'" style="top:'+hpStatusTop+'px;" title="'+qualitativeHpTitle+'">'+qualitativeHp+'</div>' : '') +
@@ -8588,7 +8588,7 @@
       const statusGap = Math.max(1, Math.min(6, Math.round(newSize * 0.025)));
       const hpBarHeight = Math.max(2, Math.min(20, Math.round(newSize * 0.075)));
       const hpStatusFont = Math.max(5, Math.min(32, Math.round(newSize * 0.12)));
-      const hpIconSize = Math.max(10, Math.min(52, Math.round(newSize * 0.22)));
+      const hpIconSize = Math.max(4, Math.min(17, Math.round(newSize * (0.22 / 3))));
       const hpPadY = Math.max(1, Math.min(8, Math.round(newSize * 0.025)));
       const hpPadX = Math.max(3, Math.min(24, Math.round(newSize * 0.075)));
       const hpStatusRadius = Math.max(4, Math.min(28, Math.round(newSize * 0.12)));
