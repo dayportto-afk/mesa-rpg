@@ -651,6 +651,7 @@
     background:transparent;
   }
   .token.map-object img{ border-radius:0; object-fit:contain; background:transparent; }
+  .token.remote-live-moving{ transition:left 110ms linear, top 110ms linear; }
   body:not(.role-master) .token.map-object{ border-color:transparent; }
   body:not(.role-master) .token.map-object.selected,
   body:not(.role-master) .token.map-object.multi-selected,
@@ -667,6 +668,7 @@
   .map-object-opacity-row{ display:flex; align-items:center; gap:8px; }
   .map-object-opacity-row label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); text-transform:uppercase; letter-spacing:.5px; }
   .map-object-opacity-row input[type=range]{ flex:1; accent-color:var(--amber); }
+  .map-object-opacity-row input[type=number]{ flex:1; min-width:0; }
   .map-object-opacity-value{ min-width:34px; text-align:right; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment-dim); }
   .token-resize-handle{
     position:absolute; right:-2px; bottom:-2px; width:5px; height:5px;
@@ -3025,6 +3027,19 @@
   let pendingPageUpdates = {};
   let pendingSlot = null;
 
+  // Canal efêmero e leve para movimento contínuo. Cada aba escreve somente
+  // id/x/y dos elementos em movimento; imagens e fichas nunca passam por ele.
+  const LIVE_MOVE_INTERVAL_MS = 100;
+  const LIVE_MOVE_STALE_MS = 4000;
+  const liveMoveClientId = 'lm' + Date.now().toString(36) + Math.random().toString(36).slice(2,9);
+  const remoteLiveMoves = new Map();
+  let localLiveMoveRef = null;
+  let liveMoveLastSentAt = 0;
+  let liveMovePendingPayload = null;
+  let liveMoveSendTimer = null;
+  let liveMoveRemoveTimer = null;
+  let liveMoveExpiryTimer = null;
+
   const el = id => document.getElementById(id);
   const SHAPE_BUTTONS = { freehand:'btn-shape-freehand', line:'btn-shape-line', circle:'btn-shape-circle', rect:'btn-shape-rect', cone:'btn-shape-cone' };
   const $portalScreen = el('portal-screen');
@@ -5106,6 +5121,7 @@
       Object.keys(root).forEach(key => {
         if(!key.startsWith(prefix)) return;
         const shortKey = key.slice(prefix.length);
+        if(shortKey === 'live-moves') return; // presença/arrasto é temporário, não pertence ao backup
         const raw = root[key];
         if(typeof raw === 'string'){
           try{ data[shortKey] = JSON.parse(raw); }catch(e){ data[shortKey] = raw; }
@@ -6939,7 +6955,8 @@
         const lockBadge = effectiveMaster() && tok.objectLocked ? '<div class="reference-lock-badge" title="Posição travada">🔒</div>' : '';
         const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
         const shadowFilter=shadow.enabled ? 'drop-shadow(0 '+Math.max(0,Number(shadow.offset)||0)+'px '+Math.max(0,Number(shadow.blur)||0)+'px '+hexToRgbaTheme(shadow.color||'#000000',Math.max(0,Math.min(1,Number(shadow.opacity)||0)))+')' : 'none';
-        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(0,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';filter:'+shadowFilter+';">' +
+        const objectRotation=((Number(tok.rotation)||0)%360+360)%360;
+        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(0,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';filter:'+shadowFilter+';transform:rotate('+objectRotation+'deg);">' +
                       (effectiveMaster() ? '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' : '') + lockBadge + handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
         t.addEventListener('contextmenu', e=>openContextMenu(e,'mapobject',tok.id));
@@ -7010,6 +7027,7 @@
       const resizeHandle = t.querySelector('[data-resize-handle]');
       if(resizeHandle) resizeHandle.addEventListener('pointerdown', onRefResizeStart);
     });
+    applyAllRemoteLiveMoves();
   }
 
   function notesBlockMarkup(tok){
@@ -7653,11 +7671,13 @@
     if(!objects.length){ root.innerHTML='<div class="hint">Nenhum objeto nesta página.</div>'; return; }
     root.innerHTML=objects.map(tok=>{
       const opacity=Math.round(Math.max(0,Math.min(1,Number(tok.opacity==null?1:tok.opacity)))*100);
+      const rotation=Math.round(((Number(tok.rotation)||0)%360+360)%360);
       const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
       const shadowOpacity=Math.round(Math.max(0,Math.min(1,Number(shadow.opacity)||0))*100);
       return '<div class="map-object-card" id="map-object-card-'+tok.id+'">'+
         '<div class="map-object-card-top"><img class="map-object-thumb" src="'+tok.image+'" alt=""><input type="text" value="'+escapeHtml(tok.name)+'" data-map-object-name="'+tok.id+'"><button type="button" class="danger" data-map-object-delete="'+tok.id+'" title="Excluir objeto">✕</button></div>'+
         '<div class="map-object-opacity-row"><label>Opacidade</label><input type="range" min="0" max="100" step="5" value="'+opacity+'" data-map-object-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+opacity+'%</span></div>'+
+        '<div class="map-object-opacity-row"><label>Girar</label><input type="number" min="0" max="359" step="1" inputmode="numeric" value="'+rotation+'" data-map-object-rotation="'+tok.id+'"><span class="map-object-opacity-value">°</span></div>'+
         '<button type="button" class="'+(tok.objectLocked?'toggle-active':'')+'" data-map-object-lock="'+tok.id+'">'+(tok.objectLocked?'🔒 Posição travada':'🔓 Travar posição')+'</button>'+
         '<button type="button" class="'+(shadow.enabled?'toggle-active':'')+'" data-map-object-shadow-toggle="'+tok.id+'">'+(shadow.enabled?'☁ Sombra ativada':'☁ Ativar sombra')+'</button>'+
         (shadow.enabled?'<div class="map-object-opacity-row"><label>Intens.</label><input type="range" min="0" max="100" step="5" value="'+shadowOpacity+'" data-map-object-shadow-opacity="'+tok.id+'"><span class="map-object-opacity-value">'+shadowOpacity+'%</span></div>'+
@@ -7672,6 +7692,24 @@
         tok.opacity=Number(inp.value)/100; inp.nextElementSibling.textContent=inp.value+'%'; renderTokens();
       });
       inp.addEventListener('change',()=>persistTokens());
+    });
+    root.querySelectorAll('[data-map-object-rotation]').forEach(inp=>{
+      let attachedDrawMoved=false, attachedFogMoved=false;
+      inp.addEventListener('input',()=>{
+        const tok=state.tokens.find(t=>t.id===inp.getAttribute('data-map-object-rotation')); if(!tok)return;
+        const moved=rotateMapObjectAndContents(tok,Number(inp.value)||0);
+        attachedDrawMoved=attachedDrawMoved||moved.draw;
+        attachedFogMoved=attachedFogMoved||moved.fog;
+        renderTokens();
+        refreshLiveMoveDependentLayers();
+      });
+      inp.addEventListener('change',async()=>{
+        const page=currentPage(), tasks=[persistTokens()];
+        if(page&&attachedDrawMoved) tasks.push(persistPageDraw(page));
+        if(page&&attachedFogMoved) tasks.push(persistPageFog(page));
+        attachedDrawMoved=false; attachedFogMoved=false;
+        await Promise.allSettled(tasks);
+      });
     });
     root.querySelectorAll('[data-map-object-lock]').forEach(btn=>btn.addEventListener('click',()=>toggleMapObjectLock(btn.getAttribute('data-map-object-lock'))));
     root.querySelectorAll('[data-map-object-shadow-toggle]').forEach(btn=>btn.addEventListener('click',async()=>{
@@ -8025,7 +8063,11 @@
       return state.tokens.indexOf(b)-state.tokens.indexOf(a);
     }).find(platform=>{
       const p=tokenPos(platform), dims=tokenDisplayDimensions(platform,tokenSize(platform));
-      const halfW=(dims.width/$canvas.clientWidth)*50, halfH=(dims.height/$canvas.clientHeight)*50;
+      const rotation=((Number(platform.rotation)||0)%360+360)%360;
+      const radians=rotation*Math.PI/180, cos=Math.cos(radians), sin=Math.sin(radians);
+      const rotatedW=Math.abs(cos)*dims.width+Math.abs(sin)*dims.height;
+      const rotatedH=Math.abs(sin)*dims.width+Math.abs(cos)*dims.height;
+      const halfW=(rotatedW/$canvas.clientWidth)*50, halfH=(rotatedH/$canvas.clientHeight)*50;
       if(x<p.x-halfW || x>p.x+halfW || y<p.y-halfH || y>p.y+halfH) return false;
       // PNGs transparentes contam como área do objeto apenas onde há pixels visíveis.
       const objectImg=document.querySelector('.token.map-object[data-id="'+platform.id+'"] img');
@@ -8040,8 +8082,15 @@
           objectImg._alphaHitCanvas=hitCanvas;
           objectImg._alphaHitSource=objectImg.currentSrc;
         }
-        const localX=(x-(p.x-halfW))/(halfW*2);
-        const localY=(y-(p.y-halfH))/(halfH*2);
+        // Converte o ponto para o sistema do PNG antes da rotação, mantendo
+        // a detecção fiel aos pixels transparentes mesmo quando o objeto gira.
+        const dx=((x-p.x)/100)*$canvas.clientWidth;
+        const dy=((y-p.y)/100)*$canvas.clientHeight;
+        const unrotatedX=dx*cos+dy*sin;
+        const unrotatedY=-dx*sin+dy*cos;
+        const localX=unrotatedX/dims.width+.5;
+        const localY=unrotatedY/dims.height+.5;
+        if(localX<0||localX>1||localY<0||localY>1) return false;
         const hitCanvas=objectImg._alphaHitCanvas;
         const px=Math.max(0,Math.min(hitCanvas.width-1,Math.floor(localX*hitCanvas.width)));
         const py=Math.max(0,Math.min(hitCanvas.height-1,Math.floor(localY*hitCanvas.height)));
@@ -8068,6 +8117,186 @@
       !tok.isReference && !tok.isMapObject && isTokenOnPage(tok,state.currentPageId) &&
       tok.platformByPage && tok.platformByPage[state.currentPageId]===platform.id
     );
+  }
+
+  function locallyDraggedTokenIds(){
+    const d=state.dragging;
+    if(!d) return new Set();
+    if(d.group) return new Set(d.group.map(item=>item.id));
+    return new Set([d.id].concat((d.riders||[]).map(item=>item.id)));
+  }
+
+  function liveMoveItemsFromDrag(d){
+    const items={};
+    const add=(id,x,y)=>{
+      if(!id||!Number.isFinite(x)||!Number.isFinite(y)) return;
+      const tok=state.tokens.find(t=>t.id===id);
+      const lantern=tok&&tokenLanternState(tok,false);
+      const row=[Math.round(x*1000)/1000,Math.round(y*1000)/1000];
+      if(lantern&&lantern.enabled) row.push(Math.round((Number(lantern.angle)||0)*1000)/1000);
+      items[id]=row;
+    };
+    if(d&&d.group) d.group.forEach(item=>add(item.id,item.liveX,item.liveY));
+    else if(d){
+      add(d.id,d.x,d.y);
+      (d.riders||[]).forEach(item=>add(item.id,item.liveX,item.liveY));
+    }
+    return items;
+  }
+
+  function ensureLocalLiveMoveRef(){
+    if(!db||!state.currentSlot) return null;
+    if(!localLiveMoveRef){
+      localLiveMoveRef=db.ref(slotKey('live-moves')+'/'+liveMoveClientId);
+      try{ localLiveMoveRef.onDisconnect().remove(); }catch(e){}
+    }
+    return localLiveMoveRef;
+  }
+
+  function sendLiveMovePayload(payload){
+    const ref=ensureLocalLiveMoveRef();
+    if(!ref) return Promise.resolve(false);
+    liveMoveLastSentAt=Date.now();
+    return ref.set(payload).then(()=>true).catch(err=>{ console.error('live move failed',err); return false; });
+  }
+
+  function broadcastLiveMove(d,force){
+    if(!d||!d.didDrag||!state.currentPageId) return Promise.resolve(false);
+    if(liveMoveRemoveTimer){ clearTimeout(liveMoveRemoveTimer); liveMoveRemoveTimer=null; }
+    const items=liveMoveItemsFromDrag(d);
+    if(!Object.keys(items).length) return Promise.resolve(false);
+    d.liveMoveStarted=true;
+    const payload={p:state.currentPageId,q:Date.now(),m:items};
+    const elapsed=Date.now()-liveMoveLastSentAt;
+    if(force||elapsed>=LIVE_MOVE_INTERVAL_MS){
+      if(liveMoveSendTimer){ clearTimeout(liveMoveSendTimer); liveMoveSendTimer=null; }
+      liveMovePendingPayload=null;
+      return sendLiveMovePayload(payload);
+    }
+    liveMovePendingPayload=payload;
+    if(!liveMoveSendTimer){
+      liveMoveSendTimer=setTimeout(()=>{
+        liveMoveSendTimer=null;
+        const pending=liveMovePendingPayload;
+        liveMovePendingPayload=null;
+        if(pending) void sendLiveMovePayload(pending);
+      },Math.max(1,LIVE_MOVE_INTERVAL_MS-elapsed));
+    }
+    return Promise.resolve(true);
+  }
+
+  function finishLocalLiveMove(afterSave){
+    if(liveMoveSendTimer){ clearTimeout(liveMoveSendTimer); liveMoveSendTimer=null; }
+    liveMovePendingPayload=null;
+    const ref=localLiveMoveRef;
+    Promise.resolve(afterSave).catch(()=>false).finally(()=>{
+      // Mantém a última coordenada por um instante para os outros clientes
+      // receberem primeiro o salvamento definitivo, evitando um pequeno salto.
+      if(ref) liveMoveRemoveTimer=setTimeout(()=>{
+        liveMoveRemoveTimer=null;
+        ref.remove().catch(()=>{});
+      },220);
+      liveMoveLastSentAt=0;
+    });
+  }
+
+  function parseLiveMovePayload(value){
+    if(!value) return null;
+    if(typeof value==='string'){ try{ value=JSON.parse(value); }catch(e){ return null; } }
+    if(!value||typeof value!=='object'||!value.m||typeof value.m!=='object') return null;
+    return value;
+  }
+
+  function latestRemoteLiveItem(tokenId){
+    let best=null;
+    remoteLiveMoves.forEach((payload,source)=>{
+      if(!payload||payload.p!==state.currentPageId||Date.now()-(Number(payload.q)||0)>LIVE_MOVE_STALE_MS) return;
+      const row=payload.m&&payload.m[tokenId];
+      if(!Array.isArray(row)||!Number.isFinite(Number(row[0]))||!Number.isFinite(Number(row[1]))) return;
+      if(!best||Number(payload.q)>best.q) best={source,row,q:Number(payload.q)};
+    });
+    return best;
+  }
+
+  function applyRemoteLiveToken(tokenId){
+    if(locallyDraggedTokenIds().has(tokenId)) return;
+    const node=document.querySelector('.token[data-id="'+tokenId+'"]');
+    if(!node) return;
+    const live=latestRemoteLiveItem(tokenId);
+    if(live){
+      node.classList.add('remote-live-moving');
+      node.style.left=Number(live.row[0])+'%';
+      node.style.top=Number(live.row[1])+'%';
+      node.dataset.remoteLiveSource=live.source;
+    }else if(node.dataset.remoteLiveSource){
+      const tok=state.tokens.find(t=>t.id===tokenId);
+      const pos=tok&&tokenPos(tok);
+      node.classList.remove('remote-live-moving');
+      delete node.dataset.remoteLiveSource;
+      if(pos){ node.style.left=pos.x+'%'; node.style.top=pos.y+'%'; }
+    }
+  }
+
+  function applyAllRemoteLiveMoves(){
+    const ids=new Set();
+    remoteLiveMoves.forEach(payload=>Object.keys((payload&&payload.m)||{}).forEach(id=>ids.add(id)));
+    document.querySelectorAll('.token[data-remote-live-source]').forEach(node=>ids.add(node.dataset.id));
+    ids.forEach(applyRemoteLiveToken);
+  }
+
+  function refreshLiveMoveDependentLayers(){
+    const page=currentPage();
+    if(page) redrawObjectAttachmentCanvases(page);
+    setupDarknessOverlay();
+  }
+
+  function receiveRemoteLiveMove(source,value){
+    if(source===liveMoveClientId) return;
+    const payload=parseLiveMovePayload(value);
+    if(!payload){ clearRemoteLiveMove(source); return; }
+    remoteLiveMoves.set(source,payload);
+    if(!state.isMaster&&state.meta.playersFrozen) return;
+    Object.keys(payload.m).forEach(applyRemoteLiveToken);
+    refreshLiveMoveDependentLayers();
+  }
+
+  function clearRemoteLiveMove(source){
+    const old=remoteLiveMoves.get(source);
+    remoteLiveMoves.delete(source);
+    Object.keys((old&&old.m)||{}).forEach(applyRemoteLiveToken);
+    refreshLiveMoveDependentLayers();
+  }
+
+  function startLiveMoveSync(){
+    if(!db||!state.currentSlot) return;
+    const ref=db.ref(slotKey('live-moves'));
+    const upsert=snap=>receiveRemoteLiveMove(snap.key,snap.val());
+    const removed=snap=>clearRemoteLiveMove(snap.key);
+    ref.on('child_added',upsert,err=>console.error('live move listener failed',err));
+    ref.on('child_changed',upsert,err=>console.error('live move listener failed',err));
+    ref.on('child_removed',removed,err=>console.error('live move listener failed',err));
+    activeListeners.push({ref,cb:upsert,event:'child_added'},{ref,cb:upsert,event:'child_changed'},{ref,cb:removed,event:'child_removed'});
+    if(liveMoveExpiryTimer) clearInterval(liveMoveExpiryTimer);
+    liveMoveExpiryTimer=setInterval(()=>{
+      const stale=[];
+      remoteLiveMoves.forEach((payload,source)=>{ if(Date.now()-(Number(payload&&payload.q)||0)>LIVE_MOVE_STALE_MS) stale.push(source); });
+      stale.forEach(clearRemoteLiveMove);
+    },1000);
+  }
+
+  function stopLiveMoveSync(){
+    if(liveMoveSendTimer){ clearTimeout(liveMoveSendTimer); liveMoveSendTimer=null; }
+    if(liveMoveRemoveTimer){ clearTimeout(liveMoveRemoveTimer); liveMoveRemoveTimer=null; }
+    if(liveMoveExpiryTimer){ clearInterval(liveMoveExpiryTimer); liveMoveExpiryTimer=null; }
+    liveMovePendingPayload=null;
+    remoteLiveMoves.clear();
+    if(localLiveMoveRef){
+      const ref=localLiveMoveRef;
+      localLiveMoveRef=null;
+      try{ ref.onDisconnect().cancel(); }catch(e){}
+      ref.remove().catch(()=>{});
+    }
+    liveMoveLastSentAt=0;
   }
 
   function onTokenPointerDown(e){
@@ -8101,6 +8330,8 @@
     pushUndo();
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
+    target.classList.remove('remote-live-moving');
+    delete target.dataset.remoteLiveSource;
     target.style.zIndex = tok&&tok.isMapObject ? 899999 : 1000000;
     const canvasRect = $canvas.getBoundingClientRect();
     state.dragging = {
@@ -8343,6 +8574,7 @@
       if(state.dragging.startPos) updateLanternDirection(draggedTok,state.dragging.startPos.x,state.dragging.startPos.y,xPct,yPct);
       (state.dragging.riders||[]).forEach(r=>updateLanternDirection(state.tokens.find(t=>t.id===r.id),r.startX,r.startY,r.liveX,r.liveY));
     }
+    if(state.dragging.didDrag) void broadcastLiveMove(state.dragging,false);
     setupDarknessOverlay();
   }
   function onTokenPointerUp(e){
@@ -8364,6 +8596,8 @@
     adoptPendingTokensPreservingSizes(protectedMoveIds);
 
     const dist = Math.hypot((e.clientX||0) - d.startClientX, (e.clientY||0) - d.startClientY);
+    const saveTasks=[];
+    if(d.liveMoveStarted) saveTasks.push(broadcastLiveMove(d,true));
     if(typeof d.x === 'number' && (dist >= 6 || d.didDrag)){
       if(d.group){
         d.group.forEach(g => {
@@ -8375,7 +8609,7 @@
           if(t2.isMapObject){ locallyProtectedTokenIds.add(t2.id); bringMapObjectToTopOfObjectStack(t2); }
           if(g.selected&&!t2.isMapObject) updateTokenPlatformMembership(t2,g.liveX,g.liveY);
         });
-        persistTokens();
+        saveTasks.push(persistTokens());
       } else {
         const tok = state.tokens.find(t => t.id === d.id);
         if(tok){
@@ -8388,7 +8622,7 @@
             if(!rider.positions) rider.positions={};
             rider.positions[state.currentPageId] = { x:r.liveX, y:r.liveY, zOrder:nextTokenZOrder() };
           });
-          persistTokens();
+          saveTasks.push(persistTokens());
         }
       }
     } else {
@@ -8402,10 +8636,11 @@
       }
     }
     const attachmentPage=currentPage();
-    if(attachmentPage&&d.attachedDrawMoved) void persistPageDraw(attachmentPage);
-    if(attachmentPage&&d.attachedFogMoved) void persistPageFog(attachmentPage);
+    if(attachmentPage&&d.attachedDrawMoved) saveTasks.push(persistPageDraw(attachmentPage));
+    if(attachmentPage&&d.attachedFogMoved) saveTasks.push(persistPageFog(attachmentPage));
     state.dragging = null;
     render();
+    if(d.liveMoveStarted) finishLocalLiveMove(Promise.allSettled(saveTasks));
   }
 
   function tokensOnCurrentPageForBulkMove(){
@@ -10002,7 +10237,7 @@
     const tok={
       id:newId('obj'), name:el('map-object-name').value.trim()||('Objeto '+(count+1)),
       image:pendingMapObjectImage, isMapObject:true, masterLocked:true, objectLocked:false, pageId:state.currentPageId,
-      opacity:Number(el('map-object-new-opacity').value)/100, aspectRatio:pendingMapObjectAspectRatio,
+      opacity:Number(el('map-object-new-opacity').value)/100, rotation:0, aspectRatio:pendingMapObjectAspectRatio,
       shadow:{enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},
       size:360, sizes:{}, positions:{[state.currentPageId]:pos}
     };
@@ -10912,6 +11147,11 @@
     return tokenPos(tok);
   }
 
+  function liveTokenAngle(tok,fallback){
+    const live=tok&&latestRemoteLiveItem(tok.id);
+    return live&&Number.isFinite(Number(live.row[2])) ? Number(live.row[2]) : fallback;
+  }
+
   function updateLanternDirection(tok,startX,startY,liveX,liveY){
     const lantern=tokenLanternState(tok,false);
     if(!lantern||!lantern.enabled) return;
@@ -10947,7 +11187,7 @@
       const pos=liveTokenPosition(tok);
       const x=(pos.x/100)*canvas.width, y=(pos.y/100)*canvas.height;
       const range=lanternRangePixels(page,lantern,canvas);
-      const angle=Number(lantern.angle)||0;
+      const angle=liveTokenAngle(tok,Number(lantern.angle)||0);
       const half=(lighting.angle*Math.PI/180)/2;
       ctx.save();
       ctx.globalCompositeOperation='destination-out';
@@ -11027,6 +11267,18 @@
     return canvas;
   }
 
+  function remoteLiveCanvasDelta(platformId,canvas){
+    if(!platformId||!canvas) return null;
+    const live=latestRemoteLiveItem(platformId);
+    const platform=state.tokens.find(tok=>tok.id===platformId&&tok.isMapObject);
+    if(!live||!platform) return null;
+    const base=tokenPos(platform);
+    return {
+      x:((Number(live.row[0])-base.x)/100)*canvas.width,
+      y:((Number(live.row[1])-base.y)/100)*canvas.height
+    };
+  }
+
   function redrawObjectAttachmentCanvases(page,inProgressDraw,inProgressFog){
     if(!page) return;
     document.getElementById('fog-object-canvas')?.remove();
@@ -11043,8 +11295,12 @@
     if(inProgressDraw) layers.push({kind:'draw',stroke:inProgressDraw});
     layers.sort((a,b)=>(Number(a.stroke.createdAt)||0)-(Number(b.stroke.createdAt)||0));
     layers.forEach(layer=>{
+      const delta=remoteLiveCanvasDelta(layer.stroke&&layer.stroke.platformId,canvas);
+      ctx.save();
+      if(delta) ctx.translate(delta.x,delta.y);
       if(layer.kind==='fog') renderFogStrokeOnCtx(ctx,layer.stroke);
       else drawStrokeOnCtx(ctx,layer.stroke);
+      ctx.restore();
     });
   }
 
@@ -11272,6 +11528,60 @@
       if(stroke.start){ stroke.start.x+=dx; stroke.start.y+=dy; }
       if(stroke.end){ stroke.end.x+=dx; stroke.end.y+=dy; }
     }
+  }
+
+  function rotateGeometryPoint(pt,cx,cy,cos,sin){
+    if(!pt) return;
+    const dx=pt.x-cx, dy=pt.y-cy;
+    pt.x=cx+dx*cos-dy*sin;
+    pt.y=cy+dx*sin+dy*cos;
+  }
+
+  function rotateStrokeGeometry(stroke,cx,cy,cos,sin){
+    if(stroke.shape==='rect'&&stroke.start&&stroke.end){
+      const s=stroke.start,e=stroke.end;
+      stroke.shape='freehand';
+      stroke.points=[{x:s.x,y:s.y},{x:e.x,y:s.y},{x:e.x,y:e.y},{x:s.x,y:e.y},{x:s.x,y:s.y}];
+      delete stroke.start; delete stroke.end;
+    }
+    if((stroke.shape||'freehand')==='freehand') (stroke.points||[]).forEach(pt=>rotateGeometryPoint(pt,cx,cy,cos,sin));
+    else{
+      rotateGeometryPoint(stroke.start,cx,cy,cos,sin);
+      rotateGeometryPoint(stroke.end,cx,cy,cos,sin);
+    }
+  }
+
+  function rotateMapObjectAndContents(platform,newRotation){
+    if(!platform||!platform.isMapObject) return {draw:false,fog:false};
+    const normalized=((Number(newRotation)||0)%360+360)%360;
+    const previous=((Number(platform.rotation)||0)%360+360)%360;
+    const radians=(normalized-previous)*Math.PI/180;
+    platform.rotation=normalized;
+    if(Math.abs(radians)<1e-9) return {draw:false,fog:false};
+    const cos=Math.cos(radians), sin=Math.sin(radians), center=tokenPos(platform);
+    const viewW=Math.max(1,$canvas.clientWidth), viewH=Math.max(1,$canvas.clientHeight);
+    tokensRidingMapObject(platform).forEach(rider=>{
+      const pos=tokenPos(rider);
+      const point={x:(pos.x/100)*viewW,y:(pos.y/100)*viewH};
+      rotateGeometryPoint(point,(center.x/100)*viewW,(center.y/100)*viewH,cos,sin);
+      if(!rider.positions) rider.positions={};
+      rider.positions[state.currentPageId]=Object.assign({},pos,{x:(point.x/viewW)*100,y:(point.y/viewH)*100});
+      const lantern=tokenLanternState(rider,false);
+      if(lantern&&lantern.enabled) lantern.angle=(Number(lantern.angle)||0)+radians;
+    });
+    const page=currentPage(), mapImg=document.getElementById('map-img');
+    const width=(mapImg&&mapImg.naturalWidth)||1200, height=(mapImg&&mapImg.naturalHeight)||800;
+    const cx=(center.x/100)*width, cy=(center.y/100)*height;
+    let draw=false, fog=false;
+    ((page&&page.draw&&page.draw.strokes)||[]).forEach(stroke=>{
+      if(stroke.platformId!==platform.id) return;
+      rotateStrokeGeometry(stroke,cx,cy,cos,sin); draw=true;
+    });
+    if(page) ensureFogModel(page).objectStrokes.forEach(stroke=>{
+      if(stroke.platformId!==platform.id) return;
+      (stroke.points||[]).forEach(pt=>rotateGeometryPoint(pt,cx,cy,cos,sin)); fog=true;
+    });
+    return {draw,fog};
   }
 
   function translateObjectAttachmentLayers(moves){
@@ -11556,9 +11866,10 @@
     pageListeners = [];
   }
   function stopAllListeners(){
-    activeListeners.forEach(({ref, cb}) => { try{ ref.off('value', cb); }catch(e){} });
+    activeListeners.forEach(({ref, cb, event}) => { try{ ref.off(event||'value', cb); }catch(e){} });
     activeListeners = [];
     stopPageListeners();
+    stopLiveMoveSync();
     listenersForPageId = undefined;
   }
 
@@ -11799,6 +12110,7 @@
       applyTokensUpdate(raw);
     });
 
+    startLiveMoveSync();
     startPageListeners(state.currentPageId);
     listenersForPageId = state.currentPageId;
   }
