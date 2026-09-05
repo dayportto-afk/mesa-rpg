@@ -705,6 +705,7 @@
   .token.selected .token-label, .token:hover .token-label{ display:block; }
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
+    width:100%; box-sizing:border-box;
     height:var(--token-hp-bar-height,6px); border-radius:var(--token-hp-bar-radius,3px);
     background:rgba(0,0,0,0.55); border:var(--token-hp-border,1px) solid rgba(0,0,0,0.6);
     overflow:hidden; pointer-events:none;
@@ -712,6 +713,7 @@
   .token-hp-fill{ height:100%; border-radius:var(--token-hp-fill-radius,2px); transition:width .25s ease, background-color .25s ease; }
   .token-hp-status{
     position:absolute; left:50%; transform:translateX(-50%);
+    width:100%; box-sizing:border-box; text-align:center;
     padding:var(--token-hp-pad-y,2px) var(--token-hp-pad-x,7px);
     border-radius:var(--token-hp-status-radius,10px); border:var(--token-hp-border,1px) solid var(--amber);
     background:#150f09; color:var(--parchment);
@@ -7046,7 +7048,6 @@
       const inCombat = !!(state.initiative && state.initiative.list && state.initiative.list.length > 0);
       const activeEntry = inCombat ? state.initiative.list.find(e => e.id === state.initiative.activeId) : null;
       t.classList.toggle('token-current-turn', !!(activeEntry && activeEntry.tokenId === tok.id));
-      const barW = Math.max(28, Math.round(size * 0.82));
       const barTop = -Math.round(size * 0.16) - 6;
       const enemyHpPrivate = !effectiveMaster() && !!tok.masterLocked;
       let qualitativeHp = '';
@@ -7063,7 +7064,7 @@
         return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
       }).join('') + customStatusBadgesMarkup(tok);
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
-                    (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="width:'+barW+'px; top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
+                    (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     (qualitativeHp ? '<div class="token-hp-status" style="top:'+barTop+'px;">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
                     (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
@@ -8513,7 +8514,7 @@
       el.style.setProperty('--token-turn-ring-offset', turnRingOffset + 'px');
       const hpTop=-Math.round(newSize*0.16)-6;
       const hpTrack=el.querySelector('.token-hp-track');
-      if(hpTrack){ hpTrack.style.width=Math.max(28,Math.round(newSize*0.82))+'px'; hpTrack.style.top=hpTop+'px'; }
+      if(hpTrack) hpTrack.style.top=hpTop+'px';
       const hpStatus=el.querySelector('.token-hp-status');
       if(hpStatus) hpStatus.style.top=hpTop+'px';
     }
