@@ -415,6 +415,12 @@
   }
   .dnd-save-row input[type=checkbox]{ width:15px; height:15px; accent-color:var(--amber); cursor:pointer; flex-shrink:0; }
   .dnd-save-label{ font-family:'EB Garamond', serif; font-size:13px; color:var(--parchment); flex:1; }
+  .t20-skill-ability{
+    width:55px; min-width:55px; padding:2px 3px; background:#120e08; border:1px solid var(--line);
+    border-radius:3px; color:var(--amber-bright); font-family:'JetBrains Mono', monospace;
+    font-size:10px; cursor:pointer; outline:none;
+  }
+  .t20-skill-ability:focus{ border-color:var(--amber); }
   .dnd-save-total{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--parchment-dim); min-width:28px; text-align:right; }
 
   .dnd-skill-row{
@@ -6789,11 +6795,16 @@
     { key:'sobrevivencia', label:'Sobrevivência', ability:'wis' }
   ];
   function t20TrainingBonus(level){ return level >= 15 ? 6 : level >= 7 ? 4 : 2; }
+  function t20SkillAbility(tok, skill){
+    const selected = tok.t20SkillAbilities && tok.t20SkillAbilities[skill.key];
+    return DND_ABILITIES.some(a => a.key === selected) ? selected : skill.ability;
+  }
   function t20SkillTotal(tok, skill){
     const level = tok.level || 1;
     const half = Math.floor(level / 2);
     const ab = tok.abilities || {};
-    const score = (ab[skill.ability] != null) ? ab[skill.ability] : 10;
+    const ability = t20SkillAbility(tok, skill);
+    const score = (ab[ability] != null) ? ab[ability] : 10;
     const mod = abilityMod(score);
     const trained = !!(tok.t20Trained && tok.t20Trained[skill.key]);
     if(skill.trainedOnly && !trained) return null;
@@ -7564,10 +7575,17 @@
     function skillRow(skill){
       const total = t20SkillTotal(tok, skill);
       const isTrained = !!trained[skill.key];
+      const selectedAbility = t20SkillAbility(tok, skill);
+      const abilitySelect = isTrained ? (
+        '<select class="t20-skill-ability" data-t20-skill-ability="'+tok.id+':'+skill.key+'" aria-label="Atributo de '+escapeHtml(skill.label)+'" title="Atributo vinculado">' +
+          DND_ABILITIES.map(a => '<option value="'+a.key+'"'+(a.key===selectedAbility?' selected':'')+'>'+a.label.slice(0,3).toUpperCase()+'</option>').join('') +
+        '</select>'
+      ) : '';
       return (
         '<label class="dnd-save-row">' +
           '<input type="checkbox" data-t20-train="'+tok.id+':'+skill.key+'"'+(isTrained?' checked':'')+'>' +
           '<span class="dnd-save-label">'+skill.label+'</span>' +
+          abilitySelect +
           '<span class="dnd-save-total">'+(total===null ? '—' : fmtMod(total))+'</span>' +
         '</label>'
       );
@@ -7807,6 +7825,9 @@
     });
     $root.querySelectorAll('[data-t20-train]').forEach(inp=>{
       inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-t20-train').split(':'); toggleT20Trained(id, key, inp.checked); });
+    });
+    $root.querySelectorAll('[data-t20-skill-ability]').forEach(sel=>{
+      sel.addEventListener('change', () => { const [id,key] = sel.getAttribute('data-t20-skill-ability').split(':'); setT20SkillAbility(id, key, sel.value); });
     });
     $root.querySelectorAll('[data-condition]').forEach(btn=>{
       btn.addEventListener('click', () => {
@@ -9414,6 +9435,16 @@
     pushUndo();
     if(!tok.t20Trained) tok.t20Trained = {};
     tok.t20Trained[key] = checked;
+    render();
+    await persistTokens();
+  }
+
+  async function setT20SkillAbility(id, key, ability){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok || !DND_ABILITIES.some(a => a.key === ability)) return;
+    pushUndo();
+    if(!tok.t20SkillAbilities) tok.t20SkillAbilities = {};
+    tok.t20SkillAbilities[key] = ability;
     render();
     await persistTokens();
   }
