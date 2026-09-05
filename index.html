@@ -992,6 +992,10 @@
   #context-menu button{ display:block; width:100%; text-align:left; border:none; background:transparent; padding:7px 9px; text-transform:none; letter-spacing:0; font-size:11px; }
   #context-menu button:hover{ background:#2a2116; }
   #context-menu .context-danger{ color:#e9a0a0; }
+  #context-menu .context-range-control{ padding:7px 9px 9px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+  #context-menu .context-range-title{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment); }
+  #context-menu .context-range-value{ color:var(--amber-bright); min-width:38px; text-align:right; }
+  #context-menu .context-range-control input[type=range]{ display:block; width:100%; margin:0; accent-color:var(--amber); cursor:ew-resize; }
   .move-distance-label{ position:absolute; pointer-events:none; z-index:1000000; transform:translate(-50%,-115%); background:#150f09; border:1px solid var(--amber-bright); color:var(--amber-bright); border-radius:4px; padding:3px 7px; font-family:'JetBrains Mono',monospace; font-size:10px; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.45); }
 
   /* Campaign journal (same drawer pattern; open to master AND players) */
@@ -6815,8 +6819,7 @@
     }else if(type==='reference') actions=[['Trazer para frente','front'],['Enviar para trás','back'],['Travar / destravar','lock'],['Remover desta página','page'],['Excluir permanentemente','delete','context-danger']];
     else if(type==='mapobject'){
       const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
-      const rotation=Math.round(((Number(tok.rotation)||0)%360+360)%360);
-      actions=[['↻ Girar objeto ('+rotation+'°)','objectrotate'],[tok.objectLocked?'Destravar posição':'Travar posição','objectlock'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir objeto','delete','context-danger']];
+      actions=[[tok.objectLocked?'Destravar posição':'Travar posição','objectlock'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir objeto','delete','context-danger']];
     }
     else if(type==='lightpoint'){
       const page=currentPage(), lighting=page&&ensureLightingModel(page), point=lighting&&lighting.points.find(item=>item.id===id); if(!point)return;
@@ -6824,6 +6827,32 @@
     }
     else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
     menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
+    if(type==='mapobject'){
+      const object=state.tokens.find(t=>t.id===id&&t.isMapObject);
+      const rotation=Math.round(((Number(object&&object.rotation)||0)%360+360)%360);
+      menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↻ Rotação</span><span class="context-range-value" data-context-rotation-value>'+rotation+'°</span></div><input type="range" min="0" max="359" step="1" value="'+rotation+'" aria-label="Rotação do objeto em graus" data-context-object-rotation></div>');
+      const slider=menu.querySelector('[data-context-object-rotation]');
+      const valueLabel=menu.querySelector('[data-context-rotation-value]');
+      let undoCaptured=false, drawMoved=false, fogMoved=false;
+      slider.addEventListener('input',()=>{
+        const tok=state.tokens.find(t=>t.id===id&&t.isMapObject); if(!tok)return;
+        if(!undoCaptured){ pushUndo(); undoCaptured=true; }
+        const moved=rotateMapObjectAndContents(tok,Number(slider.value));
+        drawMoved=drawMoved||moved.draw; fogMoved=fogMoved||moved.fog;
+        valueLabel.textContent=Math.round(Number(slider.value))+'°';
+        renderTokens(); refreshLiveMoveDependentLayers();
+      });
+      slider.addEventListener('change',async()=>{
+        if(!undoCaptured)return;
+        const page=currentPage();
+        await Promise.allSettled([
+          persistTokens(),
+          page&&drawMoved?persistPageDraw(page):Promise.resolve(),
+          page&&fogMoved?persistPageFog(page):Promise.resolve()
+        ]);
+        drawMoved=false; fogMoved=false; undoCaptured=false;
+      });
+    }
     menu.style.left=Math.min(e.clientX,window.innerWidth-230)+'px'; menu.style.top=Math.min(e.clientY,window.innerHeight-260)+'px'; menu.classList.add('open');
   }
   async function executeContextAction(action){
@@ -6849,22 +6878,6 @@
       return;
     }
     const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
-    if(action==='objectrotate'&&tok.isMapObject&&effectiveMaster()){
-      const current=Math.round(((Number(tok.rotation)||0)%360+360)%360);
-      const entered=prompt('Rotação do objeto em graus (0 a 359):',String(current));
-      if(entered===null)return;
-      const value=Number(String(entered).replace(',','.'));
-      if(!Number.isFinite(value)){ alert('Digite um número válido para a rotação.'); return; }
-      pushUndo();
-      const moved=rotateMapObjectAndContents(tok,value), page=currentPage();
-      render();
-      await Promise.allSettled([
-        persistTokens(),
-        page&&moved.draw?persistPageDraw(page):Promise.resolve(),
-        page&&moved.fog?persistPageFog(page):Promise.resolve()
-      ]);
-      return;
-    }
     if(action==='lantern'){
       if(!canToggleTokenLantern(tok))return;
       const lantern=tokenLanternState(tok,true); lantern.enabled=!lantern.enabled;
