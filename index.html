@@ -5929,7 +5929,17 @@
     const changes = buildTokenChangeSet(lastTokensSnapshot, payload.list);
     latestLocalTokensRaw = raw;
     tokenWritesQueued++;
-    const run = () => safeMergeTokens(slotKey('tokens'), changes);
+    // Em sessões com muitos tokens/objetos o merge fica mais pesado e pode
+    // estourar o tempo limite por congestionamento passageiro. Tenta de novo
+    // algumas vezes antes de desistir, para não perder o posicionamento novo.
+    const run = async () => {
+      for(let attempt=0; attempt<3; attempt++){
+        const result = await safeMergeTokens(slotKey('tokens'), changes);
+        if(result) return result;
+        if(attempt<2) await new Promise(resolve=>setTimeout(resolve, 400*(attempt+1)));
+      }
+      return null;
+    };
     const task = tokenWriteQueue.then(run, run);
     tokenWriteQueue = task.catch(() => null);
     const savedRaw = await task;
@@ -7031,8 +7041,8 @@
       }
       if(effectiveMaster()){
         lightActions.push([tok.sizeLocked?'🔓 Destravar tamanho':'🔒 Travar tamanho','sizelock']);
-        lightActions.push(['📏 Alcance individual','lanternradius']);
-        lightActions.push(['👥 Grupos de luz: '+tokenLightGroupLabel(tok),'lightgroups']);
+        lightActions.push(['📏 Alcance individual','lanternradius',null,'Define o alcance de luz da lanterna deste token']);
+        lightActions.push(['👥 Grupos de luz: '+tokenLightGroupLabel(tok),'lightgroups',null,'Escolhe quais grupos podem ver a luz da lanterna deste token. Só faz efeito quando a visibilidade da iluminação está em "Grupos" (Névoa → Escuridão e lanternas): jogadores cujo próprio token não compartilhar nenhum desses grupos não enxergam essa luz.']);
         lightActions.push([tokenHasDarkvision(tok)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
         if(tok.masterLocked){
           const hpMode=npcHpDisplayMode(currentPage());
@@ -7054,7 +7064,7 @@
       actions=[['↔ Ajustar tamanho e formato','editlightpoint'],['👥 Visibilidade por grupos','lightpointgroups'],[point.enabled?'○ Desligar luz':'◉ Ligar luz','togglelightpoint'],['Excluir ponto de luz','deletelightpoint','context-danger']];
     }
     else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
-    menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
+    menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'"'+(a[3]?' title="'+escapeHtml(a[3])+'"':'')+' data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
     if(type==='token'){
       const tok=state.tokens.find(t=>t.id===id&&!t.isReference&&!t.isMapObject);
       if(tok&&canResizeToken(tok)){
@@ -8990,7 +9000,8 @@
           if(!t2.positions) t2.positions = {};
           const z=t2.isMapObject ? (Number.isFinite(Number(g.startZ))?Number(g.startZ):MAP_LAYER_FLOOR_Z) : nextTokenZOrder();
           t2.positions[state.currentPageId] = { x:g.liveX, y:g.liveY, zOrder:z };
-          if(t2.isMapObject){ locallyProtectedTokenIds.add(t2.id); bringMapObjectToTopOfObjectStack(t2); }
+          locallyProtectedTokenIds.add(t2.id);
+          if(t2.isMapObject) bringMapObjectToTopOfObjectStack(t2);
           if(g.selected&&!t2.isMapObject) updateTokenPlatformMembership(t2,g.liveX,g.liveY);
         });
         saveTasks.push(persistTokens());
@@ -8999,12 +9010,14 @@
         if(tok){
           if(!tok.positions) tok.positions = {};
           tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: tok.isMapObject ? MAP_LAYER_FLOOR_Z : nextTokenZOrder() };
-          if(tok.isMapObject){ locallyProtectedTokenIds.add(tok.id); bringMapObjectToTopOfObjectStack(tok); }
+          locallyProtectedTokenIds.add(tok.id);
+          if(tok.isMapObject) bringMapObjectToTopOfObjectStack(tok);
           if(!tok.isMapObject) updateTokenPlatformMembership(tok,d.x,d.y);
           (d.riders||[]).forEach(r => {
             const rider = state.tokens.find(t=>t.id===r.id); if(!rider) return;
             if(!rider.positions) rider.positions={};
             rider.positions[state.currentPageId] = { x:r.liveX, y:r.liveY, zOrder:nextTokenZOrder() };
+            locallyProtectedTokenIds.add(rider.id);
           });
           saveTasks.push(persistTokens());
         }
@@ -12297,12 +12310,17 @@
     try{
       const oldDamageById = new Map(state.tokens.map(t => [t.id, t.damageTrack || 0]));
       const newTokens = JSON.parse(raw).list || [];
-      /* Preserve newly-created objects while their write is still being
-         confirmed. Older snapshots must never be allowed to erase them. */
+      /* Preserve newly-created objects, and any token/object whose position
+         was just moved locally and hasn't been confirmed by our own write yet,
+         while their write is still being confirmed. Older/slower snapshots
+         (more likely in sessions with many tokens and objects) must never be
+         allowed to erase or revert them. */
       locallyProtectedTokenIds.forEach(id => {
-        if(newTokens.some(t => t.id === id)) return;
         const local = state.tokens.find(t => t.id === id);
-        if(local) newTokens.push(local);
+        if(!local) return;
+        const idx = newTokens.findIndex(t => t.id === id);
+        if(idx === -1) newTokens.push(local);
+        else newTokens[idx] = local;
       });
       newTokens.forEach(t => {
         const oldVal = oldDamageById.has(t.id) ? oldDamageById.get(t.id) : (t.damageTrack || 0);
