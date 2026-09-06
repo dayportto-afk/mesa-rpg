@@ -12185,27 +12185,16 @@
         return;
       }
       // ---- com barreiras: máscara própria desta luz, depois somada ao acumulador ----
+      // Borda sólida e definida (sem degradê): com barreiras ativas, qualquer
+      // brilho suave na borda acaba aparecendo por cima do corte da sombra da
+      // parede como um halo indevido. Preenchimento direto evita isso de vez.
       maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height);
       maskCtx.globalCompositeOperation='source-over';
-      const glow=maskCtx.createRadialGradient(x,y,0,x,y,range);
-      glow.addColorStop(0,'rgba(255,255,255,1)');
-      glow.addColorStop(.82,'rgba(255,255,255,1)');
-      glow.addColorStop(1,'rgba(255,255,255,0)');
-      maskCtx.fillStyle=glow;
+      maskCtx.fillStyle='rgba(255,255,255,1)';
       maskCtx.beginPath();
       if(lighting.shape==='circle') maskCtx.arc(x,y,range,0,Math.PI*2);
       else{ maskCtx.moveTo(x,y); maskCtx.arc(x,y,range,angle-half,angle+half); maskCtx.closePath(); }
       maskCtx.fill();
-      // Recorte sólido de segurança (mesmo motivo do caminho sem barreiras):
-      // sem isso, alguns navegadores deixam um halo residual na borda porque
-      // não aplicam 100% do degradê do destination-out.
-      maskCtx.save();
-      maskCtx.beginPath();
-      if(lighting.shape==='circle') maskCtx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2);
-      else{ maskCtx.moveTo(x,y); maskCtx.arc(x,y,Math.max(1,range*.82),angle-half,angle+half); maskCtx.closePath(); }
-      maskCtx.fillStyle='rgba(255,255,255,1)';
-      maskCtx.fill();
-      maskCtx.restore();
       maskCtx.beginPath(); maskCtx.arc(x,y,sourceRadius,0,Math.PI*2); maskCtx.fill();
       paintBarrierShadowsOnMask(maskCtx,barrierModel.list,x,y,range);
       accCtx.globalCompositeOperation='lighter';
@@ -12245,27 +12234,14 @@
         return;
       }
       // ---- com barreiras: mesma técnica de máscara + acumulador ----
+      // Borda sólida e definida (sem degradê) — mesmo motivo do bloco da lanterna.
       maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height);
       maskCtx.globalCompositeOperation='source-over';
-      const glow=maskCtx.createRadialGradient(x,y,0,x,y,range);
-      glow.addColorStop(0,'rgba(255,255,255,1)');
-      glow.addColorStop(.82,'rgba(255,255,255,1)');
-      glow.addColorStop(1,'rgba(255,255,255,0)');
-      maskCtx.fillStyle=glow;
+      maskCtx.fillStyle='rgba(255,255,255,1)';
       maskCtx.beginPath();
       if(point.shape==='cone'){ maskCtx.moveTo(x,y); maskCtx.arc(x,y,range,pointAngle-pointHalf,pointAngle+pointHalf); maskCtx.closePath(); }
       else maskCtx.arc(x,y,range,0,Math.PI*2);
       maskCtx.fill();
-      // Recorte sólido de segurança (mesmo motivo do caminho sem barreiras):
-      // sem isso, alguns navegadores deixam um halo residual na borda porque
-      // não aplicam 100% do degradê do destination-out.
-      maskCtx.save();
-      maskCtx.beginPath();
-      if(point.shape==='cone'){ maskCtx.moveTo(x,y); maskCtx.arc(x,y,Math.max(1,range*.82),pointAngle-pointHalf,pointAngle+pointHalf); maskCtx.closePath(); }
-      else maskCtx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2);
-      maskCtx.fillStyle='rgba(255,255,255,1)';
-      maskCtx.fill();
-      maskCtx.restore();
       maskCtx.beginPath(); maskCtx.arc(x,y,Math.max(6,8*Math.max(scaleX,scaleY)),0,Math.PI*2); maskCtx.fill();
       paintBarrierShadowsOnMask(maskCtx,barrierModel.list,x,y,range);
       accCtx.globalCompositeOperation='lighter';
