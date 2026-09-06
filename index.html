@@ -20,6 +20,7 @@
     --amber-bright:#e2a53f;
     --wax:#7a2b2b;
     --shadow:rgba(0,0,0,0.6);
+    --token-outline-shadow:rgba(0,0,0,0);
     --topbar-bg-1:#221a10;
     --topbar-bg-2:#17120b;
   }
@@ -651,7 +652,7 @@
     position:absolute; width:64px; height:64px; margin:-32px 0 0 -32px;
     border-radius:50%;
     border:2px solid var(--amber-bright);
-    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206;
+    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 0 4px var(--token-outline-shadow);
     cursor:grab; touch-action:none; user-select:none;
     transition:box-shadow .15s;
   }
@@ -2112,6 +2113,19 @@
             <input type="range" id="theme-topbar-opacity" min="0" max="100" step="5" value="100">
             <span id="theme-topbar-opacity-value" class="title-style-value">100%</span>
           </div>
+          <div class="theme-row" style="margin-top:4px;">
+            <label for="theme-token-outline">Contorno dos tokens</label>
+            <input type="color" id="theme-token-outline">
+          </div>
+          <div class="title-style-row" style="margin-top:4px;">
+            <label for="theme-token-outline-opacity">Opacidade do contorno</label>
+            <input type="range" id="theme-token-outline-opacity" min="0" max="100" step="5" value="50">
+            <span id="theme-token-outline-opacity-value" class="title-style-value">50%</span>
+          </div>
+          <label style="display:flex; align-items:center; gap:6px; margin:2px 0 0 0; font-size:12px; color:var(--parchment-dim);">
+            <input type="checkbox" id="theme-token-outline-enabled" style="width:auto;">
+            Ativar contorno
+          </label>
           <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
           <div class="hint">As cores valem para todo mundo que acessar esta campanha, mestre e jogadores.</div>
         </div>
@@ -5186,7 +5200,7 @@
   }
   function newId(prefix){ return prefix + Date.now() + Math.random().toString(36).slice(2,7); }
 
-  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10', topbarOpacity:100 };
+  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10', topbarOpacity:100, tokenOutline:'#e2a53f', tokenOutlineEnabled:false, tokenOutlineOpacity:50 };
   function darkenHex(hex, amount){
     let h = hex.replace('#','');
     if(h.length === 3) h = h.split('').map(c => c+c).join('');
@@ -5212,6 +5226,9 @@
     root.setProperty('--amber', t.accent);
     root.setProperty('--topbar-bg-1', hexToRgbaTheme(t.topbar,alpha));
     root.setProperty('--topbar-bg-2', hexToRgbaTheme(darkenHex(t.topbar,0.35),alpha));
+    // Contorno dos tokens: sombra na cor escolhida pelo mestre, com opacidade ajustável.
+    const outlineAlpha=Math.max(0,Math.min(100,Number(t.tokenOutlineOpacity ?? 50)))/100;
+    root.setProperty('--token-outline-shadow', t.tokenOutlineEnabled ? hexToRgbaTheme(t.tokenOutline,outlineAlpha) : 'rgba(0,0,0,0)');
   }
 
   const DEFAULT_TITLE_STYLE = { size:20, color:'#e2a53f', bold:true, italic:false, uppercase:false, letterSpacing:0.5, outlineWidth:0, outlineColor:'#000000', shadow:'none', bgColor:'#15120d', bgOpacity:0 };
@@ -6248,6 +6265,11 @@
     const topbarOpacity = (state.meta.theme && typeof state.meta.theme.topbarOpacity==='number') ? state.meta.theme.topbarOpacity : DEFAULT_THEME.topbarOpacity;
     el('theme-topbar-opacity').value = topbarOpacity;
     el('theme-topbar-opacity-value').textContent = topbarOpacity + '%';
+    el('theme-token-outline').value = (state.meta.theme && state.meta.theme.tokenOutline) || DEFAULT_THEME.tokenOutline;
+    el('theme-token-outline-enabled').checked = !!(state.meta.theme && state.meta.theme.tokenOutlineEnabled);
+    const tokenOutlineOpacity = (state.meta.theme && typeof state.meta.theme.tokenOutlineOpacity==='number') ? state.meta.theme.tokenOutlineOpacity : DEFAULT_THEME.tokenOutlineOpacity;
+    el('theme-token-outline-opacity').value = tokenOutlineOpacity;
+    el('theme-token-outline-opacity-value').textContent = tokenOutlineOpacity + '%';
 
     const titleFont = state.meta.titleFont || "'Cinzel', serif";
     $title.style.fontFamily = titleFont;
@@ -10411,6 +10433,9 @@
   el('theme-accent').addEventListener('input', themeInputHandler('accent'));
   el('theme-topbar').addEventListener('input', themeInputHandler('topbar'));
   el('theme-topbar-opacity').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.topbarOpacity=Number(el('theme-topbar-opacity').value); el('theme-topbar-opacity-value').textContent=state.meta.theme.topbarOpacity+'%'; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
+  el('theme-token-outline').addEventListener('input', themeInputHandler('tokenOutline'));
+  el('theme-token-outline-opacity').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutlineOpacity=Number(el('theme-token-outline-opacity').value); el('theme-token-outline-opacity-value').textContent=state.meta.theme.tokenOutlineOpacity+'%'; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
+  el('theme-token-outline-enabled').addEventListener('change', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutlineEnabled=el('theme-token-outline-enabled').checked; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('btn-theme-reset').addEventListener('click', async () => {
     state.meta.theme = Object.assign({}, DEFAULT_THEME);
     render();
