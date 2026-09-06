@@ -22,6 +22,7 @@
     --shadow:rgba(0,0,0,0.6);
     --token-outline-shadow:rgba(0,0,0,0);
     --initiative-turn-color:#3fd0e2;
+    --barrier-opacity:0.7;
     --topbar-bg-1:#221a10;
     --topbar-bg-2:#17120b;
   }
@@ -693,6 +694,28 @@
   .token.defeated{ border-color:#0a0a0a !important; }
   .token.defeated img{ filter:grayscale(100%); }
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
+  .light-barrier{
+    position:absolute; height:5px; border-radius:3px; transform-origin:0 50%;
+    pointer-events:auto; cursor:context-menu; z-index:850; opacity:var(--barrier-opacity,0.7);
+  }
+  .light-barrier.barrier-wall{ background:var(--amber-bright); }
+  .light-barrier.barrier-window{
+    background:repeating-linear-gradient(90deg,#5fb8d9 0 10px,transparent 10px 16px);
+    height:4px;
+  }
+  .light-barrier.barrier-door{ background:#b0433a; }
+  .light-barrier.barrier-door.barrier-door-open{ background:#3f8f4e; }
+  .barrier-door-handle{
+    position:absolute; width:20px; height:20px; margin-left:-10px; margin-top:-10px;
+    border-radius:50%; background:#150f09; border:2px solid #b0433a;
+    display:flex; align-items:center; justify-content:center; font-size:11px;
+    z-index:851; cursor:context-menu; pointer-events:auto;
+  }
+  .barrier-door-handle.barrier-door-open{ border-color:#3f8f4e; }
+  .barrier-draft-line{
+    position:absolute; height:2px; border-top:2px dashed var(--amber-bright);
+    transform-origin:0 50%; pointer-events:none; z-index:852;
+  }
   .token.active-turn{
     box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 12px 4px var(--token-outline-shadow), 0 0 0 4px var(--initiative-turn-color);
   }
@@ -2024,6 +2047,10 @@
           <span class="icon-rail-label">Névoa</span>
         </div>
         <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-light-barriers" title="Barreiras de Luz (parede/porta/janela para a lanterna)">🧱</button>
+          <span class="icon-rail-label">Barreiras</span>
+        </div>
+        <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn" data-panel="float-grid" title="Grade">🔲</button>
           <span class="icon-rail-label">Grade</span>
         </div>
@@ -2332,6 +2359,40 @@
             </div>
             <div class="hint">Em Grupos personalizados, personagens que compartilham pelo menos um grupo enxergam as lanternas uns dos outros. O mestre vê todas. Crie os grupos aqui e atribua-os pelo clique direito no token. No formato cone, ele aponta na direção do último movimento.</div>
           </div>
+        </div>
+      </div>
+
+      <div class="float-panel" id="float-light-barriers" style="left:200px; top:16px;">
+        <div class="float-panel-header">
+          <span>🧱 Barreiras de Luz</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-light-barriers">✕</button>
+        </div>
+        <div class="float-panel-body">
+          <div class="hint">Ferramenta à parte e opcional: só afeta esta página, e só quando ativada. Sem ela, a lanterna/luz continua exatamente como sempre foi — círculo ou cone sem considerar paredes.</div>
+          <button type="button" id="btn-barriers-toggle" style="width:100%; margin-top:8px;">Ativar barreiras de luz nesta página</button>
+          <div class="tool-row" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:10px;">
+            <button type="button" id="btn-barrier-wall" title="Bloqueia luz por completo">🧱 Parede</button>
+            <button type="button" id="btn-barrier-door" title="Bloqueia luz, mas você pode abrir/fechar">🚪 Porta</button>
+            <button type="button" id="btn-barrier-window" title="Deixa passar uma fração da luz, ajustável">🪟 Janela</button>
+          </div>
+          <div class="tool-row" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px;" id="barrier-draw-mode-row">
+            <button type="button" id="btn-barrier-mode-straight" class="toggle-active" title="Clique-clique, segmentos retos">📐 Reta</button>
+            <button type="button" id="btn-barrier-mode-curve" title="Arraste livre — vira uma sequência de segmentos curtos, contorna curvas">〰️ Curva (arrastar)</button>
+          </div>
+          <div class="hint" id="barrier-tool-hint" style="margin-top:6px;">Escolha Parede, Porta ou Janela e clique no mapa: primeiro clique inicia o traço, o próximo fecha o segmento. Continue clicando pra encadear vários. Esc ou clique em "Selecionar" termina. Uma vez criada, a barreira não se move — só apagar e redesenhar.</div>
+          <div class="theme-row" style="margin-top:10px;">
+            <label for="barrier-window-transmission">Transmissão da nova janela</label>
+            <span id="barrier-window-transmission-value">50%</span>
+          </div>
+          <input type="range" id="barrier-window-transmission" min="0" max="100" step="5" value="50">
+          <div class="theme-row" style="margin-top:10px;">
+            <label for="barrier-opacity-input">Opacidade das barreiras (só sua visão)</label>
+            <span id="barrier-opacity-value">70%</span>
+          </div>
+          <input type="range" id="barrier-opacity-input" min="0" max="100" step="5" value="70">
+          <div class="hint">Só muda o traço no seu editor — o interruptor da porta continua sempre bem visível, mesmo em 0%. Jogadores nunca veem nada disso, nem o traço nem os interruptores; só o efeito da luz sendo bloqueada ou passando.</div>
+          <button type="button" id="btn-barriers-clear" class="danger" style="width:100%; margin-top:10px;">Apagar todas as barreiras desta página</button>
+          <div class="hint" style="margin-top:8px;">💡 Clique com o botão direito numa parede/porta/janela a qualquer momento (mesmo com essa ferramenta fechada) pra abrir/fechar a porta, ajustar a janela ou excluir a barreira.</div>
         </div>
       </div>
 
@@ -3048,6 +3109,12 @@
     fogOpacity:94,
     fogStroke:null,
     lightPointArmed:false,
+    barrierTool:null,
+    barrierDraftStart:null,
+    barrierOpacity:0.7,
+    barrierDrawMode:'straight',
+    barrierCurvePoints:null,
+    barrierWindowTransmission:0.5,
     drawMode:false,
     drawPaintMode:'pen',
     drawShape:'freehand',
@@ -5561,6 +5628,8 @@
     state.fogMode = false;
     state.drawMode = false;
     state.lightPointArmed = false;
+    state.barrierTool = null;
+    state.barrierDraftStart = null;
     state.selectedTokenId = null;
     state.previewAsPlayer = false;
     state.diceQty = {4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0};
@@ -5728,12 +5797,12 @@
   el('dice-toggle').addEventListener('click', openDicePanel);
   el('ping-toggle').addEventListener('click', () => {
     state.pingArmed = !state.pingArmed;
-    if(state.pingArmed) state.measureArmed = false;
+    if(state.pingArmed){ state.measureArmed = false; state.barrierTool=null; state.barrierDraftStart=null; }
     render();
   });
   el('measure-toggle').addEventListener('click', () => {
     state.measureArmed = !state.measureArmed;
-    if(state.measureArmed) state.pingArmed = false;
+    if(state.measureArmed){ state.pingArmed = false; state.barrierTool=null; state.barrierDraftStart=null; }
     else clearMeasureVisual();
     render();
   });
@@ -6266,6 +6335,7 @@
     setupFogCanvas();
     setupDarknessOverlay();
     renderLightPointMarkers();
+    renderLightBarriers();
     applyTransform();
   }
 
@@ -6346,6 +6416,7 @@
       setupFogCanvas();
       setupDarknessOverlay();
       renderLightPointMarkers();
+      renderLightBarriers();
     }
     renderMultiSelectBar();
     renderTokenList();
@@ -6433,6 +6504,29 @@
     el('light-points-list').innerHTML=lightingSettings.points.length
       ? lightingSettings.points.map(point=>'<div style="display:flex;align-items:center;gap:4px;"><span style="flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">💡 '+escapeHtml(point.name)+' · '+escapeHtml(lightPointGroupLabel(point,lightingSettings))+'</span><button type="button" data-light-point-action="toggle" data-light-point-id="'+point.id+'" title="Ligar ou desligar">'+(point.enabled?'◉':'○')+'</button><button type="button" data-light-point-action="groups" data-light-point-id="'+point.id+'" title="Visibilidade por grupos">👥</button><button type="button" data-light-point-action="edit" data-light-point-id="'+point.id+'" title="Ajustar diâmetro">↔</button><button type="button" data-light-point-action="delete" data-light-point-id="'+point.id+'" title="Excluir">✕</button></div>').join('')
       : '<div class="hint" style="margin:0;">Nenhum ponto de luz.</div>';
+
+    if(effectiveMaster()){
+      const barriers=page?ensureLightBarriers(page):{enabled:false,list:[]};
+      el('btn-barriers-toggle').textContent=barriers.enabled?'🧱 Barreiras ativadas nesta página':'Ativar barreiras de luz nesta página';
+      el('btn-barriers-toggle').classList.toggle('toggle-active',!!barriers.enabled);
+      el('btn-barrier-wall').classList.toggle('toggle-active',state.barrierTool==='wall');
+      el('btn-barrier-door').classList.toggle('toggle-active',state.barrierTool==='door');
+      el('btn-barrier-window').classList.toggle('toggle-active',state.barrierTool==='window');
+      el('barrier-draw-mode-row').style.display=state.barrierTool==='door'?'none':'grid';
+      el('btn-barrier-mode-straight').classList.toggle('toggle-active',state.barrierDrawMode==='straight');
+      el('btn-barrier-mode-curve').classList.toggle('toggle-active',state.barrierDrawMode==='curve');
+      const barrierHints={
+        wall:'Reta: clique pra iniciar, clique de novo pra fechar o segmento — dá pra encadear vários. Curva: pressione e arraste; solta pra terminar. Esc cancela. Uma vez criada, não se move — só apagar e redesenhar.',
+        door:'Clique pra iniciar, clique de novo pra fechar o segmento. Fica com um interruptor sempre visível pra você, pra abrir/fechar durante o jogo (clique direito nela).',
+        window:'Reta: clique-clique. Curva: pressione e arraste. Transmissão inicial definida pelo slider abaixo — depois dá pra ajustar clicando com o botão direito na janela.'
+      };
+      el('barrier-tool-hint').textContent=state.barrierTool?barrierHints[state.barrierTool]:'Escolha Parede, Porta ou Janela pra começar a desenhar no mapa.';
+      el('barrier-window-transmission').value=Math.round(state.barrierWindowTransmission*100);
+      el('barrier-window-transmission-value').textContent=Math.round(state.barrierWindowTransmission*100)+'%';
+      el('barrier-opacity-input').value=Math.round(state.barrierOpacity*100);
+      el('barrier-opacity-value').textContent=Math.round(state.barrierOpacity*100)+'%';
+      document.documentElement.style.setProperty('--barrier-opacity',String(state.barrierOpacity));
+    }
 
     el('btn-draw-toggle').textContent = state.drawMode ? 'Desativar modo desenho' : 'Ativar modo desenho';
     el('btn-draw-toggle').classList.toggle('toggle-active', state.drawMode);
@@ -6801,6 +6895,67 @@
     if(line) line.remove();
     if(label) label.remove();
   }
+
+  // ---------- Barreiras de Luz: renderização (visível só pro mestre) ----------
+  function placeBarrierLineEl(el2, pt1, pt2, canvasW, canvasH){
+    const x1=canvasW*(pt1.x/100), y1=canvasH*(pt1.y/100);
+    const x2=canvasW*(pt2.x/100), y2=canvasH*(pt2.y/100);
+    const dx=x2-x1, dy=y2-y1;
+    const len=Math.hypot(dx,dy);
+    const angle=Math.atan2(dy,dx)*180/Math.PI;
+    el2.style.left=x1+'px'; el2.style.top=y1+'px'; el2.style.width=len+'px';
+    el2.style.transform='rotate('+angle+'deg)';
+  }
+  let lastBarrierPointerPt=null;
+  function renderLightBarriers(){
+    document.querySelectorAll('.light-barrier, .barrier-door-handle, .barrier-draft-line').forEach(node=>node.remove());
+    const page=currentPage();
+    if(!page||!effectiveMaster()) return; // jogadores nunca veem nada disto
+    const canvasW=$canvas.offsetWidth, canvasH=$canvas.offsetHeight;
+    if(!canvasW||!canvasH) return;
+    const barriers=ensureLightBarriers(page).list;
+    barriers.forEach(b=>{
+      const line=document.createElement('div');
+      line.className='light-barrier barrier-'+b.type+(b.type==='door'&&b.open?' barrier-door-open':'');
+      line.dataset.barrierId=b.id;
+      placeBarrierLineEl(line,{x:b.x1,y:b.y1},{x:b.x2,y:b.y2},canvasW,canvasH);
+      line.addEventListener('contextmenu', e=>openContextMenu(e,'barrier',b.id));
+      $canvas.appendChild(line);
+      if(b.type==='door'){
+        const handle=document.createElement('div');
+        handle.className='barrier-door-handle'+(b.open?' barrier-door-open':'');
+        handle.dataset.barrierId=b.id;
+        handle.style.left=(canvasW*((b.x1+b.x2)/2/100))+'px';
+        handle.style.top=(canvasH*((b.y1+b.y2)/2/100))+'px';
+        handle.textContent=b.open?'⌄':'🚪';
+        handle.title=b.open?'Porta aberta — clique direito para opções':'Porta fechada — clique direito para opções';
+        handle.addEventListener('contextmenu', e=>openContextMenu(e,'barrier',b.id));
+        $canvas.appendChild(handle);
+      }
+    });
+    // rascunho em progresso (modo reto: do último clique até o ponteiro; modo curva: trilha já capturada)
+    if(state.barrierTool && state.barrierDraftStart && lastBarrierPointerPt){
+      const draft=document.createElement('div');
+      draft.className='barrier-draft-line';
+      placeBarrierLineEl(draft,state.barrierDraftStart,lastBarrierPointerPt,canvasW,canvasH);
+      $canvas.appendChild(draft);
+    }
+    if(state.barrierCurvePoints&&state.barrierCurvePoints.length>1){
+      for(let i=0;i<state.barrierCurvePoints.length-1;i++){
+        const seg=document.createElement('div');
+        seg.className='light-barrier barrier-'+state.barrierTool;
+        placeBarrierLineEl(seg,state.barrierCurvePoints[i],state.barrierCurvePoints[i+1],canvasW,canvasH);
+        $canvas.appendChild(seg);
+      }
+    }
+  }
+  $mapViewport.addEventListener('pointermove', (e) => {
+    if(state.barrierTool && state.barrierDraftStart){
+      lastBarrierPointerPt=canvasPointPct(e);
+      renderLightBarriers();
+    }
+  });
+
   function drawMeasureVisual(startPt, endPt){
     clearMeasureVisual();
     const canvasW = $canvas.offsetWidth, canvasH = $canvas.offsetHeight;
@@ -7109,6 +7264,11 @@
       actions=[['↔ Ajustar tamanho e formato','editlightpoint'],['👥 Visibilidade por grupos','lightpointgroups'],[point.enabled?'○ Desligar luz':'◉ Ligar luz','togglelightpoint'],['Excluir ponto de luz','deletelightpoint','context-danger']];
     }
     else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
+    else if(type==='barrier'){
+      const page=currentPage(); const barrier=page&&ensureLightBarriers(page).list.find(item=>item.id===id); if(!barrier)return;
+      if(barrier.type==='door') actions=[[barrier.open?'🔒 Fechar porta':'🔓 Abrir porta','barrierdoor'],['Excluir barreira','barrierdelete','context-danger']];
+      else actions=[['Excluir barreira','barrierdelete','context-danger']];
+    }
     menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'"'+(a[3]?' title="'+escapeHtml(a[3])+'"':'')+' data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
     if(type==='token'){
       const tok=state.tokens.find(t=>t.id===id&&!t.isReference&&!t.isMapObject);
@@ -7160,6 +7320,29 @@
         drawMoved=false; fogMoved=false; undoCaptured=false;
       });
     }
+    if(type==='barrier'){
+      const page=currentPage();
+      const barrier=page&&ensureLightBarriers(page).list.find(item=>item.id===id);
+      if(barrier&&barrier.type==='window'){
+        const pct=Math.round((barrier.transmission||0)*100);
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>🪟 Transmissão</span><span class="context-range-value" data-context-transmission-value>'+pct+'%</span></div><input type="range" min="0" max="100" step="5" value="'+pct+'" aria-label="Transmissão de luz da janela" data-context-barrier-transmission></div>');
+        const slider=menu.querySelector('[data-context-barrier-transmission]');
+        const valueLabel=menu.querySelector('[data-context-transmission-value]');
+        let undoCaptured=false;
+        slider.addEventListener('input',()=>{
+          const p2=currentPage(); const b2=p2&&ensureLightBarriers(p2).list.find(item=>item.id===id); if(!b2)return;
+          if(!undoCaptured){ pushUndo(); undoCaptured=true; }
+          b2.transmission=Number(slider.value)/100;
+          valueLabel.textContent=slider.value+'%';
+          setupDarknessOverlay();
+        });
+        slider.addEventListener('change',async()=>{
+          if(!undoCaptured)return;
+          undoCaptured=false;
+          const p2=currentPage(); if(p2) await persistPageFog(p2);
+        });
+      }
+    }
     menu.style.left='8px'; menu.style.top='8px'; menu.classList.add('open');
     const menuWidth=Math.min(menu.offsetWidth||230,window.innerWidth-16);
     const menuHeight=Math.min(menu.scrollHeight||260,window.innerHeight-16);
@@ -7185,6 +7368,17 @@
       if(action==='togglelightpoint'){ pushUndo(); point.enabled=!point.enabled; render(); await persistPageFog(page); return; }
       if(action==='deletelightpoint'&&confirm('Excluir o ponto de luz "'+point.name+'"?')){
         pushUndo(); lighting.points=lighting.points.filter(item=>item.id!==point.id); render(); await persistPageFog(page); return;
+      }
+      return;
+    }
+    if(c.type==='barrier'){
+      const page=currentPage(); const barriers=page&&ensureLightBarriers(page); const barrier=barriers&&barriers.list.find(item=>item.id===c.id);
+      if(!page||!barrier||!effectiveMaster())return;
+      if(action==='barrierdoor'&&barrier.type==='door'){
+        pushUndo(); barrier.open=!barrier.open; renderLightBarriers(); setupDarknessOverlay(); await persistPageFog(page); return;
+      }
+      if(action==='barrierdelete'){
+        pushUndo(); barriers.list=barriers.list.filter(item=>item.id!==barrier.id); renderLightBarriers(); setupDarknessOverlay(); await persistPageFog(page); return;
       }
       return;
     }
@@ -10937,6 +11131,10 @@
     if(state.pingArmed){ placePing(e); return; }
     if(state.measureArmed){ startMeasure(e); return; }
     if(state.lightPointArmed&&effectiveMaster()){ void placeLightPoint(e); return; }
+    if(state.barrierTool&&effectiveMaster()){
+      if(state.barrierDrawMode==='curve'&&state.barrierTool!=='door'){ if(handleBarrierCurveStart(e)) return; }
+      else if(handleBarrierClick(e)) return;
+    }
     activePointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
     if(activePointers.size >= 2){ startPinch(); return; }
     // If a sidebar text field still has focus (e.g. after typing a map label),
@@ -10965,6 +11163,7 @@
     $mapViewport.classList.add('panning');
   });
   $mapViewport.addEventListener('pointermove', (e) => {
+    if(state.barrierCurvePoints){ handleBarrierCurveMove(e); return; }
     if(state.measureDrag){ updateMeasure(e); return; }
     if(activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
     if(activePointers.size >= 2){ updatePinch(); return; }
@@ -10976,6 +11175,7 @@
     applyTransform();
   });
   function endPan(e){
+    if(state.barrierCurvePoints){ void handleBarrierCurveEnd(); return; }
     if(state.measureDrag){ endMeasure(); return; }
     if(e && activePointers.has(e.pointerId)) activePointers.delete(e.pointerId);
     if(activePointers.size < 2){ pinch = null; }
@@ -10999,7 +11199,7 @@
   }, { passive:false });
 
   // ---------- fog of war: freehand brush (master only, per page) ----------
-  el('btn-fog-toggle').addEventListener('click', () => { state.fogMode = !state.fogMode; if(state.fogMode){ state.drawMode = false; state.lightPointArmed=false; } render(); });
+  el('btn-fog-toggle').addEventListener('click', () => { state.fogMode = !state.fogMode; if(state.fogMode){ state.drawMode = false; state.lightPointArmed=false; state.barrierTool=null; state.barrierDraftStart=null; } render(); });
   el('btn-fog-cover').addEventListener('click', () => { state.fogPaintMode = 'cover'; render(); });
   el('btn-fog-reveal').addEventListener('click', () => { state.fogPaintMode = 'reveal'; render(); });
   el('fog-brush').addEventListener('input', (e) => { state.fogBrush = Number(e.target.value); });
@@ -11104,9 +11304,120 @@
   el('btn-light-point-add').addEventListener('click',()=>{
     if(!effectiveMaster()||!currentPage())return;
     state.lightPointArmed=!state.lightPointArmed;
-    if(state.lightPointArmed){ state.fogMode=false; state.drawMode=false; }
+    if(state.lightPointArmed){ state.fogMode=false; state.drawMode=false; state.barrierTool=null; state.barrierDraftStart=null; }
     render();
   });
+
+  // ---------- Barreiras de Luz (parede/porta/janela, opcional por página) ----------
+  el('btn-barriers-toggle').addEventListener('click',async()=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    const barriers=ensureLightBarriers(page);
+    pushUndo();
+    barriers.enabled=!barriers.enabled;
+    render(); await persistPageFog(page); setupDarknessOverlay();
+  });
+  function setBarrierTool(tool){
+    state.barrierTool = state.barrierTool===tool ? null : tool;
+    state.barrierDraftStart = null;
+    state.barrierCurvePoints = null;
+    if(state.barrierTool){ state.fogMode=false; state.drawMode=false; state.lightPointArmed=false; state.pingArmed=false; state.measureArmed=false; }
+    render();
+  }
+  el('btn-barrier-wall').addEventListener('click',()=>{ if(effectiveMaster())setBarrierTool('wall'); });
+  el('btn-barrier-door').addEventListener('click',()=>{ if(effectiveMaster())setBarrierTool('door'); });
+  el('btn-barrier-window').addEventListener('click',()=>{ if(effectiveMaster())setBarrierTool('window'); });
+  el('btn-barrier-mode-straight').addEventListener('click',()=>{ state.barrierDrawMode='straight'; state.barrierDraftStart=null; state.barrierCurvePoints=null; render(); });
+  el('btn-barrier-mode-curve').addEventListener('click',()=>{ state.barrierDrawMode='curve'; state.barrierDraftStart=null; state.barrierCurvePoints=null; render(); });
+  el('barrier-window-transmission').addEventListener('input',e=>{
+    state.barrierWindowTransmission=Number(e.target.value)/100;
+    el('barrier-window-transmission-value').textContent=e.target.value+'%';
+  });
+  el('barrier-opacity-input').addEventListener('input',e=>{
+    state.barrierOpacity=Number(e.target.value)/100;
+    el('barrier-opacity-value').textContent=e.target.value+'%';
+    document.documentElement.style.setProperty('--barrier-opacity',String(state.barrierOpacity));
+  });
+  el('btn-barriers-clear').addEventListener('click',async()=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    const barriers=ensureLightBarriers(page);
+    if(!barriers.list.length)return;
+    if(!confirm('Apagar todas as barreiras de luz desta página?'))return;
+    pushUndo();
+    barriers.list=[];
+    render(); await persistPageFog(page); setupDarknessOverlay();
+  });
+
+  // Encadeamento reto: primeiro clique arma o início, o próximo fecha o segmento
+  // e já arma o início do próximo (dá pra contornar uma sala inteira clicando).
+  async function addBarrierSegment(type, x1, y1, x2, y2){
+    const page=currentPage(); if(!page)return;
+    const barriers=ensureLightBarriers(page);
+    pushUndo();
+    barriers.list.push({
+      id:newId('barrier'), x1, y1, x2, y2, type,
+      open:false,
+      transmission: type==='window' ? state.barrierWindowTransmission : 0
+    });
+    barriers.enabled=true;
+    renderLightBarriers();
+    await persistPageFog(page);
+    setupDarknessOverlay();
+  }
+  function handleBarrierClick(e){
+    if(!effectiveMaster()||!state.barrierTool)return false;
+    e.preventDefault(); e.stopPropagation();
+    const pt=canvasPointPct(e);
+    if(!state.barrierDraftStart){
+      state.barrierDraftStart=pt;
+      renderLightBarriers();
+    } else {
+      const start=state.barrierDraftStart;
+      state.barrierDraftStart=pt; // encadeia: fecha este e já começa o próximo
+      void addBarrierSegment(state.barrierTool, start.x, start.y, pt.x, pt.y);
+    }
+    return true;
+  }
+  function handleBarrierCurveStart(e){
+    if(!effectiveMaster()||!state.barrierTool||state.barrierTool==='door'||state.barrierDrawMode!=='curve')return false;
+    e.preventDefault(); e.stopPropagation();
+    state.barrierCurvePoints=[canvasPointPct(e)];
+    return true;
+  }
+  function handleBarrierCurveMove(e){
+    if(!state.barrierCurvePoints)return false;
+    const pt=canvasPointPct(e);
+    const last=state.barrierCurvePoints[state.barrierCurvePoints.length-1];
+    // amostra um novo ponto só depois de um deslocamento mínimo — evita
+    // segmentos minúsculos demais (caro e desnecessário) numa mão trêmula
+    const rect=$canvas.getBoundingClientRect();
+    const dx=(pt.x-last.x)/100*rect.width, dy=(pt.y-last.y)/100*rect.height;
+    if(Math.hypot(dx,dy) < 10) return true;
+    state.barrierCurvePoints.push(pt);
+    renderLightBarriers();
+    return true;
+  }
+  async function handleBarrierCurveEnd(){
+    if(!state.barrierCurvePoints)return false;
+    const points=state.barrierCurvePoints;
+    state.barrierCurvePoints=null;
+    if(points.length<2){ renderLightBarriers(); return true; }
+    const page=currentPage(); if(!page){ renderLightBarriers(); return true; }
+    const barriers=ensureLightBarriers(page);
+    pushUndo();
+    for(let i=0;i<points.length-1;i++){
+      barriers.list.push({
+        id:newId('barrier'), x1:points[i].x, y1:points[i].y, x2:points[i+1].x, y2:points[i+1].y,
+        type:state.barrierTool, open:false,
+        transmission: state.barrierTool==='window' ? state.barrierWindowTransmission : 0
+      });
+    }
+    barriers.enabled=true;
+    renderLightBarriers();
+    await persistPageFog(page);
+    setupDarknessOverlay();
+    return true;
+  }
+
   el('light-points-list').addEventListener('click',async e=>{
     const button=e.target.closest('[data-light-point-action]'), page=currentPage();
     if(!button||!page||!effectiveMaster())return;
@@ -11137,7 +11448,7 @@
   });
   el('lantern-angle-input').addEventListener('change',()=>{const page=currentPage();if(page&&effectiveMaster())void persistPageFog(page);});
 
-  el('btn-draw-toggle').addEventListener('click', () => { state.drawMode = !state.drawMode; if(state.drawMode){ state.fogMode = false; state.lightPointArmed=false; } render(); });
+  el('btn-draw-toggle').addEventListener('click', () => { state.drawMode = !state.drawMode; if(state.drawMode){ state.fogMode = false; state.lightPointArmed=false; state.barrierTool=null; state.barrierDraftStart=null; } render(); });
   el('btn-draw-pen').addEventListener('click', () => { state.drawPaintMode = 'pen'; render(); });
   el('btn-draw-erase').addEventListener('click', () => { state.drawPaintMode = 'erase'; render(); });
   el('btn-draw-move').addEventListener('click', () => { state.drawPaintMode = 'move'; render(); });
@@ -11392,6 +11703,23 @@
     return fog.lighting;
   }
 
+  function ensureLightBarriers(page){
+    const fog=ensureFogModel(page);
+    fog.lightBarriers=Object.assign({enabled:false,list:[]},fog.lightBarriers||{});
+    if(!Array.isArray(fog.lightBarriers.list)) fog.lightBarriers.list=[];
+    fog.lightBarriers.list=fog.lightBarriers.list.filter(b=>b&&b.id).map(b=>({
+      id:String(b.id),
+      x1:Math.max(0,Math.min(100,Number(b.x1)||0)),
+      y1:Math.max(0,Math.min(100,Number(b.y1)||0)),
+      x2:Math.max(0,Math.min(100,Number(b.x2)||0)),
+      y2:Math.max(0,Math.min(100,Number(b.y2)||0)),
+      type:['wall','door','window'].includes(b.type)?b.type:'wall',
+      open:!!b.open,
+      transmission:Math.max(0,Math.min(1,Number(b.transmission)||0))
+    }));
+    return fog.lightBarriers;
+  }
+
   function tokenLightGroupIds(tok){
     const ids=tok&&tok.lightGroupsByPage&&tok.lightGroupsByPage[state.currentPageId];
     return Array.isArray(ids)?ids:[];
@@ -11642,6 +11970,45 @@
     if(Math.hypot(dx,dy)>=2) lantern.angle=Math.atan2(dy,dx);
   }
 
+  let _barrierMaskCanvas=null, _barrierAccCanvas=null;
+  function getBarrierMaskCanvas(w,h){
+    if(!_barrierMaskCanvas) _barrierMaskCanvas=document.createElement('canvas');
+    if(_barrierMaskCanvas.width!==w) _barrierMaskCanvas.width=w;
+    if(_barrierMaskCanvas.height!==h) _barrierMaskCanvas.height=h;
+    return _barrierMaskCanvas;
+  }
+  function getBarrierAccCanvas(w,h){
+    if(!_barrierAccCanvas) _barrierAccCanvas=document.createElement('canvas');
+    if(_barrierAccCanvas.width!==w) _barrierAccCanvas.width=w;
+    if(_barrierAccCanvas.height!==h) _barrierAccCanvas.height=h;
+    return _barrierAccCanvas;
+  }
+  // Recorta a sombra de cada barreira próxima na máscara desta luz (técnica de
+  // "sombra por segmento": nada de raycasting/polígono de visibilidade — só um
+  // preenchimento por barreira, descartando de cara as que estão fora do alcance).
+  function paintBarrierShadowsOnMask(maskCtx,barrierList,x,y,range){
+    maskCtx.globalCompositeOperation='destination-out';
+    barrierList.forEach(b=>{
+      if(b.type==='door'&&b.open) return;
+      const block=b.type==='window'?(1-(b.transmission||0)):1;
+      if(block<=0) return;
+      const bx1=(b.x1/100)*maskCtx.canvas.width, by1=(b.y1/100)*maskCtx.canvas.height;
+      const bx2=(b.x2/100)*maskCtx.canvas.width, by2=(b.y2/100)*maskCtx.canvas.height;
+      const minX=Math.min(bx1,bx2), maxX=Math.max(bx1,bx2), minY=Math.min(by1,by2), maxY=Math.max(by1,by2);
+      if(maxX<x-range||minX>x+range||maxY<y-range||minY>y+range) return; // descarte por distância, sem calcular sombra
+      const dx1=bx1-x, dy1=by1-y, dx2=bx2-x, dy2=by2-y;
+      const len1=Math.hypot(dx1,dy1)||1, len2=Math.hypot(dx2,dy2)||1;
+      const proj=range*2.2;
+      const px1=x+dx1/len1*proj, py1=y+dy1/len1*proj;
+      const px2=x+dx2/len2*proj, py2=y+dy2/len2*proj;
+      maskCtx.globalAlpha=block;
+      maskCtx.beginPath();
+      maskCtx.moveTo(bx1,by1); maskCtx.lineTo(bx2,by2);
+      maskCtx.lineTo(px2,py2); maskCtx.lineTo(px1,py1);
+      maskCtx.closePath(); maskCtx.fill();
+      maskCtx.globalAlpha=1;
+    });
+  }
   function setupDarknessOverlay(){
     const page=currentPage(), img=document.getElementById('map-img');
     const lighting=page&&ensureLightingModel(page);
@@ -11654,13 +12021,27 @@
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.globalCompositeOperation='source-over';
     const darknessAlpha=Math.max(0,Math.min(1,lighting.opacity/100));
-    const visibleAlpha=effectiveMaster()?Math.min(.78,darknessAlpha):Math.min(.995,darknessAlpha);
+    const visibleAlpha=effectiveMaster()?Math.min(.78,darknessAlpha):darknessAlpha;
     const darknessHex=lighting.color.slice(1);
     const darknessRgb=[parseInt(darknessHex.slice(0,2),16),parseInt(darknessHex.slice(2,4),16),parseInt(darknessHex.slice(4,6),16)];
     ctx.fillStyle='rgba('+darknessRgb.join(',')+','+visibleAlpha+')';
     ctx.fillRect(0,0,canvas.width,canvas.height);
     const scaleX=canvas.width/Math.max(1,$canvas.clientWidth), scaleY=canvas.height/Math.max(1,$canvas.clientHeight);
     const viewerGroups=lighting.visibility==='groups'?currentViewerLightGroups():new Set();
+
+    // Ferramenta à parte e opcional (Barreiras de Luz): só entra em ação quando
+    // o mestre ativa explicitamente NESTA página e existe pelo menos uma
+    // barreira desenhada. Fora isso, o caminho abaixo é idêntico ao de sempre.
+    const barrierModel=ensureLightBarriers(page);
+    const barriersActive=!!(barrierModel.enabled&&barrierModel.list.length);
+    let maskCanvas=null, maskCtx=null, accCanvas=null, accCtx=null;
+    if(barriersActive){
+      maskCanvas=getBarrierMaskCanvas(canvas.width,canvas.height); maskCtx=maskCanvas.getContext('2d');
+      accCanvas=getBarrierAccCanvas(canvas.width,canvas.height); accCtx=accCanvas.getContext('2d');
+      accCtx.clearRect(0,0,accCanvas.width,accCanvas.height);
+      accCtx.globalCompositeOperation='source-over';
+    }
+
     if(lighting.allowed)state.tokens.forEach(tok=>{
       if(tok.isReference||tok.isMapObject||!isTokenOnPage(tok,state.currentPageId)) return;
       if(!viewerCanSeeLantern(tok,lighting,viewerGroups)) return;
@@ -11671,66 +12052,109 @@
       const range=lanternRangePixels(page,lantern,canvas);
       const angle=liveTokenAngle(tok,Number(lantern.angle)||0);
       const half=(lighting.angle*Math.PI/180)/2;
-      ctx.save();
-      ctx.globalCompositeOperation='destination-out';
-      const glow=ctx.createRadialGradient(x,y,0,x,y,range);
-      glow.addColorStop(0,'rgba(0,0,0,1)');
-      glow.addColorStop(.82,'rgba(0,0,0,1)');
-      glow.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=glow;
-      ctx.beginPath();
-      if(lighting.shape==='circle') ctx.arc(x,y,range,0,Math.PI*2);
-      else{ ctx.moveTo(x,y); ctx.arc(x,y,range,angle-half,angle+half); ctx.closePath(); }
-      ctx.fill();
-      // Recorte sólido de segurança: alguns navegadores móveis não aplicam
-      // corretamente o destination-out com gradiente. O miolo da luz é limpo
-      // de verdade, enquanto o passe acima mantém a borda suavizada.
-      const clearRange=Math.max(1,range*.82);
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      if(lighting.shape==='circle') ctx.arc(x,y,clearRange,0,Math.PI*2);
-      else{ ctx.moveTo(x,y); ctx.arc(x,y,clearRange,angle-half,angle+half); ctx.closePath(); }
-      ctx.clip();
-      ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
-      ctx.restore();
-      ctx.save();
-      ctx.globalCompositeOperation='destination-out';
       const sourceRadius=Math.max(10,(tokenSize(tok)*.62)*Math.max(scaleX,scaleY));
-      ctx.fillStyle='rgba(0,0,0,1)';
-      ctx.beginPath(); ctx.arc(x,y,sourceRadius,0,Math.PI*2); ctx.fill();
-      ctx.restore();
+      if(!barriersActive){
+        // ---- caminho de sempre, sem nenhuma alteração ----
+        ctx.save();
+        ctx.globalCompositeOperation='destination-out';
+        const glow=ctx.createRadialGradient(x,y,0,x,y,range);
+        glow.addColorStop(0,'rgba(0,0,0,1)');
+        glow.addColorStop(.82,'rgba(0,0,0,1)');
+        glow.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=glow;
+        ctx.beginPath();
+        if(lighting.shape==='circle') ctx.arc(x,y,range,0,Math.PI*2);
+        else{ ctx.moveTo(x,y); ctx.arc(x,y,range,angle-half,angle+half); ctx.closePath(); }
+        ctx.fill();
+        const clearRange=Math.max(1,range*.82);
+        ctx.restore();
+        ctx.save();
+        ctx.beginPath();
+        if(lighting.shape==='circle') ctx.arc(x,y,clearRange,0,Math.PI*2);
+        else{ ctx.moveTo(x,y); ctx.arc(x,y,clearRange,angle-half,angle+half); ctx.closePath(); }
+        ctx.clip();
+        ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
+        ctx.restore();
+        ctx.save();
+        ctx.globalCompositeOperation='destination-out';
+        ctx.fillStyle='rgba(0,0,0,1)';
+        ctx.beginPath(); ctx.arc(x,y,sourceRadius,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+        return;
+      }
+      // ---- com barreiras: máscara própria desta luz, depois somada ao acumulador ----
+      maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height);
+      maskCtx.globalCompositeOperation='source-over';
+      const glow=maskCtx.createRadialGradient(x,y,0,x,y,range);
+      glow.addColorStop(0,'rgba(255,255,255,1)');
+      glow.addColorStop(.82,'rgba(255,255,255,1)');
+      glow.addColorStop(1,'rgba(255,255,255,0)');
+      maskCtx.fillStyle=glow;
+      maskCtx.beginPath();
+      if(lighting.shape==='circle') maskCtx.arc(x,y,range,0,Math.PI*2);
+      else{ maskCtx.moveTo(x,y); maskCtx.arc(x,y,range,angle-half,angle+half); maskCtx.closePath(); }
+      maskCtx.fill();
+      maskCtx.beginPath(); maskCtx.arc(x,y,sourceRadius,0,Math.PI*2); maskCtx.fill();
+      paintBarrierShadowsOnMask(maskCtx,barrierModel.list,x,y,range);
+      accCtx.globalCompositeOperation='lighter';
+      accCtx.drawImage(maskCanvas,0,0);
     });
     lighting.points.forEach(point=>{
       if(!point.enabled||!viewerCanSeeLightPoint(point,lighting,viewerGroups))return;
       const x=(point.x/100)*canvas.width, y=(point.y/100)*canvas.height;
       const range=lanternRangePixels(page,{range:point.range},canvas);
       const pointAngle=Number(point.angle)||0, pointHalf=((Number(point.aperture)||70)*Math.PI/180)/2;
-      ctx.save();
-      ctx.globalCompositeOperation='destination-out';
-      const glow=ctx.createRadialGradient(x,y,0,x,y,range);
-      glow.addColorStop(0,'rgba(0,0,0,1)');
-      glow.addColorStop(.82,'rgba(0,0,0,1)');
-      glow.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=glow;
-      ctx.beginPath();
-      if(point.shape==='cone'){ ctx.moveTo(x,y); ctx.arc(x,y,range,pointAngle-pointHalf,pointAngle+pointHalf); ctx.closePath(); }
-      else ctx.arc(x,y,range,0,Math.PI*2);
-      ctx.fill();
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      if(point.shape==='cone'){ ctx.moveTo(x,y); ctx.arc(x,y,Math.max(1,range*.82),pointAngle-pointHalf,pointAngle+pointHalf); ctx.closePath(); }
-      else ctx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2);
-      ctx.clip();
-      ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
-      ctx.restore();
-      ctx.save();
-      ctx.globalCompositeOperation='destination-out';
-      ctx.fillStyle='rgba(0,0,0,1)';
-      ctx.beginPath(); ctx.arc(x,y,Math.max(6,8*Math.max(scaleX,scaleY)),0,Math.PI*2); ctx.fill();
-      ctx.restore();
+      if(!barriersActive){
+        // ---- caminho de sempre, sem nenhuma alteração ----
+        ctx.save();
+        ctx.globalCompositeOperation='destination-out';
+        const glow=ctx.createRadialGradient(x,y,0,x,y,range);
+        glow.addColorStop(0,'rgba(0,0,0,1)');
+        glow.addColorStop(.82,'rgba(0,0,0,1)');
+        glow.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=glow;
+        ctx.beginPath();
+        if(point.shape==='cone'){ ctx.moveTo(x,y); ctx.arc(x,y,range,pointAngle-pointHalf,pointAngle+pointHalf); ctx.closePath(); }
+        else ctx.arc(x,y,range,0,Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+        ctx.save();
+        ctx.beginPath();
+        if(point.shape==='cone'){ ctx.moveTo(x,y); ctx.arc(x,y,Math.max(1,range*.82),pointAngle-pointHalf,pointAngle+pointHalf); ctx.closePath(); }
+        else ctx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2);
+        ctx.clip();
+        ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
+        ctx.restore();
+        ctx.save();
+        ctx.globalCompositeOperation='destination-out';
+        ctx.fillStyle='rgba(0,0,0,1)';
+        ctx.beginPath(); ctx.arc(x,y,Math.max(6,8*Math.max(scaleX,scaleY)),0,Math.PI*2); ctx.fill();
+        ctx.restore();
+        return;
+      }
+      // ---- com barreiras: mesma técnica de máscara + acumulador ----
+      maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height);
+      maskCtx.globalCompositeOperation='source-over';
+      const glow=maskCtx.createRadialGradient(x,y,0,x,y,range);
+      glow.addColorStop(0,'rgba(255,255,255,1)');
+      glow.addColorStop(.82,'rgba(255,255,255,1)');
+      glow.addColorStop(1,'rgba(255,255,255,0)');
+      maskCtx.fillStyle=glow;
+      maskCtx.beginPath();
+      if(point.shape==='cone'){ maskCtx.moveTo(x,y); maskCtx.arc(x,y,range,pointAngle-pointHalf,pointAngle+pointHalf); maskCtx.closePath(); }
+      else maskCtx.arc(x,y,range,0,Math.PI*2);
+      maskCtx.fill();
+      maskCtx.beginPath(); maskCtx.arc(x,y,Math.max(6,8*Math.max(scaleX,scaleY)),0,Math.PI*2); maskCtx.fill();
+      paintBarrierShadowsOnMask(maskCtx,barrierModel.list,x,y,range);
+      accCtx.globalCompositeOperation='lighter';
+      accCtx.drawImage(maskCanvas,0,0);
     });
+
+    if(barriersActive){
+      ctx.globalCompositeOperation='destination-out';
+      ctx.drawImage(accCanvas,0,0);
+      ctx.globalCompositeOperation='source-over';
+    }
   }
 
   function getObjectAttachmentCanvas(id,zIndex){
@@ -11979,14 +12403,9 @@
         const dist = Math.hypot(x2 - x1, y2 - y1);
         const angle = Math.atan2(y2 - y1, x2 - x1);
         const spread = Math.PI / 6;
-        const leftX = x1 + dist * Math.cos(angle - spread);
-        const leftY = y1 + dist * Math.sin(angle - spread);
-        const rightX = x1 + dist * Math.cos(angle + spread);
-        const rightY = y1 + dist * Math.sin(angle + spread);
         ctx.beginPath();
         ctx.moveTo(x1, y1);
-        ctx.lineTo(leftX, leftY);
-        ctx.lineTo(rightX, rightY);
+        ctx.arc(x1, y1, dist, angle - spread, angle + spread);
         ctx.closePath();
         ctx.stroke();
       }
@@ -12110,6 +12529,15 @@
       for(let a = 0; a < 8; a++){
         const ang = (a / 8) * Math.PI * 2;
         candidates.push({ x:s.x + radius * Math.cos(ang), y:s.y + radius * Math.sin(ang) });
+      }
+    }
+    if(stroke.shape === 'cone'){
+      const dist = Math.hypot(e.x - s.x, e.y - s.y);
+      const angle = Math.atan2(e.y - s.y, e.x - s.x);
+      const spread = Math.PI / 6;
+      for(let a = 0; a <= 6; a++){
+        const ang = angle - spread + (a / 6) * spread * 2;
+        candidates.push({ x:s.x + dist * Math.cos(ang), y:s.y + dist * Math.sin(ang) });
       }
     }
     return candidates.some(p => Math.hypot(p.x - pt.x, p.y - pt.y) <= r);
@@ -12755,7 +13183,7 @@
 
   el('mobile-more-close').addEventListener('click',()=>{ closeMobileMore(); updateMobileNavActive(); });
   el('mobile-mode-cancel').addEventListener('click',()=>{
-    state.drawMode=false; state.fogMode=false; state.measureArmed=false; state.pingArmed=false; state.lightPointArmed=false;
+    state.drawMode=false; state.fogMode=false; state.measureArmed=false; state.pingArmed=false; state.lightPointArmed=false; state.barrierTool=null; state.barrierDraftStart=null;
     closeOpenToolPanels(); render();
   });
   el('mobile-more-backdrop').addEventListener('click',()=>{ closeMobileMore(); updateMobileNavActive(); });
@@ -12782,7 +13210,7 @@
     const action=button.getAttribute('data-mobile-action');
     if(button.hasAttribute('data-mobile-master-only')&&!effectiveMaster())return;
     if(action==='pan'){
-      state.drawMode=false; state.fogMode=false; state.measureArmed=false; state.pingArmed=false; state.lightPointArmed=false;
+      state.drawMode=false; state.fogMode=false; state.measureArmed=false; state.pingArmed=false; state.lightPointArmed=false; state.barrierTool=null; state.barrierDraftStart=null;
       closeOpenToolPanels(); render(); return;
     }
     closeOpenToolPanels();
@@ -12857,6 +13285,9 @@
       state.fogMode = false;
       state.pingArmed = false;
       state.measureArmed = false;
+      state.barrierTool = null;
+      state.barrierDraftStart = null;
+      state.barrierCurvePoints = null;
       multiSelectedTokenIds = new Set();
       state.selectedTextId = null;
       closeOpenToolPanels();
