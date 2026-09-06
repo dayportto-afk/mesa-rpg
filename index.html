@@ -21,6 +21,7 @@
     --wax:#7a2b2b;
     --shadow:rgba(0,0,0,0.6);
     --token-outline-shadow:rgba(0,0,0,0);
+    --initiative-turn-color:#3fd0e2;
     --topbar-bg-1:#221a10;
     --topbar-bg-2:#17120b;
   }
@@ -692,6 +693,9 @@
   .token.defeated{ border-color:#0a0a0a !important; }
   .token.defeated img{ filter:grayscale(100%); }
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
+  .token.active-turn{
+    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 12px 4px var(--token-outline-shadow), 0 0 0 4px var(--initiative-turn-color);
+  }
   .token.selected{ box-shadow:0 0 0 2px var(--amber-bright), 0 3px 10px var(--shadow); }
   .token.multi-selected{ box-shadow:0 0 0 3px #4fc3f7, 0 3px 10px var(--shadow); }
   .token-label{
@@ -2761,6 +2765,11 @@
             <button type="button" id="btn-initiative-next">Próximo turno →</button>
             <button type="button" id="btn-initiative-clear" class="danger">Encerrar combate</button>
           </div>
+          <div class="theme-row" style="margin-top:8px;">
+            <label for="initiative-turn-color">Cor de destaque no mapa</label>
+            <input type="color" id="initiative-turn-color" value="#3fd0e2">
+          </div>
+          <div class="hint">Só afeta o brilho que marca o token de quem está na vez — não muda o "Destaque" da aparência geral da campanha.</div>
         </div>
         <div id="initiative-current-turn-box">
           <img id="initiative-current-turn-image" src="" alt="">
@@ -4412,12 +4421,18 @@
     ).join('');
   }
 
+  const DEFAULT_INITIATIVE_TURN_COLOR = '#3fd0e2';
+  function applyInitiativeTurnColor(){
+    document.documentElement.style.setProperty('--initiative-turn-color', (state.initiative && state.initiative.turnColor) || DEFAULT_INITIATIVE_TURN_COLOR);
+  }
   function renderInitiativeList(){
     el('initiative-round').textContent = state.initiative.round;
     renderCombatHistory();
     updatePassTurnButton();
+    applyInitiativeTurnColor();
     el('initiative-master-controls').style.display = effectiveMaster() ? 'block' : 'none';
     if(effectiveMaster()){
+      el('initiative-turn-color').value = (state.initiative && state.initiative.turnColor) || DEFAULT_INITIATIVE_TURN_COLOR;
       const sel = el('initiative-token-select');
       const prevValue = sel.value;
       const initiativeTokens=state.tokens.filter(t=>!t.isReference&&!t.isMapObject);
@@ -4549,7 +4564,7 @@
 
   async function clearInitiative(){
     if(state.initiative.list.length && !confirm('Encerrar o combate e limpar a iniciativa?')) return;
-    state.initiative = { list:[], activeId:null, round:1, turnSeq:0, combatId:null };
+    state.initiative = { list:[], activeId:null, round:1, turnSeq:0, combatId:null, turnColor:state.initiative.turnColor };
     renderInitiativeList();
     renderInitiativeHud();
     renderTokens();
@@ -4767,6 +4782,11 @@
   });
 
   el('btn-initiative-next').addEventListener('click', nextInitiativeTurn);
+  el('initiative-turn-color').addEventListener('input', async () => {
+    state.initiative.turnColor = el('initiative-turn-color').value;
+    applyInitiativeTurnColor();
+    await persistInitiative();
+  });
   el('btn-initiative-clear').addEventListener('click', clearInitiative);
   el('btn-pass-turn').addEventListener('click', passCurrentTurn);
   el('btn-combat-history-clear').addEventListener('click', clearCombatHistory);
@@ -7239,6 +7259,8 @@
   function renderTokens(){
     document.querySelectorAll('.token').forEach(t => t.remove());
     if(!document.getElementById('map-img')) return;
+    const activeEntry=activeInitiativeEntry();
+    const activeInitiativeTokenId=activeEntry?activeEntry.tokenId:null;
     const renderOrder = state.tokens.slice().sort((a,b) => Number(!!b.isMapObject) - Number(!!a.isMapObject));
     renderOrder.forEach(tok => {
       if(!isTokenOnPage(tok, state.currentPageId)) return;
@@ -7246,7 +7268,7 @@
       if(tok.isReference && !effectiveMaster()) return;
       const pos = tokenPos(tok);
       const t = document.createElement('div');
-      t.className = 'token' + (tok.isReference ? ' token-reference' : '') + (tok.isMapObject ? ' map-object' : '') + (tok.isMapObject && tok.objectLocked ? ' object-locked' : '') + (tok.isReference && tok.referenceLocked ? ' reference-locked' : '');
+      t.className = 'token' + (tok.isReference ? ' token-reference' : '') + (tok.isMapObject ? ' map-object' : '') + (tok.isMapObject && tok.objectLocked ? ' object-locked' : '') + (tok.isReference && tok.referenceLocked ? ' reference-locked' : '') + (state.initiative.activeId && activeInitiativeTokenId===tok.id ? ' active-turn' : '');
       t.dataset.id = tok.id;
       const size = tokenSize(tok);
       const dims = tokenDisplayDimensions(tok, size);
