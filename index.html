@@ -652,7 +652,7 @@
     position:absolute; width:64px; height:64px; margin:-32px 0 0 -32px;
     border-radius:50%;
     border:2px solid var(--amber-bright);
-    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 0 4px var(--token-outline-shadow);
+    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 12px 4px var(--token-outline-shadow);
     cursor:grab; touch-action:none; user-select:none;
     transition:box-shadow .15s;
   }
@@ -1015,7 +1015,7 @@
   #context-menu .context-range-title{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment); }
   #context-menu .context-range-value{ color:var(--amber-bright); min-width:38px; text-align:right; }
   #context-menu .context-range-control input[type=range]{ display:block; width:100%; margin:0; accent-color:var(--amber); cursor:ew-resize; }
-  .move-distance-label{ position:absolute; pointer-events:none; z-index:1000000; transform:translate(-50%,-115%); background:#150f09; border:1px solid var(--amber-bright); color:var(--amber-bright); border-radius:4px; padding:3px 7px; font-family:'JetBrains Mono',monospace; font-size:10px; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.45); }
+  .move-distance-label{ position:absolute; pointer-events:none; z-index:2000000; transform:translate(-50%,-115%); background:#150f09; border:1px solid var(--amber-bright); color:var(--amber-bright); border-radius:4px; padding:3px 7px; font-family:'JetBrains Mono',monospace; font-size:10px; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.45); }
 
   /* Campaign journal (same drawer pattern; open to master AND players) */
   #journal-backdrop{
@@ -5962,7 +5962,10 @@
     const savedRaw = await task;
     tokenWritesQueued = Math.max(0, tokenWritesQueued - 1);
     if(savedRaw){
-      const savedIds = new Set(payload.list.map(t => t.id));
+      // Só libera a proteção dos ids que ESTE salvamento realmente enviou —
+      // nunca de todo o mapa, para não destravar cedo demais um token cujo
+      // próprio salvamento ainda esteja em andamento em outra chamada.
+      const savedIds = new Set(changes.added.map(t => t.id).concat(changes.updated.map(c => c.id)));
       [...locallyProtectedTokenIds].forEach(id => { if(savedIds.has(id)) locallyProtectedTokenIds.delete(id); });
       lastTokensSnapshot = savedRaw;
       if(tokenWritesQueued === 0){
@@ -10433,7 +10436,7 @@
   el('theme-accent').addEventListener('input', themeInputHandler('accent'));
   el('theme-topbar').addEventListener('input', themeInputHandler('topbar'));
   el('theme-topbar-opacity').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.topbarOpacity=Number(el('theme-topbar-opacity').value); el('theme-topbar-opacity-value').textContent=state.meta.theme.topbarOpacity+'%'; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
-  el('theme-token-outline').addEventListener('input', themeInputHandler('tokenOutline'));
+  el('theme-token-outline').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutline=el('theme-token-outline').value; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('theme-token-outline-opacity').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutlineOpacity=Number(el('theme-token-outline-opacity').value); el('theme-token-outline-opacity-value').textContent=state.meta.theme.tokenOutlineOpacity+'%'; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('theme-token-outline-enabled').addEventListener('change', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutlineEnabled=el('theme-token-outline-enabled').checked; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('btn-theme-reset').addEventListener('click', async () => {
