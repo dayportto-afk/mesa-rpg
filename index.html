@@ -2053,7 +2053,7 @@
           <span class="icon-rail-label">Névoa</span>
         </div>
         <div class="icon-rail-item">
-          <button type="button" class="icon-rail-btn" data-panel="float-light-barriers" title="Barreiras de Luz (parede/porta/janela para a lanterna)">🧱</button>
+          <button type="button" class="icon-rail-btn" data-panel="float-light-barriers" title="Barreiras de Luz (parede/porta/janela para a lanterna) — desenha só com ESPAÇO pressionado">🧱</button>
           <span class="icon-rail-label">Barreiras</span>
         </div>
         <div class="icon-rail-item">
@@ -2374,7 +2374,7 @@
           <button type="button" class="float-panel-close" data-close-panel="float-light-barriers">✕</button>
         </div>
         <div class="float-panel-body">
-          <div class="hint">Ferramenta à parte e opcional: só afeta esta página, e só quando ativada. Sem ela, a lanterna/luz continua exatamente como sempre foi — círculo ou cone sem considerar paredes.</div>
+          <div class="hint">Ferramenta à parte e opcional: só afeta esta página, e só quando ativada. Sem ela, a lanterna/luz continua exatamente como sempre foi — círculo ou cone sem considerar paredes. Só desenha enquanto você mantiver a tecla ESPAÇO pressionada — sem segurar, o clique no mapa não traça nada.</div>
           <button type="button" id="btn-barriers-toggle" style="width:100%; margin-top:8px;">Ativar barreiras de luz nesta página</button>
           <div class="tool-row" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:10px;">
             <button type="button" id="btn-barrier-wall" title="Bloqueia luz por completo">🧱 Parede</button>
@@ -3127,6 +3127,7 @@
     barrierDrawMode:'straight',
     barrierCurvePoints:null,
     barrierRectStart:null,
+    barrierSpaceHeld:false,
     barrierLineColor:'#e2a53f',
     barrierWindowTransmission:0.5,
     drawMode:false,
@@ -5644,6 +5645,7 @@
     state.lightPointArmed = false;
     state.barrierTool = null;
     state.barrierDraftStart = null;
+    state.barrierSpaceHeld = false;
     state.selectedTokenId = null;
     state.previewAsPlayer = false;
     state.diceQty = {4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0};
@@ -6531,9 +6533,9 @@
       el('btn-barrier-mode-curve').classList.toggle('toggle-active',state.barrierDrawMode==='curve');
       el('btn-barrier-mode-rect').classList.toggle('toggle-active',state.barrierDrawMode==='rect');
       const barrierHints={
-        wall:'Reta: clique pra iniciar, clique de novo pra fechar o segmento — dá pra encadear vários. Curva: pressione e arraste; solta pra terminar. Retângulo: arraste de um canto ao outro do cômodo — cria as 4 paredes de uma vez. Esc cancela. Uma vez criada, não se move — só apagar e redesenhar.',
-        door:'Clique pra iniciar, clique de novo pra fechar o segmento. Fica com um interruptor sempre visível pra você, pra abrir/fechar durante o jogo (clique direito nela).',
-        window:'Reta: clique-clique. Curva: pressione e arraste. Retângulo: arraste de um canto ao outro. Transmissão inicial definida pelo slider abaixo — depois dá pra ajustar clicando com o botão direito na janela.'
+        wall:'Segure ESPAÇO pra desenhar (sem segurar, o clique não traça nada). Reta: clique pra iniciar, clique de novo pra fechar o segmento — dá pra encadear vários. Curva: pressione e arraste; solta pra terminar. Retângulo: arraste de um canto ao outro do cômodo — cria as 4 paredes de uma vez. Esc fecha a ferramenta. Uma vez criada, não se move — só apagar e redesenhar.',
+        door:'Segure ESPAÇO pra desenhar. Clique pra iniciar, clique de novo pra fechar o segmento. Se desenhada em cima de um trecho de parede, aquele trecho se abre automaticamente. Fica com um interruptor sempre visível pra você, pra abrir/fechar durante o jogo (clique direito nela).',
+        window:'Segure ESPAÇO pra desenhar. Reta: clique-clique. Curva: pressione e arraste. Retângulo: arraste de um canto ao outro. Transmissão inicial definida pelo slider abaixo — depois dá pra ajustar clicando com o botão direito na janela.'
       };
       el('barrier-tool-hint').textContent=state.barrierTool?barrierHints[state.barrierTool]:'Escolha Parede, Porta ou Janela pra começar a desenhar no mapa.';
       el('barrier-window-transmission').value=Math.round(state.barrierWindowTransmission*100);
@@ -11211,7 +11213,7 @@
     if(state.pingArmed){ placePing(e); return; }
     if(state.measureArmed){ startMeasure(e); return; }
     if(state.lightPointArmed&&effectiveMaster()){ void placeLightPoint(e); return; }
-    if(state.barrierTool&&effectiveMaster()){
+    if(state.barrierTool&&effectiveMaster()&&state.barrierSpaceHeld){
       if(state.barrierDrawMode==='curve'&&state.barrierTool!=='door'){ if(handleBarrierCurveStart(e)) return; }
       else if(state.barrierDrawMode==='rect'&&state.barrierTool!=='door'){ if(handleBarrierRectStart(e)) return; }
       else if(handleBarrierClick(e)) return;
@@ -11404,6 +11406,7 @@
     state.barrierDraftStart = null;
     state.barrierCurvePoints = null;
     state.barrierRectStart = null;
+    state.barrierSpaceHeld = false;
     if(state.barrierTool){ state.fogMode=false; state.drawMode=false; state.lightPointArmed=false; state.pingArmed=false; state.measureArmed=false; }
     render();
   }
@@ -13491,26 +13494,28 @@
     const typing = keyboardShortcutTypingTarget(e.target);
 
     if(e.key === 'Escape'){
-      // No modo Barreiras de Luz, Esc só pausa o traço em andamento — a
-      // ferramenta (Parede/Porta/Janela) continua selecionada, e clicar de
-      // novo no mapa retoma o desenho de onde parou.
-      if(state.barrierTool){
-        state.barrierDraftStart = null;
-        state.barrierCurvePoints = null;
-        state.barrierRectStart = null;
-        renderLightBarriers();
-        return;
-      }
       if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
       state.drawMode = false;
       state.fogMode = false;
       state.pingArmed = false;
       state.measureArmed = false;
+      state.barrierTool = null;
+      state.barrierDraftStart = null;
+      state.barrierCurvePoints = null;
+      state.barrierRectStart = null;
+      state.barrierSpaceHeld = false;
       multiSelectedTokenIds = new Set();
       state.selectedTextId = null;
       closeOpenToolPanels();
       render();
       return;
+    }
+
+    // Barreiras de Luz: precisa segurar espaço pra desenhar de verdade —
+    // solto, o clique no mapa não traça nada (evita desenhar sem querer).
+    if(e.code === 'Space' && state.barrierTool && !typing && !state.barrierSpaceHeld){
+      e.preventDefault();
+      state.barrierSpaceHeld = true;
     }
 
     // Copiar/colar fichas com Ctrl+C / Ctrl+V (ou Cmd no Mac). Ignorado enquanto a
@@ -13630,6 +13635,14 @@
       // Delete remove o elemento selecionado apenas do mapa ATUAL. A exclusão permanente
       // continua disponível no gerenciador de fichas, evitando perda de dados por acidente.
       await removeTokenFromPage(id);
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    if(e.code === 'Space' && state.barrierSpaceHeld){
+      state.barrierSpaceHeld = false;
+      // Soltou o espaço no meio de um traço: pausa (não descarta o desenho já
+      // feito), igual apertar Esc fazia antes — só que agora reversível
+      // segurando espaço de novo, sem precisar reabrir a ferramenta.
     }
   });
   document.addEventListener('click', (e) => {
