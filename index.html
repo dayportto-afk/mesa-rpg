@@ -721,6 +721,7 @@
   .token.token-reference.reference-locked{ cursor:not-allowed; }
   .token.token-reference.reference-locked .token-resize-handle{ display:none; }
   .reference-lock-badge{ position:absolute; top:4px; right:4px; z-index:8; background:#150f09; border:1px solid var(--wax); border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; pointer-events:none; }
+  .reference-lock-badge.object-lock-badge{ transform:scale(.333333); transform-origin:top right; }
   #map-canvas img{ position:relative; z-index:0; display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0; }
@@ -4281,59 +4282,111 @@
     await safeSet(slotKey('meta'), state.meta);
   }
 
-  // Pressione o botão esquerdo por 2 s e continue segurando para reposicionar.
-  // Um clique normal continua abrindo/fechando a ferramenta como antes.
+  // Pressione e segure o botão esquerdo por 2 s para ativar o reposicionamento.
+  // Depois da ativação, o movimento é acompanhado pelo documento inteiro para
+  // não perder o arraste quando o cursor sai da barra lateral.
   let iconRailPress=null;
-  $iconRail.addEventListener('pointerdown', e=>{
-    if(!effectiveMaster() || e.button!==0) return;
-    const btn=e.target.closest('.icon-rail-btn');
-    const item=btn && btn.closest('.icon-rail-item');
-    if(!btn || !item) return;
-    const press={pointerId:e.pointerId,item,btn,active:false,startX:e.clientX,startY:e.clientY,timer:null};
-    iconRailPress=press;
-    press.timer=setTimeout(()=>{
-      if(iconRailPress!==press) return;
-      press.active=true;
-      suppressIconRailClickUntil=Date.now()+700;
-      $iconRail.classList.add('icon-rail-reordering');
-      item.classList.add('icon-rail-held','icon-rail-longpress');
-      setTimeout(()=>item.classList.remove('icon-rail-longpress'),800);
-      try{ $iconRail.setPointerCapture(e.pointerId); }catch(err){}
-      if(navigator.vibrate) navigator.vibrate(35);
-    },2000);
-  });
-  $iconRail.addEventListener('pointermove', e=>{
-    const press=iconRailPress;
-    if(!press || press.pointerId!==e.pointerId) return;
-    if(!press.active){
-      // Movimento acidental antes de completar os 2 s cancela o gesto.
-      if(Math.hypot(e.clientX-press.startX,e.clientY-press.startY)>9){ clearTimeout(press.timer); iconRailPress=null; }
-      return;
+  let iconRailDragMoveHandler=null;
+  let iconRailDragUpHandler=null;
+
+  function clearIconRailPressTimer(){
+    if(iconRailPress && iconRailPress.timer){
+      clearTimeout(iconRailPress.timer);
+      iconRailPress.timer=null;
     }
-    e.preventDefault();
+  }
+
+  function beginIconRailReorder(press){
+    if(!press || iconRailPress!==press || !effectiveMaster()) return;
+    press.active=true;
+    press.timer=null;
+    suppressIconRailClickUntil=Date.now()+5000;
+    $iconRail.classList.add('icon-rail-reordering');
+    press.item.classList.add('icon-rail-held','icon-rail-longpress');
+    setTimeout(()=>press.item && press.item.classList.remove('icon-rail-longpress'),800);
+    document.body.style.userSelect='none';
+    document.body.style.webkitUserSelect='none';
+    if(navigator.vibrate) navigator.vibrate(35);
+  }
+
+  function moveIconRailHeldItem(clientY){
+    const press=iconRailPress;
+    if(!press || !press.active) return;
     const siblings=Array.from($iconRail.querySelectorAll(':scope > .icon-rail-item')).filter(x=>x!==press.item);
     let before=null;
     for(const candidate of siblings){
       const r=candidate.getBoundingClientRect();
-      if(e.clientY < r.top + r.height/2){ before=candidate; break; }
+      if(clientY < r.top + r.height/2){ before=candidate; break; }
     }
     if(before) $iconRail.insertBefore(press.item,before);
     else $iconRail.appendChild(press.item);
-  });
-  async function finishIconRailPress(e){
+  }
+
+  async function finishIconRailReorder(){
     const press=iconRailPress;
-    if(!press || (e && press.pointerId!==e.pointerId)) return;
-    clearTimeout(press.timer);
+    if(!press) return;
+    clearIconRailPressTimer();
     iconRailPress=null;
+    if(iconRailDragMoveHandler){ document.removeEventListener('mousemove',iconRailDragMoveHandler,true); iconRailDragMoveHandler=null; }
+    if(iconRailDragUpHandler){ document.removeEventListener('mouseup',iconRailDragUpHandler,true); iconRailDragUpHandler=null; }
+    document.body.style.userSelect='';
+    document.body.style.webkitUserSelect='';
     if(!press.active) return;
-    suppressIconRailClickUntil=Date.now()+700;
+    suppressIconRailClickUntil=Date.now()+1200;
     press.item.classList.remove('icon-rail-held','icon-rail-longpress');
     $iconRail.classList.remove('icon-rail-reordering');
-    try{ $iconRail.releasePointerCapture(press.pointerId); }catch(err){}
     await persistIconRailOrder();
   }
-  $iconRail.addEventListener('pointerup', e=>{ void finishIconRailPress(e); });
-  $iconRail.addEventListener('pointercancel', e=>{ void finishIconRailPress(e); });
+
+  $iconRail.addEventListener('mousedown', e=>{
+    if(!effectiveMaster() || e.button!==0) return;
+    const btn=e.target.closest('.icon-rail-btn');
+    const item=btn && btn.closest('.icon-rail-item');
+    if(!btn || !item) return;
+
+    // Finaliza qualquer gesto anterior que tenha ficado pendente.
+    if(iconRailPress){
+      clearIconRailPressTimer();
+      iconRailPress=null;
+    }
+
+    const press={item,btn,active:false,startX:e.clientX,startY:e.clientY,timer:null};
+    iconRailPress=press;
+    press.timer=setTimeout(()=>beginIconRailReorder(press),2000);
+
+    iconRailDragMoveHandler=(ev)=>{
+      if(iconRailPress!==press) return;
+      if(!press.active){
+        // Permite pequenos tremores naturais da mão sem cancelar o pressionar longo.
+        if(Math.hypot(ev.clientX-press.startX,ev.clientY-press.startY)>18){
+          clearIconRailPressTimer();
+          iconRailPress=null;
+          document.removeEventListener('mousemove',iconRailDragMoveHandler,true);
+          document.removeEventListener('mouseup',iconRailDragUpHandler,true);
+          iconRailDragMoveHandler=null;
+          iconRailDragUpHandler=null;
+        }
+        return;
+      }
+      ev.preventDefault();
+      moveIconRailHeldItem(ev.clientY);
+    };
+    iconRailDragUpHandler=(ev)=>{
+      if(iconRailPress!==press) return;
+      if(press.active){ ev.preventDefault(); ev.stopPropagation(); }
+      void finishIconRailReorder();
+    };
+    document.addEventListener('mousemove',iconRailDragMoveHandler,true);
+    document.addEventListener('mouseup',iconRailDragUpHandler,true);
+  });
+
+  // Evita menu de contexto/arraste nativo interferindo durante a reorganização.
+  $iconRail.addEventListener('dragstart',e=>{
+    if(iconRailPress && iconRailPress.active) e.preventDefault();
+  });
+  $iconRail.addEventListener('contextmenu',e=>{
+    if(iconRailPress && iconRailPress.active) e.preventDefault();
+  });
 
   document.querySelectorAll('.icon-rail-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -8110,7 +8163,7 @@
         t.classList.toggle('multi-selected',effectiveMaster()&&multiSelectedTokenIds.has(tok.id));
         const labelFontSize = Math.max(11, Math.min(16, Math.round(size * 0.06)));
         const handleHtml = effectiveMaster() ? '<div class="token-resize-handle" data-resize-handle="'+tok.id+'" title="Arraste para redimensionar"></div>' : '';
-        const lockBadge = effectiveMaster() && tok.objectLocked ? '<div class="reference-lock-badge" title="Posição travada">🔒</div>' : '';
+        const lockBadge = effectiveMaster() && tok.objectLocked ? '<div class="reference-lock-badge object-lock-badge" title="Posição travada">🔒</div>' : '';
         const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
         const shadowFilter=shadow.enabled ? 'drop-shadow(0 '+Math.max(0,Number(shadow.offset)||0)+'px '+Math.max(0,Number(shadow.blur)||0)+'px '+hexToRgbaTheme(shadow.color||'#000000',Math.max(0,Math.min(1,Number(shadow.opacity)||0)))+')' : 'none';
         const objectRotation=((Number(tok.rotation)||0)%360+360)%360;
