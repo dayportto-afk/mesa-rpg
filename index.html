@@ -243,6 +243,19 @@
     letter-spacing:0.3px; text-align:center; line-height:1.1;
     text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.9);
   }
+  #btn-icon-rail-reorder.toggle-active{ background:var(--amber); border-color:var(--amber-bright); color:#150f09; }
+  .icon-rail-item{ position:relative; }
+  .icon-rail-reorder-controls{
+    display:none; position:absolute; top:-6px; right:-6px; flex-direction:column; gap:2px; z-index:2;
+  }
+  #icon-rail.reordering .icon-rail-item:not(#icon-rail-reorder-item) .icon-rail-reorder-controls{ display:flex; }
+  #icon-rail.reordering .icon-rail-item:not(#icon-rail-reorder-item) .icon-rail-btn{ opacity:.55; }
+  .icon-rail-reorder-btn{
+    width:18px; height:18px; padding:0; border-radius:50%; font-size:9px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    background:#150f09; border:1px solid var(--amber-bright); color:var(--amber-bright);
+  }
+  .icon-rail-reorder-btn:disabled{ opacity:.3; cursor:default; }
 
   .float-panel{
     display:none; flex-direction:column; position:absolute; z-index:130;
@@ -2141,12 +2154,20 @@
           <span class="icon-rail-label">Desenhar</span>
         </div>
         <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-session-notes" title="Notas de sessão (privadas, só o mestre vê)">🗒️</button>
+          <span class="icon-rail-label">Notas</span>
+        </div>
+        <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn" data-panel="float-oracle" title="Oráculo do mestre">🔮</button>
           <span class="icon-rail-label">Oráculo</span>
         </div>
         <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn icon-rail-danger" data-panel="float-danger" title="Zona de perigo">⚠️</button>
           <span class="icon-rail-label">Perigo</span>
+        </div>
+        <div class="icon-rail-item" id="icon-rail-reorder-item">
+          <button type="button" class="icon-rail-btn" id="btn-icon-rail-reorder" title="Reordenar os ícones desta barra do seu jeito">↕️</button>
+          <span class="icon-rail-label">Reposicionar</span>
         </div>
       </div>
 
@@ -2611,6 +2632,27 @@
         </div>
       </div>
 
+      <div class="float-panel" id="float-session-notes" style="left:320px; top:16px; width:320px;">
+        <div class="float-panel-header">
+          <span>🗒️ Notas de Sessão</span>
+          <button type="button" class="float-panel-close" data-close-panel="float-session-notes">✕</button>
+        </div>
+        <div class="float-panel-body">
+          <div class="hint">Só o mestre vê essas notas — organize a ideia geral de cada sessão aqui (ganchos, cenas planejadas, o que pode acontecer). Ninguém mais no site enxerga este painel.</div>
+          <div class="journal-session-row" style="margin-top:8px;">
+            <label for="session-notes-number">Sessão nº</label>
+            <input type="number" id="session-notes-number" min="1" step="1" placeholder="1">
+          </div>
+          <input type="text" id="session-notes-title" placeholder="Título / resumo rápido (opcional)" style="margin-top:8px;">
+          <textarea id="session-notes-content" rows="5" placeholder="Ideia geral da sessão: ganchos, cenas planejadas, NPCs, o que pode acontecer..." style="width:100%; margin-top:8px; resize:vertical; background:#120e08; border:1px solid var(--line); border-radius:3px; color:var(--parchment); padding:9px 10px; font-family:'EB Garamond', serif; font-size:15px; outline:none;"></textarea>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <button id="btn-session-notes-add" class="primary" style="flex:1;">Adicionar nota</button>
+            <button type="button" id="btn-session-notes-cancel-edit" style="display:none;">Cancelar edição</button>
+          </div>
+          <div id="session-notes-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+
       <div class="float-panel" id="float-oracle" style="left:296px; top:16px; width:300px;">
         <div class="float-panel-header">
           <span>🔮 Oráculo do mestre</span>
@@ -2642,13 +2684,25 @@
           </div>
 
           <div class="oracle-section">
+            <div class="oracle-section-title">Gerador de NPC rápido</div>
+            <button id="btn-oracle-npc" style="width:100%;">Sortear NPC</button>
+            <div class="oracle-result" id="oracle-npc-box">
+              <p class="oracle-result-main" id="oracle-npc-name"></p>
+              <p class="oracle-result-sub" id="oracle-npc-details"></p>
+            </div>
+            <div class="hint">Nome (sorteia masculino ou feminino), traço de personalidade, motivação e maneirismo — tudo de uma vez, pronto pra improvisar.</div>
+          </div>
+
+          <div class="oracle-section">
             <div class="oracle-section-title">Pergunta ao oráculo</div>
             <input type="text" id="oracle-question-input" placeholder="A criatura é hostil?">
             <button id="btn-oracle-ask" class="primary" style="width:100%; margin-top:8px;">Perguntar</button>
             <div class="oracle-result" id="oracle-answer-box">
               <p class="oracle-result-main" id="oracle-answer-text"></p>
               <p class="oracle-result-sub" id="oracle-answer-flavor"></p>
+              <p class="oracle-result-sub" id="oracle-answer-note" style="display:none; margin-top:6px; padding-top:6px; border-top:1px dashed var(--line); color:var(--amber-bright);"></p>
             </div>
+            <div class="hint">Se a pergunta bater com algo escrito nas suas Notas de Sessão, a resposta aponta pra aquela anotação.</div>
           </div>
 
           <div class="oracle-section">
@@ -3287,6 +3341,7 @@
     initiative:{ list:[], activeId:null, round:1, turnSeq:0, combatId:null },
     combatHistory:[],
     journal:[],
+    sessionNotes:[],
     undoStack:[],
     redoStack:[],
     zoom:1,
@@ -3339,6 +3394,68 @@
   const $portalScreen = el('portal-screen');
   const $appScreen = el('app-screen');
   const $iconRail = el('icon-rail');
+  // ---------- reordenar os ícones da barra lateral ----------
+  // Ordem é salva em state.meta.iconRailOrder (lista de valores data-panel) e
+  // persiste por campanha — como cada mestre tem sua própria campanha isolada,
+  // isso já funciona como "preferência de cada mestre" na prática.
+  function applyIconRailOrder(){
+    if(!$iconRail) return;
+    const order = state.meta.iconRailOrder || [];
+    const reorderItem = el('icon-rail-reorder-item');
+    if(!order.length || !reorderItem) return;
+    const items = Array.from($iconRail.querySelectorAll('.icon-rail-item')).filter(it => it.id !== 'icon-rail-reorder-item');
+    const byKey = new Map();
+    items.forEach(it => {
+      const btn = it.querySelector('[data-panel]');
+      if(btn) byKey.set(btn.getAttribute('data-panel'), it);
+    });
+    order.forEach(key => {
+      const it = byKey.get(key);
+      if(it){ $iconRail.insertBefore(it, reorderItem); byKey.delete(key); }
+    });
+    // Ícones novos que não estavam na ordem salva (ex: uma ferramenta adicionada
+    // depois) ficam no fim, antes do botão "Reposicionar", na ordem original.
+    byKey.forEach(it => $iconRail.insertBefore(it, reorderItem));
+  }
+  let iconRailReordering = false;
+  function renderIconRailReorderControls(){
+    document.querySelectorAll('.icon-rail-item .icon-rail-reorder-controls').forEach(n => n.remove());
+    if(!iconRailReordering || !$iconRail) return;
+    const items = Array.from($iconRail.querySelectorAll('.icon-rail-item')).filter(it => it.id !== 'icon-rail-reorder-item');
+    items.forEach((it, i) => {
+      const controls = document.createElement('div');
+      controls.className = 'icon-rail-reorder-controls';
+      controls.innerHTML =
+        '<button type="button" class="icon-rail-reorder-btn" data-rail-move="up"'+(i===0?' disabled':'')+' title="Mover para cima">▲</button>'+
+        '<button type="button" class="icon-rail-reorder-btn" data-rail-move="down"'+(i===items.length-1?' disabled':'')+' title="Mover para baixo">▼</button>';
+      it.appendChild(controls);
+      controls.querySelectorAll('[data-rail-move]').forEach(btn => {
+        btn.addEventListener('click', () => moveIconRailItem(it, btn.getAttribute('data-rail-move')));
+      });
+    });
+  }
+  function moveIconRailItem(item, dir){
+    const sibling = dir === 'up' ? item.previousElementSibling : item.nextElementSibling;
+    if(!sibling || sibling.id === 'icon-rail-reorder-item') return;
+    if(dir === 'up') $iconRail.insertBefore(item, sibling);
+    else $iconRail.insertBefore(sibling, item);
+    saveIconRailOrder();
+    renderIconRailReorderControls();
+  }
+  async function saveIconRailOrder(){
+    const items = Array.from($iconRail.querySelectorAll('.icon-rail-item')).filter(it => it.id !== 'icon-rail-reorder-item');
+    state.meta.iconRailOrder = items.map(it => { const b = it.querySelector('[data-panel]'); return b ? b.getAttribute('data-panel') : null; }).filter(Boolean);
+    await persistMetaOnly();
+  }
+  function setIconRailReordering(on){
+    iconRailReordering = on;
+    if($iconRail) $iconRail.classList.toggle('reordering', on);
+    const btn = el('btn-icon-rail-reorder');
+    if(btn) btn.classList.toggle('toggle-active', on);
+    renderIconRailReorderControls();
+  }
+  const iconRailReorderBtn = el('btn-icon-rail-reorder');
+  if(iconRailReorderBtn) iconRailReorderBtn.addEventListener('click', () => setIconRailReordering(!iconRailReordering));
   const $title = el('campaign-title');
   const $canvas = el('map-canvas');
   const $tokenList = el('token-list');
@@ -3388,6 +3505,7 @@
   let lastInitiativeSnapshot = '';
   let lastCombatHistorySnapshot = '';
   let lastJournalSnapshot = '';
+  let lastSessionNotesSnapshot = '';
   let openNotesTokens = new Set();
   let openTokenCards = new Set();
   let openRecoveriesTokens = new Set();
@@ -4230,6 +4348,31 @@
       lastPicks[key] = choice;
       return choice;
     }
+    // Mesma ideia do pickFresh, mas cada item tem um peso — usado pra deixar o
+    // resultado do oráculo pender pra um lado quando uma nota de sessão relevante
+    // já indica isso (ver oracleNoteSignalStrength). Com pesos iguais, sorteia
+    // exatamente como pickFresh normal — é assim que fica neutro sem notas.
+    function weightedPickFresh(items, weights, key){
+      const total = weights.reduce((a,b)=>a+b,0);
+      function draw(){
+        let r = Math.random()*total;
+        for(let i=0;i<items.length;i++){ r -= weights[i]; if(r<=0) return items[i]; }
+        return items[items.length-1];
+      }
+      let choice = draw();
+      let guard = 0;
+      while(choice === lastPicks[key] && guard < 12){
+        choice = draw();
+        guard++;
+      }
+      lastPicks[key] = choice;
+      return choice;
+    }
+
+    // Traço e maneirismo funcionam bem universais (não dependem do sistema);
+    // motivação já varia por sistema, puxando o tom de cada ambientação.
+    const oracleNpcTraits = ['Desconfiado(a) de estranhos, mas leal a quem conquista sua confiança','Fala pouco, mas observa tudo com atenção','Extremamente gentil, quase ingênuo(a)','Orgulhoso(a) e rápido(a) para se ofender','Curioso(a) até um ponto perigoso','Calmo(a) mesmo sob pressão extrema','Ambicioso(a), sempre em busca da próxima oportunidade','Supersticioso(a), enxerga sinais em tudo','Teimoso(a) e resistente a mudar de ideia','Caloroso(a) e receptivo(a) com forasteiros','Cínico(a), espera o pior das pessoas','Meticuloso(a), incomoda-se com desordem','Impulsivo(a), age antes de pensar','Reservado(a), guarda segredos com facilidade','Generoso(a) além do que pode bancar','Rancoroso(a), não esquece uma ofensa','Otimista contagiante, mesmo em situações ruins','Ansioso(a), sempre prevendo desastres','Carismático(a), fala com todos como se já se conhecessem','Frio(a) e calculista nas decisões','Devoto(a), guia-se por uma fé ou código pessoal','Sarcástico(a), usa humor pra evitar assuntos sérios','Protetor(a) obsessivo(a) com quem ama','Vaidoso(a), preocupado(a) com a própria imagem','Pragmático(a), prioriza resultados acima de tudo'];
+    const oracleNpcMannerisms = ['Fala baixo, quase um sussurro, obrigando os outros a se aproximarem','Gesticula bastante ao falar, quase teatral','Evita olhar nos olhos durante a conversa','Repete a última palavra de quem fala com ele(a), pensativo(a)','Mexe constantemente em um objeto pequeno (moeda, anel, faca)','Ri em momentos inapropriados, por nervosismo','Faz longas pausas antes de responder qualquer pergunta','Chama todo mundo por apelidos, mesmo desconhecidos','Cheira ligeiramente a ervas, fumaça ou algo específico do ofício','Estala os dedos ou as juntas quando está pensando','Fala de si na terceira pessoa ocasionalmente','Tem um tique nervoso visível (piscar, coçar, batucar)','Sempre carrega e ajeita um item de estimação (cachimbo, lenço, amuleto)','Interrompe os outros com frequência, sem perceber','Usa uma expressão ou gíria própria, repetida várias vezes','Mantém distância física incomum das pessoas','Sorri de forma tensa quando está desconfortável','Fala rápido demais quando está nervoso(a)','Observa as mãos das pessoas antes de olhar para o rosto','Tem o hábito de resumir tudo em provérbios ou ditados'];
 
     const oracleNameBanks = {
       outros: {
@@ -4273,6 +4416,7 @@
         oddFlavor: 'algo muda de um jeito que foge de qualquer previsão.',
         actions: ['Revelar','Trair','Ameaçar','Proteger','Esconder','Corromper','Transformar','Negociar','Fugir de','Invocar','Bloquear','Curar','Enganar','Investigar','Destruir','Recrutar'],
         themes: ['um artefato antigo','uma facção rival','uma memória perdida','um segredo da comunidade','uma máquina abandonada','um pacto esquecido','a passagem do tempo','um recurso escasso','um aliado inesperado','as ruínas abaixo','um sinal distante','a identidade de alguém'],
+        npcMotivations: ['Proteger a família ou comunidade a qualquer custo','Recuperar algo que foi perdido ou roubado','Provar seu valor para alguém importante','Escapar de um passado que insiste em voltar','Acumular riqueza suficiente para nunca mais depender de ninguém','Vingar-se de quem lhe fez mal','Descobrir a verdade sobre um evento encoberto','Ganhar reconhecimento ou status na comunidade','Manter um segredo enterrado, custe o que custar','Encontrar um lugar para chamar de lar','Cumprir uma promessa feita a alguém que já morreu','Sobreviver mais um dia, sem grandes ambições além disso'],
         itemBases: ['uma espada simples com a lâmina desgastada','um anel de metal escurecido','uma adaga com o cabo entalhado','um frasco de vidro grosso','um manto remendado em vários pontos','uma bolsa de couro surrada','um bastão de madeira nodosa','um medalhão de metal sem brilho'],
         itemDescriptors: ['que parece ter passado por várias mãos ao longo dos anos','gravado com símbolos que ninguém reconhece','com um peso maior do que o esperado','que carrega um cheiro estranho, difícil de identificar','com marcas de uso recente','que parece incompleto, como se faltasse uma parte','guardado com um cuidado incomum por seu antigo dono','que desperta um interesse imediato em quem o vê'],
         itemEffects: ['Não parece ter nenhum efeito especial, mas alguém decerto o valorizava.','Emite um brilho fraco quando próximo de perigo.','Esquenta ao toque quando alguém mente por perto.','Facilita uma tarefa específica, ainda não identificada.','Guarda uma mensagem ou marca escondida em algum lugar.','Parece atrair a atenção de certos animais.','Reage de forma sutil à presença de magia.','Serve como prova de algo — um acordo, um crime, uma promessa.'],
@@ -4290,6 +4434,7 @@
         oddFlavor: 'o Nono Mundo responde de um jeito que ninguém esperava.',
         actions: ['Revelar','Trair','Ameaçar','Proteger','Esconder','Corromper','Transformar','Negociar','Fugir de','Invocar','Bloquear','Curar','Enganar','Investigar','Destruir','Recrutar'],
         themes: ['um artefato antigo','uma facção rival','o próprio corpo','uma memória perdida','um ninho sintetizado','um portal instável','uma criatura mutante','uma máquina abandonada','um pacto esquecido','a passagem do tempo','um recurso escasso','as ruínas abaixo','um sinal do céu'],
+        npcMotivations: ['Compreender um numenera que encontrou e não consegue explicar','Proteger sua comunidade de perigos vindos das ruínas próximas','Recuperar uma tecnologia roubada de sua família','Escapar da sombra de um antigo mundo que ainda o(a) assombra','Provar que uma descoberta sua tem valor real','Vingar-se de uma facção que destruiu seu lar','Encontrar um propósito em um mundo cheio de mistérios incompreensíveis','Acumular numenera suficiente para nunca mais passar necessidade','Manter em segredo o que realmente viu nas profundezas','Ser aceito(a) por uma comunidade que o(a) trata como estranho(a)'],
         cifras: ['Grampos de adesão','Antídoto','Atrator','Nódulo de banimento','Nódulo piscante','Panaceia','Olho de gato','Fábrica química','Enxerto de compreensão','Nódulo piscante controlado','Sifão da esfera de dados','Nódulo de densidade','Detonador','Detonador (desidratação)','Detonador (lampejo)','Detonador (gravidade)','Detonador (massivo)','Detonador (ruptura de matéria)','Detonador (pressão)','Detonador (singularidade)','Detonador (sônico)','Detonador (dispersão)','Detonador (teia)','Nódulo disruptor','Olho de águia','Spray à prova de fogo','Parede retardante de chamas','Projetor de cubo de força','Nódulo de força','Projetor de tela de força','Projetor de escudo de força','Gel redutor de atrito','Projetor de parede glacial','Bomba de gás','Anulador de gravidade','Spray antigravidade','Nódulo de calor','Caçador/buscador','Projetor de imagem','Projetor de parede infernal','Infiltrador','Servo instantâneo','Abrigo instantâneo','Aprimoramento de Intelecto','Nódulo de invisibilidade','Aprimoramento de conhecimento','Projetor de parede de raios','Solvente vivo','Implante controlador de máquinas','Broca de impacto magnético','Controlador magnético','Escudo magnético','Lentes de memória','Embaralhador mental','Morte do metal','Monolâmina','Sensor de movimento','Campo de ambiente pessoal','Alternador de fase','Disruptor de fase','Veneno (emoção)','Veneno (explosivo)','Veneno (controle mental)','Veneno (disrupção mental)','Comunicador psíquico','Emissor de raio','Emissor de raio (entorpecente)','Emissor de raio (paralisante)','Ferrão da realidade','Rejuvenescedor','Visualizador remoto','Unidade reparadora','Nódulo de retaliação','Brilho','Nódulo de choque','Choque','Estimulante de perícia','Indutor de sono','Buraco sônico','Abafador de som','Dobra espacial','Estimulante de Velocidade','Estimulante','Estimulante de força','Campo subjugador','Implante telepático','Teletransportador (restrito)','Teletransportador (viajante)','Visualizador temporal','Nódulo de dilatação temporal (defensivo)','Nódulo de dilatação temporal (ofensivo)','Rastreador','Alterador de aparência','Dispositivo de deslocamento visual','Tradutor vocal','Projetor de calor','Respirador subaquático','Visualizador de raios X'],
         intrusions: ['Reforços surgem do nada.','Um numenera do personagem falha.','O chão cede sob os pés de alguém.','Um efeito estranho atrapalha a visão do grupo.','O inimigo revela uma habilidade nova.','Um aliado é pego de surpresa.','A rota de fuga se fecha.','Uma estrutura antiga desperta no meio da luta.','Um numenera próximo ativa sozinho.','A realidade pisca por um instante.','Um item essencial some ou quebra.','O inimigo foge no meio do combate.','Uma criatura curiosa aparece atraída pelo barulho.','Alguém fica cercado de repente.','Um ruído metálico distrai o grupo.','O terreno atrapalha o movimento de alguém.','Um dispositivo próximo interfere no combate.','Algo pisca e desliga sem explicação.'],
         narrativeIntrusions: ['Surgem boatos ruins sobre o grupo.','O NPC fica hostil do nada.','Alguém ao redor parece conhecer um dos personagens.','Um numenera reage mal à presença do grupo.','Uma facção passa a desconfiar do grupo.','Um contato trai a confiança do grupo.','Um segredo do passado de alguém vem à tona.','Um mercador tenta enganar o grupo.','A comunidade local vira as costas para o grupo.','Um sinal distante avisa de perigo se aproximando.','Um numenera do grupo começa a falhar.','Uma verdade incômoda sobre o Nono Mundo aparece.','O grupo perde um apoio importante.','Um plano vaza para quem não devia saber.','O grupo é seguido sem perceber.','Uma dívida ou promessa antiga é cobrada.','Alguém importante começa a desconfiar do grupo.','O grupo cai numa armadilha disfarçada de oportunidade.'],
@@ -4305,6 +4450,7 @@
         oddFlavor: 'uma força maior (divina, arcana ou do destino) interfere na resposta.',
         actions: ['Revelar','Trair','Amaldiçoar','Proteger','Emboscar','Corromper','Invocar','Negociar','Enganar','Selar','Libertar','Profanar'],
         themes: ['um dragão antigo','uma ordem de paladinos','um culto às sombras','um artefato lendário','um portal para outro plano','uma maldição ancestral','uma masmorra esquecida','um nobre corrupto','um espírito vingativo','uma aliança entre reinos','uma relíquia divina','um exército de mortos-vivos'],
+        npcMotivations: ['Restaurar a honra de sua família ou linhagem','Proteger seu vilarejo de uma ameaça que se aproxima','Encontrar e destruir o que amaldiçoou sua terra natal','Provar-se digno(a) diante de uma ordem ou guilda','Vingar-se de quem traiu seu mestre ou senhor','Acumular riqueza suficiente para comprar um título nobre','Descobrir a verdade sobre uma profecia que o(a) envolve','Cumprir um juramento sagrado, mesmo que custe a vida','Manter em segredo um pacto feito em desespero','Encontrar um lugar seguro para os que ama'],
         itemBases: ['uma espada de lâmina reta e simples','um anel largo de metal opaco','uma adaga com o cabo enrolado em couro','um pergaminho selado com cera','uma poção guardada em um frasco escuro','um amuleto pendurado em um cordão gasto','um escudo pequeno, amassado nas bordas','uma varinha fina, gasta pelo tempo'],
         itemDescriptors: ['gravada com runas quase apagadas','que carrega o brasão de uma linhagem esquecida','que emite um leve calor ao ser segurada','guardada por gerações como herança de família','que parece ter sobrevivido a uma grande batalha','envolta em um material que abafa qualquer som','que reage de forma sutil à presença de magia','recuperada de um local que ninguém ousa mencionar'],
         itemEffects: ['Emite um brilho fraco perto de criaturas mortas-vivas.','Cura um ferimento leve quando usada em um ritual simples.','Concede proteção extra contra um tipo específico de dano.','Permite enxergar levemente melhor no escuro.','Silencia os passos de quem a carrega.','Aquece antes da chegada de um perigo real.','Guarda um feitiço simples, pronto para ser liberado uma vez.','Desperta a curiosidade — e talvez a cobiça — de quem a vê.'],
@@ -4322,6 +4468,7 @@
         oddFlavor: 'a resposta vem distorcida, imprevisível como a própria Tormenta.',
         actions: ['Revelar','Trair','Convocar','Proteger','Corromper','Negociar','Amaldiçoar','Purificar','Enganar','Libertar','Invocar','Destruir'],
         themes: ['uma nuvem da Tormenta próxima','uma antiga ordem de cavalaria','um artefato arcano perdido','uma seita de cultistas do caos','um reino em guerra civil','uma criatura mutada pela Tormenta','um templo esquecido','um pacto com um deus menor','uma caravana de mercadores','uma profecia antiga','um exército invasor','uma relíquia sagrada'],
+        npcMotivations: ['Proteger sua comunidade do avanço da Tormenta','Encontrar uma cura ou explicação para uma mutação sua ou de um ente querido','Provar que não foi corrompido(a), apesar do que dizem','Vingar-se de quem destruiu seu vilarejo natal','Recuperar uma relíquia sagrada roubada de seu templo','Acumular recursos suficientes para fugir para longe da Tormenta','Descobrir a verdade sobre uma profecia envolvendo Arton','Cumprir uma missão dada por sua ordem, mesmo duvidando dela','Manter escondido um contato com forças do caos','Encontrar um lugar seguro para recomeçar a vida'],
         itemBases: ['um talismã de metal fosco','uma adaga de lâmina irregular','um manto grosso, remendado nas bordas','um elmo amassado, sem o brasão original','uma poção de cor instável','um pergaminho com um selo sagrado desbotado','um bastão entalhado com símbolos antigos','um medalhão preso a uma corrente enferrujada'],
         itemDescriptors: ['que pulsa levemente perto de magia caótica','que carrega marcas de exposição à Tormenta','recuperado de um território corrompido','que parece ter sido abençoado, há muito tempo','guardado como relíquia por uma ordem esquecida','que reage de forma sutil à presença de criaturas corrompidas','com um brilho instável, quase imperceptível','que carrega o peso de uma história não contada'],
         itemEffects: ['Esquenta na presença de mentiras.','Emite um zumbido fraco perto de criaturas do caos.','Oferece um resquício de proteção contra a corrupção da Tormenta.','Absorve um pouco da luz ao redor, sem explicação aparente.','Concede uma sensação passageira de calma em momentos de tensão.','Guarda um poder que ainda não foi plenamente compreendido.','Reage de forma visível perto de magia divina.','Parece se tornar mais pesado quando usado com más intenções.'],
@@ -4336,21 +4483,23 @@
     };
 
     const baseAnswers = [
-      {t:'Sim, e...', cls:'yes', f:'algo além do esperado se revela a seu favor.'},
-      {t:'Sim', cls:'yes', f:'simples e direto assim.'},
-      {t:'Sim, mas...', cls:'yes', f:'há um custo ou complicação.'},
-      {t:'Não, mas...', cls:'no', f:'ainda resta uma brecha.'},
-      {t:'Não', cls:'no', f:'sem ambiguidade.'},
-      {t:'Não, e...', cls:'no', f:'a situação piora além do previsto.'}
+      {t:'Sim, e...', cls:'yes', f:['algo além do esperado se revela a seu favor.','a situação se resolve com uma vantagem extra e inesperada.','além do óbvio, surge uma oportunidade que ninguém previu.','o resultado é ainda melhor do que parecia possível.']},
+      {t:'Sim', cls:'yes', f:['simples e direto assim.','sem complicação — é exatamente isso.','a resposta é clara e não deixa dúvida.','confirma-se sem ressalvas.']},
+      {t:'Sim, mas...', cls:'yes', f:['há um custo ou complicação.','é verdade, porém não sem um preço a pagar.','confirma-se, mas alguma coisa junto incomoda.','sim, só que vem acompanhado de uma dificuldade extra.']},
+      {t:'Não, mas...', cls:'no', f:['ainda resta uma brecha.','não é bem assim, mas existe uma alternativa.','nega-se, porém uma possibilidade ainda fica aberta.','não, mas nem tudo está perdido nesse ponto.']},
+      {t:'Não', cls:'no', f:['sem ambiguidade.','a resposta é clara: não.','nega-se por completo, sem meio-termo.','definitivamente não é o caso.']},
+      {t:'Não, e...', cls:'no', f:['a situação piora além do previsto.','nega-se, e ainda traz uma complicação adicional junto.','não só isso não acontece, como algo piora por causa disso.','além do não, surge um problema extra a ser resolvido.']}
     ];
 
     let currentSystem = 'outros';
 
     function clearResults(){
-      ['oracle-answer-box','oracle-event-box','oracle-encounter-box','oracle-artifact-box','oracle-relic-box','oracle-intrusion-box','oracle-narrative-box','oracle-name-box'].forEach(id => {
+      ['oracle-answer-box','oracle-event-box','oracle-encounter-box','oracle-artifact-box','oracle-relic-box','oracle-intrusion-box','oracle-narrative-box','oracle-name-box','oracle-npc-box'].forEach(id => {
         const box = el(id);
         if(box) box.classList.remove('show','yes','no','odd');
       });
+      const noteEl = el('oracle-answer-note');
+      if(noteEl) noteEl.style.display = 'none';
     }
 
     function selectOracleSystem(sys){
@@ -4421,6 +4570,30 @@
     if(nameFemaleBtn) nameFemaleBtn.addEventListener('click', () => showOracleName('female'));
     const nameCreatureBtn = el('btn-oracle-name-creature');
     if(nameCreatureBtn) nameCreatureBtn.addEventListener('click', () => showOracleName('creature'));
+
+    // ---------- gerador de NPC rápido ----------
+    function showOracleNpc(){
+      const sys = systems[currentSystem];
+      const bank = oracleNameBanks[currentSystem] || oracleNameBanks.outros;
+      const box = el('oracle-npc-box');
+      if(!box) return;
+      const gender = Math.random() < 0.5 ? 'male' : 'female';
+      let name = buildOraclePersonName(bank, gender);
+      let guard = 0;
+      while(name === lastPicks[currentSystem+'-npc-name'] && guard < 12){ name = buildOraclePersonName(bank, gender); guard++; }
+      lastPicks[currentSystem+'-npc-name'] = name;
+      const trait = pickFresh(oracleNpcTraits, currentSystem+'-npc-trait');
+      const motivation = pickFresh(sys.npcMotivations || [], currentSystem+'-npc-motivation');
+      const mannerism = pickFresh(oracleNpcMannerisms, currentSystem+'-npc-mannerism');
+      el('oracle-npc-name').textContent = name;
+      el('oracle-npc-details').innerHTML =
+        '<b>Traço:</b> '+escapeHtml(trait)+'<br>'+
+        '<b>Motivação:</b> '+escapeHtml(motivation)+'<br>'+
+        '<b>Maneirismo:</b> '+escapeHtml(mannerism);
+      box.classList.add('show');
+    }
+    const npcBtn = el('btn-oracle-npc');
+    if(npcBtn) npcBtn.addEventListener('click', showOracleNpc);
 
     // Interpreta a pergunta para que o complemento da resposta dependa do contexto.
     // O resultado-base (Sim / Não / etc.) continua sendo sorteado, preservando a função de oráculo.
@@ -4496,6 +4669,51 @@
         butYes:['acontece, mas mais tarde ou de maneira menos conveniente que o esperado.','sim, embora o timing crie uma complicação adicional.'],
         butNo:['não agora, mas há sinais de que acontecerá em breve.','não dentro do prazo esperado, embora o evento ainda esteja a caminho.'],
         odd:['acontece cedo demais, tarde demais ou fora da ordem natural.','o tempo da cena parece sofrer uma distorção inesperada.']
+      },
+      {
+        id:'trust',
+        words:['confiar','confia','mentir','mente','mentira','verdade','sincero','sincera','honesto','honesta','trair','traição','traicao','fiel','leal'],
+        yes:['a confiança depositada se mostra bem colocada.','é possível confiar nessa pessoa ou informação, ao menos por ora.','o que foi dito confere com a verdade.'],
+        no:['há algo de falso ou não confiável envolvido.','confiar nessa fonte seria um erro.','existe uma mentira, ainda que pequena, por trás disso.'],
+        butYes:['pode confiar, mas só até certo ponto.','é verdade, embora não seja a verdade completa.'],
+        butNo:['não é totalmente confiável, mas a intenção de fundo não é maliciosa.','há uma mentira, mas ela protege algo maior.'],
+        odd:['a mesma pessoa parece mentir e dizer a verdade ao mesmo tempo.','a confiança é traída justamente por quem parecia mais leal.']
+      },
+      {
+        id:'success',
+        words:['consigo','consegue','funciona','funcionar','dá certo','da certo','sucesso','falha','falhar','resolve','resolver'],
+        yes:['a tentativa funciona como esperado.','o esforço é bem-sucedido.','dá certo, sem grandes surpresas.'],
+        no:['a tentativa não funciona dessa vez.','o esforço não é suficiente para o resultado esperado.','não dá certo como planejado.'],
+        butYes:['funciona, mas exige mais esforço ou tempo do que o previsto.','dá certo, ainda que de um jeito improvisado.'],
+        butNo:['não funciona como planejado, mas o esforço não é em vão.','falha no objetivo principal, mas ensina algo útil.'],
+        odd:['funciona de um jeito completamente diferente do imaginado.','o resultado é bom, mas por um motivo que não faz sentido ainda.']
+      },
+      {
+        id:'help',
+        words:['ajuda','ajudar','socorro','apoio','apoiar','resgate','resgatar','salvar'],
+        yes:['a ajuda chega, ou está disponível se buscada.','existe apoio real para essa causa.','é possível contar com auxílio nesse momento.'],
+        no:['não há ajuda disponível nesse momento.','ninguém está em posição de apoiar dessa forma.','o auxílio esperado não vem.'],
+        butYes:['a ajuda vem, mas cobra algo em troca.','existe apoio, porém menor do que o necessário.'],
+        butNo:['não há ajuda direta, mas alguém próximo pode ser convencido.','o auxílio não vem de onde era esperado, mas pode vir de outro lugar.'],
+        odd:['a ajuda vem de uma fonte completamente inesperada.','quem deveria ajudar acaba sendo um obstáculo.']
+      },
+      {
+        id:'danger',
+        words:['armadilha','trap','cilada','risco','arriscado','arriscada','seguro','segura','cuidado'],
+        yes:['o risco é real e deve ser levado a sério.','há perigo genuíno nessa situação.','o cuidado extra se justifica aqui.'],
+        no:['não há perigo real nesse ponto.','a situação é mais segura do que parece.','o risco imaginado não se confirma.'],
+        butYes:['há risco, mas ele pode ser evitado com cautela.','é perigoso, porém previsível para quem prestar atenção.'],
+        butNo:['não é tão arriscado quanto parece, mas exige atenção mesmo assim.','o perigo principal foi evitado, mas um menor persiste.'],
+        odd:['o perigo real está exatamente onde ninguém suspeitava.','a situação muda de segura para arriscada sem aviso.']
+      },
+      {
+        id:'value',
+        words:['vale a pena','importante','valioso','valiosa','significa','significativo','relevante','útil','util'],
+        yes:['isso realmente importa para o rumo da história.','o valor percebido é genuíno.','vale a pena o investimento de tempo ou risco.'],
+        no:['isso não é tão relevante quanto parece.','o valor aparente não se confirma.','não vale o risco ou esforço envolvido.'],
+        butYes:['vale a pena, mas o retorno demora a aparecer.','é importante, ainda que não da forma esperada.'],
+        butNo:['não é tão valioso agora, mas pode se tornar relevante depois.','o valor imediato é baixo, mas há um ganho indireto.'],
+        odd:['o valor real só se revela em um contexto totalmente diferente.','algo insignificante se mostra crucial mais adiante.']
       }
     ];
 
@@ -4518,18 +4736,83 @@
       return bestScore > 0 ? best : null;
     }
 
+    // Cruza as palavras da pergunta com o conteúdo das Notas de Sessão (privadas,
+    // só o mestre vê) — se algo escrito lá bater com a pergunta, a resposta do
+    // oráculo aponta pra aquela nota, deixando o resultado ainda mais relevante
+    // pro que já está planejado. Nomes próprios (iniciados com maiúscula, ex:
+    // "Aldric") pesam mais que palavras comuns, pra puxar NPCs e lugares primeiro.
+    const ORACLE_STOPWORDS = new Set(['para','como','quando','onde','porque','sera','esta','estao','isso','aquilo','pelo','pela','pelos','pelas','pode','pouco','muito','tem','tera','vai','vao','com','sem','uma','umas','uns','mais','menos','entre','sobre','depois','antes','ainda','apenas','alguem','alguma','algum','nesse','nessa','neste','nesta','esse','essa','este','esta','aquele','aquela','deles','delas','seus','suas']);
+    function extractOracleQuestionKeywords(question){
+      const original = String(question||'').trim().split(/\s+/);
+      const words = [];
+      original.forEach(raw => {
+        const clean = raw.replace(/[^\wÀ-ÿ]/g,'');
+        if(clean.length < 4) return;
+        const norm = normalizeOracleQuestion(clean);
+        if(ORACLE_STOPWORDS.has(norm)) return;
+        const isProper = /^[A-ZÀ-Þ]/.test(clean);
+        words.push({ norm, weight: isProper ? 3 : 1 });
+      });
+      return words;
+    }
+    function findRelevantSessionNote(question){
+      if(!Array.isArray(state.sessionNotes) || !state.sessionNotes.length) return null;
+      const keywords = extractOracleQuestionKeywords(question);
+      if(!keywords.length) return null;
+      let best = null, bestScore = 0;
+      state.sessionNotes.forEach(note => {
+        const haystack = normalizeOracleQuestion((note.title||'') + ' ' + (note.content||''));
+        let score = 0;
+        keywords.forEach(kw => { if(haystack.includes(kw.norm)) score += kw.weight; });
+        if(score > bestScore){ bestScore = score; best = note; }
+      });
+      return bestScore > 0 ? best : null;
+    }
+    function sessionNoteSnippet(note, question){
+      const text = String(note.content||note.title||'').trim();
+      if(text.length <= 90) return text;
+      // tenta centralizar o trecho na palavra da pergunta que bateu, em vez de
+      // sempre cortar do início — mostra a parte relevante da nota.
+      const keywords = extractOracleQuestionKeywords(question).sort((a,b)=>b.weight-a.weight);
+      const normText = normalizeOracleQuestion(text);
+      let idx = -1;
+      for(const kw of keywords){ idx = normText.indexOf(kw.norm); if(idx>=0) break; }
+      if(idx < 0) return text.slice(0,90).trim() + '…';
+      const start = Math.max(0, idx - 35);
+      const end = Math.min(text.length, idx + 55);
+      return (start>0?'…':'') + text.slice(start,end).trim() + (end<text.length?'…':'');
+    }
+
+    // Palavras que indicam a nota "puxando" a resposta pra Sim ou pra Não — bem
+    // mais enxuto que uma IA de verdade, é busca por palavra-chave mesmo, mas
+    // já evita respostas que contradizem o que o mestre já escreveu.
+    const ORACLE_AFFIRM_SIGNALS = ['hostil','ataca','atacar','ataque','agressiv','inimig','violent','ameaca','perigos','ment','trai','esconde','secretamente','corrupto','malicios','falso','culpad','arriscad'];
+    const ORACLE_NEGATE_SIGNALS = ['amigavel','aliad','confia','honest','sincer','protege','ajuda','segur','pacific','gentil','leal','inocente','verdadeir'];
+    function oracleNoteSignalStrength(note){
+      if(!note) return 0;
+      const text = normalizeOracleQuestion((note.title||'') + ' ' + (note.content||''));
+      let affirm = 0, negate = 0;
+      ORACLE_AFFIRM_SIGNALS.forEach(w => { if(text.includes(w)) affirm++; });
+      ORACLE_NEGATE_SIGNALS.forEach(w => { if(text.includes(w)) negate++; });
+      return Math.max(-3, Math.min(3, affirm - negate));
+    }
+
     function contextualOracleFlavor(answer, question, sys){
       const ctx = detectOracleQuestionContext(question);
-      if(!ctx) return answer.f;
       let pool;
-      if(answer.cls === 'odd') pool = ctx.odd;
+      if(!ctx){
+        // Sem palavra-chave reconhecida na pergunta: ainda assim varia dentro de
+        // um pequeno banco de frases por tipo de resposta, em vez de repetir
+        // sempre a mesma — é o que fazia a resposta parecer "sempre igual".
+        pool = Array.isArray(answer.f) ? answer.f : [answer.f];
+      } else if(answer.cls === 'odd') pool = ctx.odd;
       else if(answer.t === 'Sim, mas...') pool = ctx.butYes;
       else if(answer.t === 'Não, mas...') pool = ctx.butNo;
       else if(answer.t === 'Sim, e...') pool = ctx.yes.map(x => x + ' E isso cria uma nova oportunidade ou vantagem.');
       else if(answer.t === 'Não, e...') pool = ctx.no.map(x => x + ' E a situação ainda traz uma complicação adicional.');
       else if(answer.cls === 'yes') pool = ctx.yes;
       else pool = ctx.no;
-      return pickFresh(pool, currentSystem + '-question-' + ctx.id + '-' + answer.t);
+      return pickFresh(pool, currentSystem + '-question-' + (ctx?ctx.id:'geral') + '-' + answer.t);
     }
 
     function askOracleQuestion(){
@@ -4537,12 +4820,36 @@
       const input = el('oracle-question-input');
       const question = input ? input.value.trim() : '';
       const answers = baseAnswers.concat([{t:sys.oddLabel, cls:'odd', f:sys.oddFlavor}]);
-      const a = pickFresh(answers, currentSystem+'-answer');
+      // Se a pergunta bate com uma nota de sessão que já indica pra que lado a
+      // coisa pende (palavras como "hostil"/"trai" vs "confia"/"protege"), o
+      // sorteio passa a pender pro mesmo lado — em vez de continuar 50/50 e
+      // contradizer o que o mestre já escreveu. Sem nota relevante ou sem sinal
+      // claro nela, os pesos ficam todos iguais: sorteio idêntico ao de sempre.
+      const relatedNote = question ? findRelevantSessionNote(question) : null;
+      const signalStrength = relatedNote ? oracleNoteSignalStrength(relatedNote) : 0;
+      const weights = answers.map(ans => {
+        if(ans.cls === 'odd' || signalStrength === 0) return 1;
+        const lean = ans.cls === 'yes' ? signalStrength : -signalStrength;
+        return Math.max(0.2, 1 + lean*0.4);
+      });
+      const a = weightedPickFresh(answers, weights, currentSystem+'-answer');
       const box = el('oracle-answer-box');
       box.classList.remove('yes','no','odd');
       box.classList.add('show', a.cls);
       el('oracle-answer-text').textContent = a.t;
       el('oracle-answer-flavor').textContent = contextualOracleFlavor(a, question, sys);
+      const noteEl = el('oracle-answer-note');
+      if(noteEl){
+        if(relatedNote){
+          const label = (relatedNote.session!=null&&relatedNote.session!=='') ? ('Sessão '+relatedNote.session) : 'nota sem sessão';
+          const titlePart = relatedNote.title ? (' — '+relatedNote.title) : '';
+          const leanNote = signalStrength > 0 ? ' (a resposta pendeu pro Sim por causa dela)' : signalStrength < 0 ? ' (a resposta pendeu pro Não por causa dela)' : '';
+          noteEl.innerHTML = '📝 Conecta com sua anotação ('+escapeHtml(label)+escapeHtml(titlePart)+')'+escapeHtml(leanNote)+': "'+escapeHtml(sessionNoteSnippet(relatedNote, question))+'"';
+          noteEl.style.display = '';
+        } else {
+          noteEl.style.display = 'none';
+        }
+      }
     }
 
     const askBtn = el('btn-oracle-ask');
@@ -5211,6 +5518,89 @@
   async function persistJournal(){
     await safeSet(slotKey('journal'), { list: state.journal });
   }
+
+  // ---------- notas de sessão (privadas, só o mestre vê e edita) ----------
+  async function persistSessionNotes(){
+    await safeSet(slotKey('session-notes'), { list: state.sessionNotes });
+  }
+  let editingSessionNoteId = null;
+  function resetSessionNoteForm(){
+    editingSessionNoteId = null;
+    el('session-notes-number').value = '';
+    el('session-notes-title').value = '';
+    el('session-notes-content').value = '';
+    el('btn-session-notes-add').textContent = 'Adicionar nota';
+    el('btn-session-notes-cancel-edit').style.display = 'none';
+  }
+  function renderSessionNotesList(){
+    const $list = el('session-notes-list');
+    if(!$list) return;
+    if(!effectiveMaster()){ $list.innerHTML = ''; return; }
+    if(!state.sessionNotes.length){
+      $list.innerHTML = '<div class="hint">Nenhuma nota ainda. Escreva a ideia geral da próxima sessão acima.</div>';
+      return;
+    }
+    const sorted = state.sessionNotes.slice().sort((a, b) => {
+      const sa = (a.session === undefined || a.session === null || a.session === '') ? -1 : Number(a.session);
+      const sb = (b.session === undefined || b.session === null || b.session === '') ? -1 : Number(b.session);
+      if(sb !== sa) return sb - sa;
+      return (b.updatedAt||0) - (a.updatedAt||0);
+    });
+    $list.innerHTML = sorted.map(note => {
+      const label = (note.session===undefined||note.session===null||note.session==='') ? 'Sem sessão definida' : ('Sessão ' + escapeHtml(String(note.session)));
+      return (
+        '<div class="journal-entry">' +
+          '<div class="journal-entry-meta">' +
+            '<span class="journal-author">'+label+(note.title?(' · '+escapeHtml(note.title)):'')+'</span>' +
+            '<span style="display:flex; gap:4px;"><button type="button" class="journal-edit" data-session-note-edit="'+note.id+'" title="Editar">✎</button><button type="button" class="danger journal-remove" data-session-note-remove="'+note.id+'">✕</button></span>' +
+          '</div>' +
+          '<div class="journal-entry-text">'+escapeHtml(note.content||'')+'</div>' +
+        '</div>'
+      );
+    }).join('');
+    $list.querySelectorAll('[data-session-note-edit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const note = state.sessionNotes.find(n => n.id === btn.getAttribute('data-session-note-edit'));
+        if(!note) return;
+        editingSessionNoteId = note.id;
+        el('session-notes-number').value = (note.session===undefined||note.session===null) ? '' : note.session;
+        el('session-notes-title').value = note.title || '';
+        el('session-notes-content').value = note.content || '';
+        el('btn-session-notes-add').textContent = 'Salvar alterações';
+        el('btn-session-notes-cancel-edit').style.display = '';
+        el('session-notes-content').focus();
+      });
+    });
+    $list.querySelectorAll('[data-session-note-remove]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-session-note-remove');
+        if(!confirm('Excluir esta nota de sessão? Não pode ser desfeito.')) return;
+        state.sessionNotes = state.sessionNotes.filter(n => n.id !== id);
+        if(editingSessionNoteId === id) resetSessionNoteForm();
+        await persistSessionNotes();
+        renderSessionNotesList();
+      });
+    });
+  }
+  const sessionNotesAddBtn = el('btn-session-notes-add');
+  if(sessionNotesAddBtn) sessionNotesAddBtn.addEventListener('click', async () => {
+    const content = el('session-notes-content').value.trim();
+    const title = el('session-notes-title').value.trim();
+    const sessionRaw = el('session-notes-number').value;
+    const session = sessionRaw === '' ? null : Math.max(1, Math.round(Number(sessionRaw)) || 1);
+    if(!content && !title){ el('session-notes-content').focus(); return; }
+    if(editingSessionNoteId){
+      const note = state.sessionNotes.find(n => n.id === editingSessionNoteId);
+      if(note){ note.session = session; note.title = title; note.content = content; note.updatedAt = Date.now(); }
+    } else {
+      state.sessionNotes.push({ id:newId('sn'), session, title, content, updatedAt:Date.now() });
+    }
+    resetSessionNoteForm();
+    await persistSessionNotes();
+    renderSessionNotesList();
+  });
+  const sessionNotesCancelBtn = el('btn-session-notes-cancel-edit');
+  if(sessionNotesCancelBtn) sessionNotesCancelBtn.addEventListener('click', resetSessionNoteForm);
 
   function currentDisplayName(){
     return state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
@@ -5993,7 +6383,7 @@
     state.initiative = { list:[], activeId:null, round:1, turnSeq:0, combatId:null };
     state.combatHistory = [];
     state.journal = [];
-    state.sends = [];
+    state.sessionNotes = [];
     state.sendImage = null;
     state.handoutGallery = [];
     state.handoutIndex = 0;
@@ -6051,7 +6441,7 @@
     state.tokens = [];
     state.pages = [];
     state.currentPageId = null;
-    state.meta = { title:'Campanha sem nome', masterPass:'', playerCode:'', tokenFolders:[], customStatuses:[] };
+    state.meta = { title:'Campanha sem nome', masterPass:'', playerCode:'', tokenFolders:[], customStatuses:[], iconRailOrder:[] };
 
     $portalScreen.classList.add('hidden');
     $appScreen.classList.remove('hidden');
@@ -6316,12 +6706,14 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, combatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state'))
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, combatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw, sessionNotesRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state')), safeGet(slotKey('session-notes'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     if(!Array.isArray(state.meta.tokenFolders)) state.meta.tokenFolders = [];
     if(!Array.isArray(state.meta.customStatuses)) state.meta.customStatuses = [];
+    if(!Array.isArray(state.meta.iconRailOrder)) state.meta.iconRailOrder = [];
+    applyIconRailOrder();
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; lastSeenRollId = state.diceRolls[0] ? state.diceRolls[0].id : 'NONE'; }catch(e){} }
     if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
@@ -6329,6 +6721,7 @@
     if(!('combatId' in state.initiative)) state.initiative.combatId = state.initiative.list.length ? 'legacy-combat' : null;
     if(combatHistoryRaw){ try{ state.combatHistory = JSON.parse(combatHistoryRaw).list || []; lastCombatHistorySnapshot = combatHistoryRaw; }catch(e){} }
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
+    if(sessionNotesRaw){ try{ state.sessionNotes = JSON.parse(sessionNotesRaw).list || []; lastSessionNotesSnapshot = sessionNotesRaw; }catch(e){} }
     if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
     if(musicTracksRaw){ try{ state.musicTracks = JSON.parse(musicTracksRaw).list || []; lastMusicTracksSnapshot = musicTracksRaw; }catch(e){} }
     if(musicStateRaw){
@@ -6930,6 +7323,7 @@
     renderInitiativeList();
     renderInitiativeHud();
     renderJournalList();
+    renderSessionNotesList();
 
     updateHistoryButtons();
     renderMobileUI();
@@ -7980,7 +8374,7 @@
         const statusFont = Math.max(5, Math.min(32, Math.round(statusSize * 0.62)));
         const customStatusSize = Math.max(6, Math.min(38, Math.round(size * 0.19)));
         const customStatusFont = Math.max(4, Math.min(25, Math.round(customStatusSize * 0.64)));
-        const lockSize = Math.max(7, Math.min(52, Math.round(size * 0.26)));
+        const lockSize = Math.max(3, Math.round(Math.max(7, Math.min(52, Math.round(size * 0.26))) / 3));
         const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
         const statusGap = Math.max(1, Math.min(6, Math.round(size * 0.025)));
         const hpBarHeight = Math.max(2, Math.min(20, Math.round(size * 0.075))) + 2;
@@ -9701,7 +10095,7 @@
       const statusFont = Math.max(5, Math.min(32, Math.round(statusSize * 0.62)));
       const customStatusSize = Math.max(6, Math.min(38, Math.round(newSize * 0.19)));
       const customStatusFont = Math.max(4, Math.min(25, Math.round(customStatusSize * 0.64)));
-      const lockSize = Math.max(7, Math.min(52, Math.round(newSize * 0.26)));
+      const lockSize = Math.max(3, Math.round(Math.max(7, Math.min(52, Math.round(newSize * 0.26))) / 3));
       const lockFont = Math.max(5, Math.min(32, Math.round(lockSize * 0.6)));
       const statusGap = Math.max(1, Math.min(6, Math.round(newSize * 0.025)));
       const hpBarHeight = Math.max(2, Math.min(20, Math.round(newSize * 0.075))) + 2;
@@ -14380,6 +14774,7 @@
     const typing = keyboardShortcutTypingTarget(e.target);
 
     if(e.key === 'Escape'){
+      if(iconRailReordering) setIconRailReordering(false);
       if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
       state.drawMode = false;
       state.fogMode = false;
