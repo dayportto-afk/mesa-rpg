@@ -6,7 +6,7 @@
 <title>Mesa RPG</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400;1,500&family=Uncial+Antiqua&family=Special+Elite&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400;1,500&family=Uncial+Antiqua&family=Special+Elite&family=IM+Fell+English:ital@0;1&family=Orbitron:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Pirata+One&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
 <style>
@@ -205,6 +205,97 @@
   .theme-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; }
   .theme-row label{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--parchment-dim); letter-spacing:0.5px; }
   .theme-row input[type=color]{ width:44px; height:28px; padding:0; border:1px solid var(--line); border-radius:4px; background:none; cursor:pointer; }
+
+
+  /* ===================== SISTEMA DE ESTÉTICAS ===================== */
+  .theme-preset-block{ padding:10px; margin-bottom:10px; border:1px solid var(--line); border-radius:var(--ui-radius,6px); background:var(--ui-panel-overlay,rgba(0,0,0,.12)); }
+  .theme-preset-block label{ display:block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); margin-bottom:5px; }
+  #theme-preset{ font-family:var(--ui-font,'EB Garamond',serif); }
+  #theme-preset-description{ margin-top:7px; min-height:30px; }
+  .theme-custom-title{ margin:10px 0 2px; padding-top:9px; border-top:1px solid var(--line); font-family:var(--ui-heading-font,'Cinzel',serif); color:var(--amber-bright); font-size:11px; letter-spacing:.5px; }
+  .theme-preset-actions{ display:flex; gap:6px; margin-top:8px; }
+  .theme-preset-actions button{ flex:1; padding:6px 5px; font-size:9px; }
+
+  body{ font-family:var(--ui-font,'EB Garamond',serif); }
+  button, input, select, textarea{ transition:border-color .15s,color .15s,background .15s,box-shadow .15s; }
+  button{ border-radius:var(--ui-button-radius,3px); }
+  input[type=text],input[type=number],input[type=password],select,.notes-textarea{ border-radius:var(--ui-control-radius,3px); }
+  #topbar{
+    border-bottom:var(--ui-border-width,1px) solid var(--line);
+    box-shadow:var(--ui-topbar-shadow,none);
+  }
+  .float-panel{
+    border-width:var(--ui-border-width,1px);
+    border-radius:var(--ui-radius,8px);
+    background-color:var(--bg-panel);
+    background-image:var(--ui-panel-pattern,none);
+    box-shadow:var(--ui-panel-shadow,0 10px 30px rgba(0,0,0,.5));
+  }
+  .float-panel-header{ font-family:var(--ui-heading-font,'Cinzel',serif); }
+  #map-canvas{
+    border-width:var(--ui-map-border-width,3px);
+    border-color:var(--ui-map-border-color,var(--amber-bright));
+    border-radius:var(--ui-map-radius,0px);
+    box-shadow:var(--ui-map-shadow,0 0 60px var(--shadow));
+  }
+  #master-badge{
+    border-radius:var(--ui-badge-radius,3px);
+    font-family:var(--ui-label-font,'JetBrains Mono',monospace);
+    box-shadow:var(--ui-badge-shadow,none);
+  }
+  #campaign-title{ font-family:var(--ui-heading-font,'Cinzel',serif); }
+
+  /* Nos temas imersivos, a barra vira uma coluna de placas: ícone + nome. */
+  body.theme-immersive #icon-rail{ min-width:154px; padding-right:8px; gap:6px; }
+  body.theme-immersive .icon-rail-item{ width:140px; flex-direction:row; gap:0; align-items:stretch; }
+  body.theme-immersive .icon-rail-btn{
+    width:42px; min-width:42px; height:38px; border-radius:var(--ui-icon-radius,4px) 0 0 var(--ui-icon-radius,4px);
+    border-right:none; box-shadow:var(--ui-button-shadow,0 2px 7px rgba(0,0,0,.35)); font-size:17px;
+    background-image:var(--ui-button-pattern,none);
+  }
+  body.theme-immersive .icon-rail-label{
+    display:flex; flex:1; align-items:center; justify-content:flex-start; min-width:0; height:38px;
+    padding:0 9px; border:1px solid var(--line); border-left:none;
+    border-radius:0 var(--ui-icon-radius,4px) var(--ui-icon-radius,4px) 0;
+    background:var(--ui-label-bg,var(--bg-panel)); color:var(--parchment);
+    font-family:var(--ui-font,'EB Garamond',serif); font-size:12px; text-shadow:none; letter-spacing:.2px;
+    box-shadow:var(--ui-button-shadow,0 2px 7px rgba(0,0,0,.35));
+  }
+  body.theme-immersive .icon-rail-item:hover .icon-rail-label{ border-color:var(--amber); color:var(--amber-bright); }
+  body.theme-immersive #icon-rail-reorder-item{ width:140px; }
+  body.theme-immersive #btn-icon-rail-reorder{ width:140px; min-width:140px; height:34px; border-radius:var(--ui-button-radius,4px); font-family:var(--ui-label-font,'JetBrains Mono',monospace); }
+  body.theme-immersive #icon-rail-reorder-item .icon-rail-label{ display:none; }
+  body.theme-immersive #icon-rail.reordering .icon-rail-item:not(#icon-rail-reorder-item) .icon-rail-btn{ opacity:.7; }
+  body.theme-immersive #icon-rail.reordering .icon-rail-item:not(#icon-rail-reorder-item) .icon-rail-label{ opacity:.7; }
+
+  /* Linguagens visuais: a cor continua editável; estas classes cuidam de forma/textura. */
+  body[data-theme-family="medieval"] #topbar,
+  body[data-theme-family="maritime"] #topbar,
+  body[data-theme-family="steampunk"] #topbar{ background-image:linear-gradient(180deg,rgba(255,255,255,.035),rgba(0,0,0,.18)),repeating-linear-gradient(90deg,transparent 0 34px,rgba(255,255,255,.018) 34px 35px); }
+  body[data-theme-family="medieval"] .float-panel,
+  body[data-theme-family="maritime"] .float-panel,
+  body[data-theme-family="steampunk"] .float-panel{ outline:1px solid color-mix(in srgb,var(--amber) 28%,transparent); outline-offset:-4px; }
+
+  body[data-theme-family="numenera"] #topbar{ background-image:linear-gradient(180deg,rgba(80,235,255,.07),transparent 55%),linear-gradient(90deg,transparent,rgba(80,235,255,.04),transparent); }
+  body[data-theme-family="numenera"] .float-panel,
+  body[data-theme-family="numenera"] .icon-rail-btn,
+  body[data-theme-family="numenera"] .icon-rail-label{ clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px)); }
+  body[data-theme-family="numenera"] #map-canvas{ outline:1px solid color-mix(in srgb,var(--amber) 55%,transparent); outline-offset:5px; }
+
+  body[data-theme-family="arcane"] #topbar{ background-image:radial-gradient(circle at 16% 50%,color-mix(in srgb,var(--amber) 13%,transparent),transparent 24%),linear-gradient(180deg,rgba(255,255,255,.025),rgba(0,0,0,.12)); }
+  body[data-theme-family="arcane"] .float-panel{ outline:1px solid color-mix(in srgb,var(--amber) 35%,transparent); outline-offset:-5px; }
+  body[data-theme-family="arcane"] .icon-rail-btn{ box-shadow:0 0 11px color-mix(in srgb,var(--amber) 18%,transparent); }
+
+  body[data-theme-family="horror"] .float-panel{ background-image:radial-gradient(circle at 85% 5%,rgba(110,0,0,.11),transparent 30%),linear-gradient(180deg,rgba(255,255,255,.015),rgba(0,0,0,.14)); }
+  body[data-theme-family="horror"] #topbar{ box-shadow:0 2px 12px rgba(80,0,0,.32); }
+  body[data-theme-family="horror"] #map-canvas{ box-shadow:0 0 45px rgba(0,0,0,.85),0 0 0 1px rgba(105,10,10,.34); }
+
+  body[data-theme-family="maritime"] #map-canvas{ outline:2px solid color-mix(in srgb,var(--amber) 30%,transparent); outline-offset:4px; }
+  body[data-theme-family="maritime"] .icon-rail-label{ background-image:linear-gradient(180deg,rgba(255,255,255,.04),rgba(0,0,0,.08)); }
+
+  body[data-theme-family="steampunk"] .float-panel{ box-shadow:inset 0 0 0 2px rgba(255,190,80,.035),0 10px 30px rgba(0,0,0,.55); }
+  body[data-theme-family="steampunk"] .icon-rail-btn,
+  body[data-theme-family="steampunk"] .icon-rail-label{ box-shadow:inset 0 0 0 1px rgba(255,190,80,.08),0 2px 6px rgba(0,0,0,.45); }
 
   #topbar-token-name{
     flex:1 1 auto; min-width:0; text-align:center;
@@ -2280,6 +2371,16 @@
           <button type="button" class="float-panel-close" data-close-panel="float-appearance">✕</button>
         </div>
         <div class="float-panel-body">
+          <div class="theme-preset-block">
+            <label for="theme-preset">Estética-base</label>
+            <select id="theme-preset"></select>
+            <div id="theme-preset-description" class="hint"></div>
+            <div class="theme-preset-actions">
+              <button type="button" id="btn-theme-apply-preset" class="primary">Aplicar preset</button>
+              <button type="button" id="btn-theme-preset-reset">Reaplicar</button>
+            </div>
+          </div>
+          <div class="theme-custom-title">Personalização manual</div>
           <div class="theme-row">
             <label for="theme-bg">Fundo</label>
             <input type="color" id="theme-bg">
@@ -2318,7 +2419,7 @@
             <input type="checkbox" id="theme-token-outline-enabled" style="width:auto;">
             Ativar contorno
           </label>
-          <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
+          <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Voltar ao Clássico padrão</button>
           <div class="hint">As cores valem para todo mundo que acessar esta campanha, mestre e jogadores.</div>
         </div>
       </div>
@@ -6074,7 +6175,50 @@
   }
   function newId(prefix){ return prefix + Date.now() + Math.random().toString(36).slice(2,7); }
 
-  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10', topbarOpacity:100, tokenOutline:'#e2a53f', tokenOutlineEnabled:false, tokenOutlineOpacity:50 };
+  const DEFAULT_THEME = { preset:'classic-amber', bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10', topbarOpacity:100, tokenOutline:'#e2a53f', tokenOutlineEnabled:false, tokenOutlineOpacity:50 };
+  const THEME_PRESETS = {
+    'classic-amber':{group:'Clássico',name:'Âmbar',family:'classic',desc:'A aparência original da Mesa RPG: escura, discreta e funcional.',colors:{bg:'#15120d',panel:'#1e1810',text:'#e8dcc0',accent:'#e2a53f',topbar:'#221a10'},style:{font:"'EB Garamond',serif",heading:"'Cinzel',serif",label:"'JetBrains Mono',monospace",radius:'8px',buttonRadius:'3px',controlRadius:'3px',mapRadius:'0px',mapBorder:'3px'}},
+    'classic-slate':{group:'Clássico',name:'Ardósia',family:'classic',desc:'Uma versão neutra em grafite e prata envelhecida.',colors:{bg:'#101316',panel:'#1a1e22',text:'#d9dce0',accent:'#9fa9b3',topbar:'#171b1f'},style:{font:"'EB Garamond',serif",heading:"'Cinzel',serif",label:"'JetBrains Mono',monospace",radius:'6px',buttonRadius:'3px',controlRadius:'3px',mapRadius:'0px',mapBorder:'2px'}},
+
+    'medieval-castle':{group:'Medieval',name:'Castelo & Brasões',family:'medieval',desc:'Madeira escura, ferro, ouro velho e placas de salão medieval.',colors:{bg:'#120d08',panel:'#21160d',text:'#efe0bf',accent:'#c99845',topbar:'#2a190c'},style:{font:"'Cormorant Garamond',serif",heading:"'Cinzel',serif",label:"'Cinzel',serif",radius:'4px',buttonRadius:'3px',controlRadius:'3px',mapRadius:'2px',mapBorder:'4px'}},
+    'medieval-parchment':{group:'Medieval',name:'Pergaminho Real',family:'medieval',desc:'Pergaminho, bronze claro e acabamento de manuscrito iluminado.',colors:{bg:'#241a10',panel:'#3a2b1b',text:'#f1e5c8',accent:'#d5ae62',topbar:'#302114'},style:{font:"'Cormorant Garamond',serif",heading:"'Uncial Antiqua',serif",label:"'Cinzel',serif",radius:'5px',buttonRadius:'2px',controlRadius:'2px',mapRadius:'1px',mapBorder:'4px'}},
+    'medieval-grim':{group:'Medieval',name:'Grimdark',family:'medieval',desc:'Ferro queimado, couro vinho e ouro escurecido.',colors:{bg:'#0e0b0b',panel:'#1b1212',text:'#d8cabe',accent:'#9f6f3d',topbar:'#1b1010'},style:{font:"'IM Fell English',serif",heading:"'Cinzel',serif",label:"'IM Fell English',serif",radius:'3px',buttonRadius:'2px',controlRadius:'2px',mapRadius:'0px',mapBorder:'4px'}},
+    'medieval-tavern':{group:'Medieval',name:'Taverna do Aventureiro',family:'medieval',desc:'Carvalho, couro gasto e luz quente de vela.',colors:{bg:'#171008',panel:'#2a1c10',text:'#ead7b5',accent:'#d28a38',topbar:'#2c1a0c'},style:{font:"'IM Fell English',serif",heading:"'Cinzel',serif",label:"'EB Garamond',serif",radius:'6px',buttonRadius:'5px',controlRadius:'4px',mapRadius:'3px',mapBorder:'3px'}},
+
+    'numenera-ninth':{group:'Numenera / Sci-Fi',name:'Nono Mundo',family:'numenera',desc:'Tecnologia antiquíssima, pedra tecnológica, âmbar e ciano.',colors:{bg:'#081316',panel:'#102126',text:'#d8e3de',accent:'#55d7df',topbar:'#0d1b1f'},style:{font:"'Orbitron',sans-serif",heading:"'Orbitron',sans-serif",label:"'Orbitron',sans-serif",radius:'2px',buttonRadius:'2px',controlRadius:'2px',mapRadius:'5px',mapBorder:'2px'}},
+    'numenera-relic':{group:'Numenera / Sci-Fi',name:'Relíquia Antiga',family:'numenera',desc:'Areia, metal gasto e energia azul de artefatos esquecidos.',colors:{bg:'#151712',panel:'#25251d',text:'#e2dec8',accent:'#73c7c9',topbar:'#26271e'},style:{font:"'Orbitron',sans-serif",heading:"'Orbitron',sans-serif",label:"'JetBrains Mono',monospace",radius:'2px',buttonRadius:'2px',controlRadius:'2px',mapRadius:'3px',mapBorder:'2px'}},
+    'numenera-holo':{group:'Numenera / Sci-Fi',name:'Interface Holográfica',family:'numenera',desc:'Grafite profundo, linhas luminosas e interface mais tecnológica.',colors:{bg:'#050b10',panel:'#0b151c',text:'#d6edf3',accent:'#45e9ff',topbar:'#071119'},style:{font:"'Orbitron',sans-serif",heading:"'Orbitron',sans-serif",label:"'JetBrains Mono',monospace",radius:'1px',buttonRadius:'1px',controlRadius:'1px',mapRadius:'8px',mapBorder:'2px'}},
+
+    'arcane-library':{group:'Arcano',name:'Biblioteca Arcana',family:'arcane',desc:'Índigo, dourado, livros e símbolos celestes.',colors:{bg:'#0c0d20',panel:'#17162e',text:'#ece2cf',accent:'#b89cff',topbar:'#111126'},style:{font:"'Cormorant Garamond',serif",heading:"'Uncial Antiqua',serif",label:"'Cinzel',serif",radius:'8px',buttonRadius:'5px',controlRadius:'5px',mapRadius:'4px',mapBorder:'2px'}},
+    'arcane-amethyst':{group:'Arcano',name:'Ametista',family:'arcane',desc:'Magia violeta, cristais e brilho ritualístico.',colors:{bg:'#100b18',panel:'#21142d',text:'#efe2f3',accent:'#cf80ff',topbar:'#1b1026'},style:{font:"'Cormorant Garamond',serif",heading:"'Uncial Antiqua',serif",label:"'Cinzel',serif",radius:'10px',buttonRadius:'6px',controlRadius:'6px',mapRadius:'6px',mapBorder:'2px'}},
+    'arcane-celestial':{group:'Arcano',name:'Celestial',family:'arcane',desc:'Azul-noturno, estrelas e ouro de observatório mágico.',colors:{bg:'#080f1d',panel:'#101c31',text:'#e8e6d8',accent:'#e0b85e',topbar:'#0c1629'},style:{font:"'Cormorant Garamond',serif",heading:"'Cinzel',serif",label:"'Cinzel',serif",radius:'7px',buttonRadius:'5px',controlRadius:'5px',mapRadius:'4px',mapBorder:'2px'}},
+
+    'horror-gothic':{group:'Horror',name:'Catedral Gótica',family:'horror',desc:'Pedra negra, vermelho profundo, velas e ornamentos de catedral.',colors:{bg:'#080707',panel:'#151010',text:'#d9ccc0',accent:'#a12d2d',topbar:'#130b0b'},style:{font:"'IM Fell English',serif",heading:"'Cinzel',serif",label:"'IM Fell English',serif",radius:'2px',buttonRadius:'1px',controlRadius:'2px',mapRadius:'0px',mapBorder:'3px'}},
+    'horror-occult':{group:'Horror',name:'Oculto',family:'horror',desc:'Preto, bronze gasto e símbolos ritualísticos discretos.',colors:{bg:'#090806',panel:'#17130e',text:'#ddd2bd',accent:'#8f6c43',topbar:'#15110d'},style:{font:"'Special Elite',monospace",heading:"'IM Fell English',serif",label:"'Special Elite',monospace",radius:'3px',buttonRadius:'2px',controlRadius:'2px',mapRadius:'0px',mapBorder:'3px'}},
+    'horror-blood':{group:'Horror',name:'Crônicas de Sangue',family:'horror',desc:'Vinho escuro, ferro e contraste vermelho mais agressivo.',colors:{bg:'#0b0607',panel:'#1c0c0f',text:'#e2d2cf',accent:'#c13a45',topbar:'#19080b'},style:{font:"'IM Fell English',serif",heading:"'Cinzel',serif",label:"'Cinzel',serif",radius:'3px',buttonRadius:'2px',controlRadius:'2px',mapRadius:'0px',mapBorder:'3px'}},
+
+    'steampunk-brass':{group:'Steampunk',name:'Oficina de Bronze',family:'steampunk',desc:'Latão, cobre, rebites e mecanismos vitorianos.',colors:{bg:'#130f09',panel:'#261b0f',text:'#ead9b5',accent:'#d68e32',topbar:'#2b1c0c'},style:{font:"'Special Elite',monospace",heading:"'Cinzel',serif",label:"'Special Elite',monospace",radius:'4px',buttonRadius:'3px',controlRadius:'3px',mapRadius:'1px',mapBorder:'4px'}},
+    'steampunk-industrial':{group:'Steampunk',name:'Industrial',family:'steampunk',desc:'Ferro, cobre oxidado e oficina mecânica mais escura.',colors:{bg:'#0e1110',panel:'#1b201d',text:'#d9d1bd',accent:'#b87936',topbar:'#171c19'},style:{font:"'Special Elite',monospace",heading:"'Cinzel',serif",label:"'JetBrains Mono',monospace",radius:'3px',buttonRadius:'2px',controlRadius:'2px',mapRadius:'1px',mapBorder:'3px'}},
+
+    'maritime-captain':{group:'Marítimo',name:'Cabine do Capitão',family:'maritime',desc:'Azul naval, madeira, cordas, latão e cartas náuticas.',colors:{bg:'#07141a',panel:'#102832',text:'#efe3c9',accent:'#d7a64e',topbar:'#0b2530'},style:{font:"'Cormorant Garamond',serif",heading:"'Cinzel',serif",label:"'Cormorant Garamond',serif",radius:'5px',buttonRadius:'4px',controlRadius:'4px',mapRadius:'2px',mapBorder:'4px'}},
+    'maritime-pirate':{group:'Marítimo',name:'Corsário',family:'maritime',desc:'Madeira quase preta, vermelho de bandeira e ouro pirata.',colors:{bg:'#0d0b08',panel:'#201710',text:'#e9d6b3',accent:'#bd8532',topbar:'#1b110a'},style:{font:"'Pirata One','IM Fell English',serif",heading:"'Pirata One','Cinzel',serif",label:"'IM Fell English',serif",radius:'3px',buttonRadius:'2px',controlRadius:'2px',mapRadius:'1px',mapBorder:'4px'}},
+    'maritime-abyss':{group:'Marítimo',name:'Abissal',family:'maritime',desc:'Oceano profundo, verde-petróleo e bioluminescência fria.',colors:{bg:'#041012',panel:'#092126',text:'#d7e7df',accent:'#49c6b7',topbar:'#071b20'},style:{font:"'Cormorant Garamond',serif",heading:"'Cinzel',serif",label:"'Cinzel',serif",radius:'7px',buttonRadius:'5px',controlRadius:'5px',mapRadius:'6px',mapBorder:'3px'}}
+  };
+  function getThemePreset(key){ return THEME_PRESETS[key] || THEME_PRESETS['classic-amber']; }
+  function buildThemeFromPreset(key, previous){
+    const p=getThemePreset(key), prev=previous||{};
+    return Object.assign({},DEFAULT_THEME,p.colors,{preset:key,topbarOpacity:typeof prev.topbarOpacity==='number'?prev.topbarOpacity:100,tokenOutline:prev.tokenOutline||p.colors.accent,tokenOutlineEnabled:!!prev.tokenOutlineEnabled,tokenOutlineOpacity:typeof prev.tokenOutlineOpacity==='number'?prev.tokenOutlineOpacity:50});
+  }
+  function populateThemePresetSelect(){
+    const sel=el('theme-preset'); if(!sel) return;
+    const groups={}; Object.entries(THEME_PRESETS).forEach(([key,p])=>{ (groups[p.group]||(groups[p.group]=[])).push([key,p]); });
+    sel.innerHTML=Object.entries(groups).map(([g,arr])=>'<optgroup label="'+escapeHtml(g)+'">'+arr.map(([key,p])=>'<option value="'+escapeHtml(key)+'">'+escapeHtml(p.name)+'</option>').join('')+'</optgroup>').join('');
+  }
+  function syncThemePresetUI(){
+    const key=(state.meta.theme&&state.meta.theme.preset)||DEFAULT_THEME.preset; const p=getThemePreset(key);
+    if(el('theme-preset')) el('theme-preset').value=key;
+    if(el('theme-preset-description')) el('theme-preset-description').textContent=p.desc;
+  }
   function darkenHex(hex, amount){
     let h = hex.replace('#','');
     if(h.length === 3) h = h.split('').map(c => c+c).join('');
@@ -6090,23 +6234,31 @@
     return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+alpha+')';
   }
   function applyTheme(theme){
-    const t = Object.assign({}, DEFAULT_THEME, theme || {});
-    const root = document.documentElement.style;
+    const incoming=Object.assign({},DEFAULT_THEME,theme||{});
+    const preset=getThemePreset(incoming.preset||DEFAULT_THEME.preset);
+    const t=Object.assign({},DEFAULT_THEME,preset.colors,incoming);
+    const st=preset.style||{};
+    const root=document.documentElement.style;
     const alpha=Math.max(0,Math.min(100,Number(t.topbarOpacity ?? 100)))/100;
-    root.setProperty('--bg', t.bg);
-    root.setProperty('--bg-panel', t.panel);
-    root.setProperty('--parchment', t.text);
-    root.setProperty('--amber-bright', t.accent);
-    root.setProperty('--amber', t.accent);
-    root.setProperty('--topbar-bg-1', hexToRgbaTheme(t.topbar,alpha));
-    root.setProperty('--topbar-bg-2', hexToRgbaTheme(darkenHex(t.topbar,0.35),alpha));
-    // A borda padrão dos personagens acompanha a cor de destaque do tema.
-    // Ela é usada somente fora de combate; durante a iniciativa, a borda passa a representar o HP.
-    root.setProperty('--token-theme-border', t.accent);
-    root.setProperty('--token-theme-border-soft', hexToRgbaTheme(t.accent,0.36));
-    // Contorno dos tokens: sombra na cor escolhida pelo mestre, com opacidade ajustável.
+    document.body.dataset.themeFamily=preset.family||'classic';
+    document.body.dataset.themePreset=incoming.preset||DEFAULT_THEME.preset;
+    document.body.classList.toggle('theme-immersive',(preset.family||'classic')!=='classic');
+    root.setProperty('--bg',t.bg); root.setProperty('--bg-panel',t.panel); root.setProperty('--parchment',t.text);
+    root.setProperty('--amber-bright',t.accent); root.setProperty('--amber',t.accent);
+    root.setProperty('--line',darkenHex(t.accent,0.62)); root.setProperty('--parchment-dim',hexToRgbaTheme(t.text,.66));
+    root.setProperty('--topbar-bg-1',hexToRgbaTheme(t.topbar,alpha)); root.setProperty('--topbar-bg-2',hexToRgbaTheme(darkenHex(t.topbar,.35),alpha));
+    root.setProperty('--ui-font',st.font||"'EB Garamond',serif"); root.setProperty('--ui-heading-font',st.heading||"'Cinzel',serif"); root.setProperty('--ui-label-font',st.label||"'JetBrains Mono',monospace");
+    root.setProperty('--ui-radius',st.radius||'8px'); root.setProperty('--ui-button-radius',st.buttonRadius||'3px'); root.setProperty('--ui-control-radius',st.controlRadius||'3px');
+    root.setProperty('--ui-map-radius',st.mapRadius||'0px'); root.setProperty('--ui-map-border-width',st.mapBorder||'3px'); root.setProperty('--ui-map-border-color',t.accent);
+    root.setProperty('--ui-label-bg',hexToRgbaTheme(darkenHex(t.panel,.10),.96));
+    root.setProperty('--ui-panel-overlay',hexToRgbaTheme(darkenHex(t.panel,.25),.38));
+    root.setProperty('--ui-panel-shadow',preset.family==='numenera'?'0 0 22px '+hexToRgbaTheme(t.accent,.10)+',0 12px 30px rgba(0,0,0,.55)':'0 10px 30px rgba(0,0,0,.55)');
+    root.setProperty('--ui-map-shadow',preset.family==='arcane'?'0 0 36px '+hexToRgbaTheme(t.accent,.16)+',0 0 60px rgba(0,0,0,.5)':'0 0 60px rgba(0,0,0,.58)');
+    root.setProperty('--ui-badge-shadow',preset.family==='numenera'||preset.family==='arcane'?'0 0 10px '+hexToRgbaTheme(t.accent,.18):'none');
+    // A borda padrão dos personagens acompanha a estética-base e a cor de destaque personalizada.
+    root.setProperty('--token-theme-border',t.accent); root.setProperty('--token-theme-border-soft',hexToRgbaTheme(t.accent,.36));
     const outlineAlpha=Math.max(0,Math.min(100,Number(t.tokenOutlineOpacity ?? 50)))/100;
-    root.setProperty('--token-outline-shadow', t.tokenOutlineEnabled ? hexToRgbaTheme(t.tokenOutline,outlineAlpha) : 'rgba(0,0,0,0)');
+    root.setProperty('--token-outline-shadow',t.tokenOutlineEnabled?hexToRgbaTheme(t.tokenOutline,outlineAlpha):'rgba(0,0,0,0)');
   }
 
   const DEFAULT_TITLE_STYLE = { size:20, color:'#e2a53f', bold:true, italic:false, uppercase:false, letterSpacing:0.5, outlineWidth:0, outlineColor:'#000000', shadow:'none', bgColor:'#15120d', bgOpacity:0 };
@@ -7150,7 +7302,9 @@
     el('title-input').value = state.meta.title || "";
     el('access-code-input').value = state.meta.playerCode || '';
 
+    populateThemePresetSelect();
     applyTheme(state.meta.theme);
+    syncThemePresetUI();
     el('theme-bg').value = (state.meta.theme && state.meta.theme.bg) || DEFAULT_THEME.bg;
     el('theme-panel').value = (state.meta.theme && state.meta.theme.panel) || DEFAULT_THEME.panel;
     el('theme-text').value = (state.meta.theme && state.meta.theme.text) || DEFAULT_THEME.text;
@@ -11896,6 +12050,20 @@
     render(); await safeSet(slotKey('meta'), state.meta);
   });
 
+  async function applySelectedThemePreset(forceReset){
+    const key=el('theme-preset').value||DEFAULT_THEME.preset;
+    const current=state.meta.theme||DEFAULT_THEME;
+    if(forceReset || current.preset!==key) state.meta.theme=buildThemeFromPreset(key,current);
+    else state.meta.theme=Object.assign({},current,{preset:key});
+    applyTheme(state.meta.theme); syncThemePresetUI(); renderTokens();
+    // Atualiza os seletores de cor para a paleta realmente aplicada.
+    ['bg','panel','text','accent','topbar'].forEach(k=>{ if(el('theme-'+k)) el('theme-'+k).value=state.meta.theme[k]; });
+    await safeSet(slotKey('meta'),state.meta);
+  }
+  el('theme-preset').addEventListener('change',()=>{ const p=getThemePreset(el('theme-preset').value); el('theme-preset-description').textContent=p.desc; });
+  el('btn-theme-apply-preset').addEventListener('click',()=>applySelectedThemePreset(true));
+  el('btn-theme-preset-reset').addEventListener('click',()=>applySelectedThemePreset(true));
+
   function themeInputHandler(key){
     return async () => {
       if(!state.meta.theme) state.meta.theme = Object.assign({}, DEFAULT_THEME);
@@ -11914,7 +12082,7 @@
   el('theme-token-outline-opacity').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutlineOpacity=Number(el('theme-token-outline-opacity').value); el('theme-token-outline-opacity-value').textContent=state.meta.theme.tokenOutlineOpacity+'%'; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('theme-token-outline-enabled').addEventListener('change', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutlineEnabled=el('theme-token-outline-enabled').checked; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('btn-theme-reset').addEventListener('click', async () => {
-    state.meta.theme = Object.assign({}, DEFAULT_THEME);
+    state.meta.theme = buildThemeFromPreset(DEFAULT_THEME.preset,state.meta.theme);
     render();
     await safeSet(slotKey('meta'), state.meta);
   });
