@@ -12153,7 +12153,8 @@
       // até as duas pontas ficam quase paralelas, a sombra degenera numa
       // fatia fina/deformada demais, e sobra luz vazando desconectada do lado
       // errado da parede.
-      const wallDx=bx2-bx1, wallDy=by2-by1, wallLenSq=(wallDx*wallDx+wallDy*wallDy)||1;
+      const wallDx=bx2-bx1, wallDy=by2-by1, wallLen=Math.hypot(wallDx,wallDy)||1, wallLenSq=wallLen*wallLen;
+      const nx=-wallDy/wallLen, ny=wallDx/wallLen;
       let t=((x-bx1)*wallDx+(y-by1)*wallDy)/wallLenSq;
       t=Math.max(0,Math.min(1,t));
       const cpx=bx1+wallDx*t, cpy=by1+wallDy*t; // ponto mais próximo do segmento
@@ -12164,21 +12165,32 @@
       if(dist<minStandoff){
         if(dist<1e-6){
           // origem exatamente em cima da parede: usa a normal como direção de escape
-          const wallLen=Math.sqrt(wallLenSq);
-          ox=x+(-wallDy/wallLen)*minStandoff; oy=y+(wallDx/wallLen)*minStandoff;
+          ox=x+nx*minStandoff; oy=y+ny*minStandoff;
         } else {
           ox=cpx+distX/dist*minStandoff; oy=cpy+distY/dist*minStandoff;
         }
       }
-      const dx1=bx1-ox, dy1=by1-oy, dx2=bx2-ox, dy2=by2-oy;
-      const len1=Math.max(1,Math.hypot(dx1,dy1)), len2=Math.max(1,Math.hypot(dx2,dy2));
-      const proj=range*2.2;
-      const px1=ox+dx1/len1*proj, py1=oy+dy1/len1*proj;
-      const px2=ox+dx2/len2*proj, py2=oy+dy2/len2*proj;
+      // Projeta cada ponta por uma distância ADAPTÁVEL, não fixa: quando a
+      // parede é muito mais comprida que o alcance da luz, um raio até uma
+      // ponta distante fica quase raso/paralelo à própria parede — esticar
+      // por um comprimento fixo então avança quase só "de lado", sem ganhar
+      // profundidade de verdade pro outro lado, e a sombra vazava. Em vez
+      // disso, garante que a PROFUNDIDADE perpendicular alcançada seja
+      // sempre suficiente, id do quão rasante o ângulo for.
+      const desiredDepth=range*2.2;
+      function projectPoint(ex,ey){
+        const ddx=ex-ox, ddy=ey-oy;
+        const dlen=Math.max(1,Math.hypot(ddx,ddy));
+        const ux=ddx/dlen, uy=ddy/dlen;
+        const depthPerUnit=Math.abs(ux*nx+uy*ny);
+        const extLen=desiredDepth/Math.max(1e-4,depthPerUnit);
+        return { x: ox+ux*extLen, y: oy+uy*extLen };
+      }
+      const p1=projectPoint(bx1,by1), p2=projectPoint(bx2,by2);
       maskCtx.globalAlpha=block;
       maskCtx.beginPath();
       maskCtx.moveTo(bx1,by1); maskCtx.lineTo(bx2,by2);
-      maskCtx.lineTo(px2,py2); maskCtx.lineTo(px1,py1);
+      maskCtx.lineTo(p2.x,p2.y); maskCtx.lineTo(p1.x,p1.y);
       maskCtx.closePath(); maskCtx.fill();
       maskCtx.globalAlpha=1;
     });
