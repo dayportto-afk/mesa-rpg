@@ -720,11 +720,11 @@
     cursor:pointer; user-select:none;
   }
   .icon-rail-label:focus-visible{ outline:2px solid var(--amber-bright); outline-offset:2px; }
-  #icon-rail-reorder-item{ width:86px; margin-top:1px; padding-bottom:2px; }
+  #icon-rail-reorder-item{ width:104px; margin-top:1px; padding-bottom:2px; }
   #icon-rail-reorder-item .icon-rail-label{ display:none; }
   #btn-icon-rail-reorder{
-    width:86px; min-width:86px; height:32px; padding:0 5px; border-radius:10px;
-    font-size:5px; letter-spacing:0; text-transform:none; white-space:nowrap; line-height:1;
+    width:104px; min-width:104px; height:32px; padding:0 6px; border-radius:10px;
+    font-size:9px; letter-spacing:0; text-transform:none; white-space:nowrap; line-height:1;
     font-family:'JetBrains Mono',monospace;
     border-image:var(--ui-border-texture,none) 3;
   }
@@ -2871,12 +2871,27 @@
             <input type="range" id="theme-token-outline-opacity" min="0" max="100" step="5" value="50">
             <span id="theme-token-outline-opacity-value" class="title-style-value">50%</span>
           </div>
+          <div class="theme-row">
+            <label for="theme-font">Fonte geral do texto</label>
+            <select id="theme-font" style="width:170px;">
+              <option value="'EB Garamond', serif">EB Garamond (clássica)</option>
+              <option value="'Cormorant Garamond', serif">Cormorant Garamond (elegante)</option>
+              <option value="'IM Fell English', serif">IM Fell English (pergaminho)</option>
+              <option value="'Uncial Antiqua', serif">Uncial Antiqua (élfica)</option>
+              <option value="'Metamorphous', serif">Metamorphous (gótica)</option>
+              <option value="'MedievalSharp', serif">MedievalSharp (medieval)</option>
+              <option value="'Pirata One', serif">Pirata One (pirata)</option>
+              <option value="'Special Elite', monospace">Special Elite (máquina de escrever)</option>
+              <option value="'Share Tech Mono', monospace">Share Tech Mono (tecnológica)</option>
+              <option value="'JetBrains Mono', monospace">JetBrains Mono (monoespaçada)</option>
+            </select>
+          </div>
           <label style="display:flex; align-items:center; gap:6px; margin:2px 0 0 0; font-size:12px; color:var(--parchment-dim);">
             <input type="checkbox" id="theme-token-outline-enabled" style="width:auto;">
             Ativar contorno
           </label>
           <button id="btn-theme-reset" style="width:100%; margin-top:8px;">Restaurar cores padrão</button>
-          <div class="hint">As cores são salvas por campanha e aparecem para mestre e jogadores.</div>
+          <div class="hint">As cores são salvas por campanha e aparecem para mestre e jogadores. Ao escolher uma predefinição temática, a fonte muda junto — mas dá pra trocar a fonte aqui sem perder as cores escolhidas.</div>
         </div>
       </div>
 
@@ -7800,6 +7815,7 @@
     const tokenOutlineOpacity = (state.meta.theme && typeof state.meta.theme.tokenOutlineOpacity==='number') ? state.meta.theme.tokenOutlineOpacity : DEFAULT_THEME.tokenOutlineOpacity;
     el('theme-token-outline-opacity').value = tokenOutlineOpacity;
     el('theme-token-outline-opacity-value').textContent = tokenOutlineOpacity + '%';
+    el('theme-font').value = (state.meta.theme && state.meta.theme.font) || DEFAULT_THEME.font;
 
     const titleFont = state.meta.titleFont || "'Cinzel', serif";
     $title.style.fontFamily = titleFont;
@@ -12587,6 +12603,7 @@
   el('theme-token-outline').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutline=el('theme-token-outline').value; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('theme-token-outline-opacity').addEventListener('input', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutlineOpacity=Number(el('theme-token-outline-opacity').value); el('theme-token-outline-opacity-value').textContent=state.meta.theme.tokenOutlineOpacity+'%'; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('theme-token-outline-enabled').addEventListener('change', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.tokenOutlineEnabled=el('theme-token-outline-enabled').checked; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
+  el('theme-font').addEventListener('change', async () => { if(!state.meta.theme) state.meta.theme=Object.assign({},DEFAULT_THEME); state.meta.theme.font=el('theme-font').value; applyTheme(state.meta.theme); await safeSet(slotKey('meta'),state.meta); });
   el('btn-theme-reset').addEventListener('click', async () => {
     state.meta.theme = Object.assign({},DEFAULT_THEME);
     render();
