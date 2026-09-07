@@ -12181,6 +12181,21 @@
   // Recorta a sombra de cada barreira próxima na máscara desta luz (técnica de
   // "sombra por segmento": nada de raycasting/polígono de visibilidade — só um
   // preenchimento por barreira, descartando de cara as que estão fora do alcance).
+  // Linha de visão entre dois pontos (independente de bloquear movimento —
+  // uma barreira "atravessável" ainda pode, por exemplo, continuar bloqueando
+  // a visão, já que são interruptores separados).
+  function barrierBlocksLineOfSight(b){
+    if(b.type==='door') return !b.open;
+    if(b.type==='window') return (b.transmission||0)<=0;
+    return true; // parede sempre bloqueia visão
+  }
+  function lineOfSightBlockedByBarriers(page,x1,y1,x2,y2){
+    if(!page)return false;
+    const barriers=ensureLightBarriers(page);
+    if(!barriers.enabled||!barriers.list.length)return false;
+    const p1={x:x1,y:y1}, p2={x:x2,y:y2};
+    return barriers.list.some(b=>barrierBlocksLineOfSight(b)&&segmentsIntersect(p1,p2,{x:b.x1,y:b.y1},{x:b.x2,y:b.y2}));
+  }
   function paintBarrierShadowsOnMask(maskCtx,barrierList,x,y,range){
     maskCtx.globalCompositeOperation='destination-out';
     barrierList.forEach(b=>{
@@ -12272,10 +12287,23 @@
       accCtx.clearRect(0,0,accCanvas.width,accCanvas.height);
       accCtx.globalCompositeOperation='source-over';
     }
+    // Cada jogador só enxerga a lanterna de OUTRO personagem se não houver
+    // parede entre o próprio token dele e quem carrega aquela luz — sem isso,
+    // todo mundo veria o resultado combinado de todas as lanternas do mapa,
+    // mesmo as de personagens em cômodos totalmente separados.
+    let viewerOwnPos=null;
+    if(barriersActive&&!effectiveMaster()){
+      const ownTok=state.tokens.find(t=>!t.isReference&&!t.isMapObject&&isOwnToken(t)&&isTokenOnPage(t,state.currentPageId));
+      if(ownTok) viewerOwnPos=liveTokenPosition(ownTok);
+    }
 
     if(lighting.allowed)state.tokens.forEach(tok=>{
       if(tok.isReference||tok.isMapObject||!isTokenOnPage(tok,state.currentPageId)) return;
       if(!viewerCanSeeLantern(tok,lighting,viewerGroups)) return;
+      if(viewerOwnPos&&!isOwnToken(tok)){
+        const pctPos=liveTokenPosition(tok);
+        if(lineOfSightBlockedByBarriers(page,viewerOwnPos.x,viewerOwnPos.y,pctPos.x,pctPos.y)) return;
+      }
       const lantern=tokenLanternState(tok,false);
       if(!lantern||!lantern.enabled) return;
       const pos=liveTokenPosition(tok);
