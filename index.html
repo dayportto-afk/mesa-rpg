@@ -246,7 +246,7 @@
   #campaign-title{ font-family:var(--ui-heading-font,'Cinzel',serif); }
 
   /* Nos temas imersivos, a barra vira uma coluna de placas: ícone + nome. */
-  body.theme-immersive #icon-rail{ min-width:154px; padding-right:8px; gap:6px; }
+  body.theme-immersive #icon-rail{ left:76px; min-width:154px; padding-right:8px; gap:6px; }
   body.theme-immersive .icon-rail-item{ width:140px; flex-direction:row; gap:0; align-items:stretch; }
   body.theme-immersive .icon-rail-btn{
     width:42px; min-width:42px; height:38px; border-radius:var(--ui-icon-radius,4px) 0 0 var(--ui-icon-radius,4px);
@@ -297,6 +297,84 @@
   body[data-theme-family="steampunk"] .icon-rail-btn,
   body[data-theme-family="steampunk"] .icon-rail-label{ box-shadow:inset 0 0 0 1px rgba(255,190,80,.08),0 2px 6px rgba(0,0,0,.45); }
 
+
+  /* Elementos decorativos de cena para aproximar a interface dos mockups temáticos. */
+  #theme-scene{ position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  #theme-scene.hidden{ display:none; }
+  #theme-banner,
+  #theme-props-left,
+  #theme-props-right,
+  #theme-corner-seal{ position:absolute; }
+  #theme-banner{
+    left:10px; top:10px; bottom:12px; width:54px; display:none;
+    border:1px solid var(--theme-prop-border,var(--line)); border-radius:14px;
+    background:var(--theme-banner-bg,linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.18)));
+    box-shadow:0 12px 26px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.04);
+  }
+  body.theme-immersive #theme-banner{ display:flex; align-items:flex-start; justify-content:center; }
+  #theme-banner-content{
+    writing-mode:vertical-rl; text-orientation:mixed; display:flex; align-items:center; gap:10px;
+    padding:14px 0; color:var(--theme-banner-text,var(--amber-bright));
+  }
+  #theme-banner-symbol{ font-size:22px; line-height:1; }
+  #theme-banner-texts{ display:flex; flex-direction:column; gap:8px; align-items:center; }
+  #theme-banner-title{ font-family:var(--ui-heading-font,'Cinzel',serif); font-size:14px; letter-spacing:1px; text-transform:uppercase; }
+  #theme-banner-subtitle{ font-family:var(--ui-label-font,'JetBrains Mono',monospace); font-size:9px; opacity:.78; letter-spacing:1px; text-transform:uppercase; }
+  #theme-props-left,
+  #theme-props-right{
+    min-width:126px; min-height:88px; padding:10px 12px; display:none;
+    border:1px solid var(--theme-prop-border,var(--line)); border-radius:12px;
+    background:var(--theme-prop-bg,linear-gradient(180deg,rgba(255,255,255,.045),rgba(0,0,0,.18)));
+    box-shadow:0 18px 30px rgba(0,0,0,.26), inset 0 0 0 1px rgba(255,255,255,.03);
+    color:var(--parchment);
+  }
+  body.theme-immersive #theme-props-left,
+  body.theme-immersive #theme-props-right{ display:block; }
+  #theme-props-left{ left:86px; bottom:12px; }
+  #theme-props-right{ right:16px; bottom:12px; text-align:right; }
+  .theme-prop-icons{ font-size:24px; line-height:1.1; letter-spacing:3px; white-space:nowrap; }
+  .theme-prop-label{ margin-top:8px; font-family:var(--ui-label-font,'JetBrains Mono',monospace); font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--parchment-dim); }
+  #theme-corner-seal{
+    top:12px; right:108px; width:42px; height:42px; display:none; align-items:center; justify-content:center;
+    border-radius:50%; border:1px solid var(--theme-prop-border,var(--line));
+    background:var(--theme-seal-bg,linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.22)));
+    color:var(--theme-banner-text,var(--amber-bright)); font-size:18px;
+    box-shadow:0 10px 20px rgba(0,0,0,.22);
+  }
+  body.theme-immersive #theme-corner-seal{ display:flex; }
+  body.theme-immersive #map-area{ padding:12px 148px 12px 0; }
+  body.theme-immersive #map-viewport{ left:74px; right:126px; top:0; bottom:0; }
+  body.theme-immersive #zoom-controls{ right:136px; }
+  body.theme-immersive #initiative-hud{ right:144px; }
+  body.theme-immersive #dice-roll-notification-host{ right:150px; }
+  body.theme-immersive #freeze-banner{ left:96px; right:152px; }
+  body.theme-immersive .float-panel{ backdrop-filter:blur(2px); }
+  body.theme-immersive #map-canvas::before{
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
+    background:var(--ui-map-underlay,none); opacity:.48;
+  }
+  body.theme-immersive #empty-map{
+    position:relative; z-index:1; background:var(--ui-empty-map-bg,transparent);
+    border:1px dashed color-mix(in srgb,var(--amber) 36%,transparent);
+    border-radius:var(--ui-map-radius,6px); max-width:430px; margin:28px auto;
+    box-shadow:0 12px 24px rgba(0,0,0,.18);
+  }
+  @media (max-width: 1100px){
+    body.theme-immersive #theme-props-right{ display:none; }
+    body.theme-immersive #map-area{ padding-right:18px; }
+    body.theme-immersive #map-viewport{ right:0; }
+    body.theme-immersive #zoom-controls,
+    body.theme-immersive #initiative-hud,
+    body.theme-immersive #dice-roll-notification-host{ right:16px; }
+    body.theme-immersive #freeze-banner{ right:20px; }
+  }
+  @media (max-width: 860px){
+    #theme-scene{ display:none !important; }
+    body.theme-immersive #icon-rail{ left:12px; }
+    body.theme-immersive #map-area{ padding:0; }
+    body.theme-immersive #map-viewport{ left:0; right:0; }
+  }
+
   #topbar-token-name{
     flex:1 1 auto; min-width:0; text-align:center;
     font-family:'IM Fell English', serif; font-size:16px; color:var(--amber-bright);
@@ -336,7 +414,9 @@
     font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim);
     letter-spacing:0.3px; text-align:center; line-height:1.1;
     text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.9);
+    cursor:pointer; user-select:none;
   }
+  .icon-rail-label:focus-visible{ outline:2px solid var(--amber-bright); outline-offset:2px; }
   #icon-rail-reorder-item{ width:86px; margin-top:1px; padding-bottom:2px; }
   #icon-rail-reorder-item .icon-rail-label{ display:none; }
   #btn-icon-rail-reorder{
@@ -776,8 +856,8 @@
 
   /* Map area */
   #map-area{
-    flex:1; position:relative; overflow:hidden;
-    background:var(--bg);
+    flex:1; position:relative; overflow:hidden; z-index:2;
+    background:var(--ui-area-pattern,none), var(--bg);
   }
   #map-viewport{
     position:absolute; inset:0;
@@ -2257,6 +2337,26 @@
     </div>
 
     <div id="main">
+      <div id="theme-scene" class="hidden" aria-hidden="true">
+        <div id="theme-banner">
+          <div id="theme-banner-content">
+            <div id="theme-banner-symbol">✦</div>
+            <div id="theme-banner-texts">
+              <div id="theme-banner-title">Tema</div>
+              <div id="theme-banner-subtitle">Estética</div>
+            </div>
+          </div>
+        </div>
+        <div id="theme-corner-seal">✦</div>
+        <div id="theme-props-left">
+          <div id="theme-props-left-icons" class="theme-prop-icons">📚 ✨</div>
+          <div id="theme-props-left-label" class="theme-prop-label">Ambiente temático</div>
+        </div>
+        <div id="theme-props-right">
+          <div id="theme-props-right-icons" class="theme-prop-icons">🗺️ 🕯️</div>
+          <div id="theme-props-right-label" class="theme-prop-label">Detalhes da mesa</div>
+        </div>
+      </div>
       <div id="icon-rail" class="hidden">
         <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn" data-panel="float-name" title="Nome da campanha">🏷️</button>
@@ -4503,9 +4603,24 @@
   document.querySelectorAll('.icon-rail-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-panel');
+      if(!id) return;
       const panel = el(id);
+      if(!panel) return;
       if(panel.classList.contains('open')) closeFloatPanel(id);
       else openFloatPanel(id);
+    });
+  });
+  // O nome da ferramenta também funciona como área de seleção/abertura.
+  document.querySelectorAll('.icon-rail-item:not(#icon-rail-reorder-item) .icon-rail-label').forEach(label => {
+    label.setAttribute('role','button');
+    label.setAttribute('tabindex','0');
+    const activate = () => {
+      const btn = label.closest('.icon-rail-item')?.querySelector('.icon-rail-btn[data-panel]');
+      if(btn) btn.click();
+    };
+    label.addEventListener('click', activate);
+    label.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); activate(); }
     });
   });
   document.querySelectorAll('.float-panel-close').forEach(btn => {
@@ -6227,11 +6342,115 @@
     const b = Math.max(0, Math.round(parseInt(h.substring(4,6),16) * (1 - amount)));
     return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
   }
+
   function hexToRgbaTheme(hex, alpha){
     let h=String(hex||'#000000').replace('#','');
     if(h.length===3) h=h.split('').map(c=>c+c).join('');
     const n=parseInt(h,16); if(Number.isNaN(n)) return 'rgba(0,0,0,'+alpha+')';
     return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+alpha+')';
+  }
+  function setThemeSceneConfig(scene){
+    const wrap=el('theme-scene'); if(!wrap) return;
+    const show=!!(scene && scene.show);
+    wrap.classList.toggle('hidden', !show);
+    const setText=(id,val)=>{ const node=el(id); if(node) node.textContent=val||''; };
+    setText('theme-banner-symbol', scene && scene.bannerSymbol || '✦');
+    setText('theme-banner-title', scene && scene.bannerTitle || 'Tema');
+    setText('theme-banner-subtitle', scene && scene.bannerSubtitle || 'Estética');
+    setText('theme-props-left-icons', scene && scene.leftIcons || '');
+    setText('theme-props-left-label', scene && scene.leftLabel || '');
+    setText('theme-props-right-icons', scene && scene.rightIcons || '');
+    setText('theme-props-right-label', scene && scene.rightLabel || '');
+    setText('theme-corner-seal', scene && scene.seal || '✦');
+  }
+  function buildThemeVisuals(key,preset,t){
+    const family=preset.family||'classic';
+    const accent=t.accent, text=t.text, panel=t.panel, bg=t.bg, top=t.topbar;
+    const accent10=hexToRgbaTheme(accent,.10), accent16=hexToRgbaTheme(accent,.16), accent26=hexToRgbaTheme(accent,.26), accent34=hexToRgbaTheme(accent,.34);
+    const text06=hexToRgbaTheme(text,.06), text12=hexToRgbaTheme(text,.12), text18=hexToRgbaTheme(text,.18), text28=hexToRgbaTheme(text,.28);
+    const darkPanel=darkenHex(panel,.18), darkerPanel=darkenHex(panel,.34), darkerBg=darkenHex(bg,.18);
+    const base={
+      panelPattern:'linear-gradient(180deg,'+hexToRgbaTheme(panel,.96)+' 0%,'+hexToRgbaTheme(darkerPanel,.97)+' 100%)',
+      buttonPattern:'linear-gradient(180deg,rgba(255,255,255,.04),rgba(0,0,0,.15))',
+      areaPattern:'radial-gradient(circle at 18% 12%,'+accent10+',transparent 25%), linear-gradient(180deg,'+hexToRgbaTheme(bg,1)+' 0%,'+hexToRgbaTheme(darkerBg,1)+' 100%)',
+      mapUnderlay:'none',
+      emptyMapBg:'linear-gradient(180deg,'+hexToRgbaTheme(panel,.35)+','+hexToRgbaTheme(darkerPanel,.45)+')',
+      bannerBg:'linear-gradient(180deg,'+hexToRgbaTheme(darkPanel,.96)+' 0%,'+hexToRgbaTheme(darkerPanel,.98)+' 100%)',
+      propBg:'linear-gradient(180deg,'+hexToRgbaTheme(panel,.92)+' 0%,'+hexToRgbaTheme(darkerPanel,.96)+' 100%)',
+      sealBg:'linear-gradient(180deg,'+hexToRgbaTheme(top,.96)+','+hexToRgbaTheme(darkenHex(top,.3),.98)+')',
+      propBorder:accent26,
+      bannerText:accent,
+      borderWidth:'1px',
+      badgeRadius:'4px',
+      iconRadius:'5px',
+      buttonShadow:'0 4px 12px rgba(0,0,0,.38)',
+      topbarShadow:'0 4px 18px rgba(0,0,0,.18)',
+      scene:{ show:false, bannerSymbol:'✦', bannerTitle:'Mesa RPG', bannerSubtitle:preset.name||'', leftIcons:'', leftLabel:'', rightIcons:'', rightLabel:'', seal:'✦' }
+    };
+    if(family==='medieval'){
+      base.panelPattern='linear-gradient(180deg,'+hexToRgbaTheme(panel,.95)+' 0%,'+hexToRgbaTheme(darkerPanel,.98)+' 100%), repeating-linear-gradient(90deg, transparent 0 38px, rgba(255,255,255,.02) 38px 39px)';
+      base.buttonPattern='linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.22)), linear-gradient(90deg,'+hexToRgbaTheme(accent,.08)+', transparent 24%)';
+      base.areaPattern='radial-gradient(circle at 22% 10%,'+accent16+',transparent 22%), repeating-linear-gradient(90deg,'+hexToRgbaTheme(top,.85)+' 0 34px,'+hexToRgbaTheme(darkenHex(top,.08),.85)+' 34px 68px), linear-gradient(180deg,'+hexToRgbaTheme(bg,1)+' 0%,'+hexToRgbaTheme(darkerBg,1)+' 100%)';
+      base.mapUnderlay='radial-gradient(circle at 82% 20%,'+text06+',transparent 18%), radial-gradient(circle at 20% 78%,'+accent10+',transparent 24%), repeating-linear-gradient(0deg, transparent 0 42px, '+text06+' 42px 43px)';
+      base.emptyMapBg='linear-gradient(180deg,'+hexToRgbaTheme('#c1ab7f',.10)+','+hexToRgbaTheme(panel,.24)+')';
+      base.bannerBg='linear-gradient(180deg,'+hexToRgbaTheme(top,.98)+' 0%,'+hexToRgbaTheme(darkerPanel,.98)+' 100%)';
+      base.propBg='linear-gradient(180deg,'+hexToRgbaTheme(panel,.94)+' 0%,'+hexToRgbaTheme(darkerPanel,.98)+' 100%)';
+      base.borderWidth='2px'; base.badgeRadius='6px'; base.iconRadius='6px';
+      base.scene={show:true,bannerSymbol:'🛡️',bannerTitle:'Salão',bannerSubtitle:preset.name,leftIcons:'🕯️ 📚 🪙',leftLabel:'Mesa do mestre',rightIcons:'🗺️ ⚔️',rightLabel:'Rotas e relíquias',seal:'♜'};
+      if(key==='medieval-parchment') base.scene={show:true,bannerSymbol:'📜',bannerTitle:'Scriptorium',bannerSubtitle:preset.name,leftIcons:'🪶 📚 ✨',leftLabel:'Manuscritos',rightIcons:'🕯️ 🧭',rightLabel:'Atlas antigo',seal:'✶'};
+      if(key==='medieval-grim') base.scene={show:true,bannerSymbol:'☠️',bannerTitle:'Grimório',bannerSubtitle:preset.name,leftIcons:'⛓️ 🕯️ 📕',leftLabel:'Ecos sombrios',rightIcons:'🗡️ ☠️',rightLabel:'Guerra e ruínas',seal:'✠'};
+      if(key==='medieval-tavern') base.scene={show:true,bannerSymbol:'🍺',bannerTitle:'Taverna',bannerSubtitle:preset.name,leftIcons:'🍺 🎲 🪙',leftLabel:'Mesa animada',rightIcons:'🗺️ 🕯️',rightLabel:'Rumores e mapas',seal:'⚜️'};
+    } else if(family==='numenera'){
+      base.panelPattern='linear-gradient(180deg,'+hexToRgbaTheme(panel,.88)+' 0%,'+hexToRgbaTheme(darkerPanel,.94)+' 100%), linear-gradient(90deg, transparent 0%, '+accent10+' 50%, transparent 100%)';
+      base.buttonPattern='linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,.16)), linear-gradient(135deg, '+accent16+', transparent 28%)';
+      base.areaPattern='radial-gradient(circle at 50% -10%,'+accent16+',transparent 26%), linear-gradient(180deg,'+hexToRgbaTheme(bg,1)+' 0%,'+hexToRgbaTheme(darkerBg,1)+' 100%), repeating-linear-gradient(90deg, transparent 0 56px, '+accent10+' 56px 57px), repeating-linear-gradient(0deg, transparent 0 56px, '+accent10+' 56px 57px)';
+      base.mapUnderlay='radial-gradient(circle at 80% 24%,'+accent10+',transparent 14%), radial-gradient(circle at 24% 76%,'+accent10+',transparent 16%), linear-gradient(90deg, transparent 0 49%, '+text12+' 50%, transparent 51%), linear-gradient(0deg, transparent 0 49%, '+text12+' 50%, transparent 51%)';
+      base.emptyMapBg='linear-gradient(180deg,'+hexToRgbaTheme(accent,.10)+','+hexToRgbaTheme(panel,.22)+')';
+      base.badgeRadius='10px'; base.iconRadius='8px';
+      base.scene={show:true,bannerSymbol:'◉',bannerTitle:'Nono Mundo',bannerSubtitle:preset.name,leftIcons:'💠 ⚙️ 📡',leftLabel:'Tecnologia antiga',rightIcons:'🌀 🔹',rightLabel:'Horizontes estranhos',seal:'⬡'};
+      if(key==='numenera-relic') base.scene={show:true,bannerSymbol:'⬢',bannerTitle:'Relíquia',bannerSubtitle:preset.name,leftIcons:'🏺 💠 ⚙️',leftLabel:'Ruínas e cifras',rightIcons:'📜 📡',rightLabel:'Ecos do passado',seal:'◎'};
+      if(key==='numenera-holo') base.scene={show:true,bannerSymbol:'⌬',bannerTitle:'Holo',bannerSubtitle:preset.name,leftIcons:'🖧 💠 📶',leftLabel:'Interface viva',rightIcons:'🧬 ✨',rightLabel:'Glifos ativos',seal:'◈'};
+    } else if(family==='arcane'){
+      base.panelPattern='radial-gradient(circle at 10% 0%,'+accent10+',transparent 28%), linear-gradient(180deg,'+hexToRgbaTheme(panel,.94)+' 0%,'+hexToRgbaTheme(darkerPanel,.98)+' 100%)';
+      base.buttonPattern='linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.18)), radial-gradient(circle at 15% 20%,'+accent16+',transparent 28%)';
+      base.areaPattern='radial-gradient(circle at 50% -10%,'+accent16+',transparent 22%), radial-gradient(circle at 82% 14%,'+text06+',transparent 14%), linear-gradient(180deg,'+hexToRgbaTheme(bg,1)+' 0%,'+hexToRgbaTheme(darkerBg,1)+' 100%)';
+      base.mapUnderlay='radial-gradient(circle at 22% 76%,'+accent10+',transparent 18%), radial-gradient(circle at 80% 14%,'+text12+',transparent 18%), linear-gradient(0deg, transparent 0 50%, '+text06+' 50% 51%, transparent 51% 100%)';
+      base.emptyMapBg='linear-gradient(180deg,'+hexToRgbaTheme(accent,.12)+','+hexToRgbaTheme(panel,.20)+')';
+      base.borderWidth='2px'; base.badgeRadius='12px'; base.iconRadius='9px';
+      base.scene={show:true,bannerSymbol:'✨',bannerTitle:'Arcano',bannerSubtitle:preset.name,leftIcons:'📚 🔮 🕯️',leftLabel:'Biblioteca viva',rightIcons:'📜 ⭐',rightLabel:'Símbolos e sigilos',seal:'✦'};
+      if(key==='arcane-amethyst') base.scene={show:true,bannerSymbol:'🔮',bannerTitle:'Ametista',bannerSubtitle:preset.name,leftIcons:'💎 🔮 ✨',leftLabel:'Cristais e foco',rightIcons:'🕯️ 📚',rightLabel:'Círculo ritual',seal:'✺'};
+      if(key==='arcane-celestial') base.scene={show:true,bannerSymbol:'🌙',bannerTitle:'Celestial',bannerSubtitle:preset.name,leftIcons:'🌙 ⭐ 🔭',leftLabel:'Observatório',rightIcons:'📜 ✨',rightLabel:'Mapas do céu',seal:'☾'};
+    } else if(family==='horror'){
+      base.panelPattern='radial-gradient(circle at 88% 4%,'+hexToRgbaTheme('#7b0f12',.18)+',transparent 28%), linear-gradient(180deg,'+hexToRgbaTheme(panel,.94)+' 0%,'+hexToRgbaTheme(darkerPanel,.99)+' 100%)';
+      base.buttonPattern='linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.24)), linear-gradient(135deg,'+hexToRgbaTheme('#7b0f12',.18)+',transparent 40%)';
+      base.areaPattern='radial-gradient(circle at 16% 0%,'+hexToRgbaTheme('#7b0f12',.20)+',transparent 24%), linear-gradient(180deg,'+hexToRgbaTheme(bg,1)+' 0%,'+hexToRgbaTheme(darkerBg,1)+' 100%)';
+      base.mapUnderlay='radial-gradient(circle at 78% 20%,'+hexToRgbaTheme('#7b0f12',.15)+',transparent 18%), radial-gradient(circle at 22% 75%,'+text06+',transparent 16%)';
+      base.emptyMapBg='linear-gradient(180deg,'+hexToRgbaTheme('#7b0f12',.12)+','+hexToRgbaTheme(panel,.18)+')';
+      base.borderWidth='2px'; base.badgeRadius='3px'; base.iconRadius='3px';
+      base.scene={show:true,bannerSymbol:'☠️',bannerTitle:'Vigília',bannerSubtitle:preset.name,leftIcons:'🕯️ ☠️ 📖',leftLabel:'Arquivo sombrio',rightIcons:'⛪ 🦇',rightLabel:'Noite e ecos',seal:'✠'};
+      if(key==='horror-occult') base.scene={show:true,bannerSymbol:'🔺',bannerTitle:'Oculto',bannerSubtitle:preset.name,leftIcons:'🕯️ 📓 🔺',leftLabel:'Ritos ocultos',rightIcons:'📜 ☠️',rightLabel:'Segredos velados',seal:'🜏'};
+      if(key==='horror-blood') base.scene={show:true,bannerSymbol:'🩸',bannerTitle:'Sangue',bannerSubtitle:preset.name,leftIcons:'🩸 🗡️ 🕯️',leftLabel:'Crônicas rubras',rightIcons:'☠️ 📖',rightLabel:'Juramentos partidos',seal:'✢'};
+    } else if(family==='steampunk'){
+      base.panelPattern='linear-gradient(180deg,'+hexToRgbaTheme(panel,.94)+' 0%,'+hexToRgbaTheme(darkerPanel,.98)+' 100%), repeating-linear-gradient(90deg, transparent 0 24px, rgba(255,255,255,.025) 24px 25px)';
+      base.buttonPattern='linear-gradient(180deg,rgba(255,255,255,.04),rgba(0,0,0,.18)), linear-gradient(90deg,'+hexToRgbaTheme(accent,.12)+', transparent 36%)';
+      base.areaPattern='radial-gradient(circle at 18% 0%,'+accent16+',transparent 18%), linear-gradient(180deg,'+hexToRgbaTheme(bg,1)+' 0%,'+hexToRgbaTheme(darkerBg,1)+' 100%), repeating-linear-gradient(90deg, '+hexToRgbaTheme(top,.62)+' 0 36px, '+hexToRgbaTheme(darkenHex(top,.10),.62)+' 36px 72px)';
+      base.mapUnderlay='radial-gradient(circle at 80% 18%,'+accent10+',transparent 18%), linear-gradient(90deg, transparent 0 48%, '+text06+' 49%, transparent 50%)';
+      base.emptyMapBg='linear-gradient(180deg,'+hexToRgbaTheme(accent,.10)+','+hexToRgbaTheme(panel,.22)+')';
+      base.borderWidth='2px'; base.badgeRadius='6px'; base.iconRadius='5px';
+      base.scene={show:true,bannerSymbol:'⚙️',bannerTitle:'Oficina',bannerSubtitle:preset.name,leftIcons:'⚙️ 🕰️ 📜',leftLabel:'Máquinas e mapas',rightIcons:'🔭 🧭',rightLabel:'Latão e fumaça',seal:'⚙'};
+      if(key==='steampunk-industrial') base.scene={show:true,bannerSymbol:'🔩',bannerTitle:'Industrial',bannerSubtitle:preset.name,leftIcons:'⚙️ 🔩 🛠️',leftLabel:'Pressão e vapor',rightIcons:'⏱️ 📐',rightLabel:'Engrenagens finas',seal:'⛭'};
+    } else if(family==='maritime'){
+      base.panelPattern='linear-gradient(180deg,'+hexToRgbaTheme(panel,.92)+' 0%,'+hexToRgbaTheme(darkerPanel,.97)+' 100%), linear-gradient(90deg, '+hexToRgbaTheme(accent,.06)+' 0%, transparent 35%, '+hexToRgbaTheme(text,.04)+' 100%)';
+      base.buttonPattern='linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.18)), linear-gradient(90deg,'+hexToRgbaTheme(accent,.08)+', transparent 26%)';
+      base.areaPattern='radial-gradient(circle at 50% -18%,'+accent16+',transparent 24%), linear-gradient(180deg,'+hexToRgbaTheme(bg,1)+' 0%,'+hexToRgbaTheme(darkerBg,1)+' 100%), repeating-linear-gradient(90deg, transparent 0 54px, '+text06+' 54px 55px)';
+      base.mapUnderlay='radial-gradient(circle at 82% 18%,'+accent10+',transparent 16%), radial-gradient(circle at 20% 74%,'+text06+',transparent 20%), linear-gradient(135deg, transparent 0 49%, '+text06+' 50%, transparent 51%)';
+      base.emptyMapBg='linear-gradient(180deg,'+hexToRgbaTheme(accent,.10)+','+hexToRgbaTheme(panel,.18)+')';
+      base.borderWidth='2px'; base.badgeRadius='8px'; base.iconRadius='7px';
+      base.scene={show:true,bannerSymbol:'⚓',bannerTitle:'Marés',bannerSubtitle:preset.name,leftIcons:'⚓ 🧭 📜',leftLabel:'Cartas náuticas',rightIcons:'🏮 🪢',rightLabel:'Cordas e lanternas',seal:'✺'};
+      if(key==='maritime-pirate') base.scene={show:true,bannerSymbol:'☠️',bannerTitle:'Corsário',bannerSubtitle:preset.name,leftIcons:'⚓ ☠️ 🪙',leftLabel:'Bandeira e saque',rightIcons:'🗺️ 🦜',rightLabel:'Rotas secretas',seal:'⚓'};
+      if(key==='maritime-abyss') base.scene={show:true,bannerSymbol:'🌊',bannerTitle:'Abissal',bannerSubtitle:preset.name,leftIcons:'🌊 🐚 💎',leftLabel:'Oceano profundo',rightIcons:'⚓ 🫧',rightLabel:'Luzes submersas',seal:'◌'};
+    }
+    return base;
   }
   function applyTheme(theme){
     const incoming=Object.assign({},DEFAULT_THEME,theme||{});
@@ -6250,11 +6469,28 @@
     root.setProperty('--ui-font',st.font||"'EB Garamond',serif"); root.setProperty('--ui-heading-font',st.heading||"'Cinzel',serif"); root.setProperty('--ui-label-font',st.label||"'JetBrains Mono',monospace");
     root.setProperty('--ui-radius',st.radius||'8px'); root.setProperty('--ui-button-radius',st.buttonRadius||'3px'); root.setProperty('--ui-control-radius',st.controlRadius||'3px');
     root.setProperty('--ui-map-radius',st.mapRadius||'0px'); root.setProperty('--ui-map-border-width',st.mapBorder||'3px'); root.setProperty('--ui-map-border-color',t.accent);
+    const visuals=buildThemeVisuals(incoming.preset||DEFAULT_THEME.preset,preset,t);
     root.setProperty('--ui-label-bg',hexToRgbaTheme(darkenHex(t.panel,.10),.96));
     root.setProperty('--ui-panel-overlay',hexToRgbaTheme(darkenHex(t.panel,.25),.38));
     root.setProperty('--ui-panel-shadow',preset.family==='numenera'?'0 0 22px '+hexToRgbaTheme(t.accent,.10)+',0 12px 30px rgba(0,0,0,.55)':'0 10px 30px rgba(0,0,0,.55)');
     root.setProperty('--ui-map-shadow',preset.family==='arcane'?'0 0 36px '+hexToRgbaTheme(t.accent,.16)+',0 0 60px rgba(0,0,0,.5)':'0 0 60px rgba(0,0,0,.58)');
     root.setProperty('--ui-badge-shadow',preset.family==='numenera'||preset.family==='arcane'?'0 0 10px '+hexToRgbaTheme(t.accent,.18):'none');
+    root.setProperty('--ui-panel-pattern',visuals.panelPattern||'none');
+    root.setProperty('--ui-button-pattern',visuals.buttonPattern||'none');
+    root.setProperty('--ui-area-pattern',visuals.areaPattern||'none');
+    root.setProperty('--ui-map-underlay',visuals.mapUnderlay||'none');
+    root.setProperty('--ui-empty-map-bg',visuals.emptyMapBg||'transparent');
+    root.setProperty('--theme-banner-bg',visuals.bannerBg||'none');
+    root.setProperty('--theme-prop-bg',visuals.propBg||'none');
+    root.setProperty('--theme-seal-bg',visuals.sealBg||'none');
+    root.setProperty('--theme-prop-border',visuals.propBorder||hexToRgbaTheme(t.accent,.35));
+    root.setProperty('--theme-banner-text',visuals.bannerText||t.accent);
+    root.setProperty('--ui-border-width',visuals.borderWidth||'1px');
+    root.setProperty('--ui-badge-radius',visuals.badgeRadius||'4px');
+    root.setProperty('--ui-icon-radius',visuals.iconRadius||'5px');
+    root.setProperty('--ui-button-shadow',visuals.buttonShadow||'0 4px 12px rgba(0,0,0,.38)');
+    root.setProperty('--ui-topbar-shadow',visuals.topbarShadow||'none');
+    setThemeSceneConfig(visuals.scene);
     // A borda padrão dos personagens acompanha a estética-base e a cor de destaque personalizada.
     root.setProperty('--token-theme-border',t.accent); root.setProperty('--token-theme-border-soft',hexToRgbaTheme(t.accent,.36));
     const outlineAlpha=Math.max(0,Math.min(100,Number(t.tokenOutlineOpacity ?? 50)))/100;
