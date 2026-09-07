@@ -12082,7 +12082,6 @@
         resizeHandle.addEventListener('pointerdown', onTextResizePointerDown);
         t.appendChild(resizeHandle);
         t.addEventListener('pointerdown', onTextPointerDown);
-        t.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); beginInlineTextEdit(t, txt.id); });
         t.addEventListener('contextmenu', e=>openContextMenu(e,'text',txt.id));
       }
       $canvas.appendChild(t);
@@ -12379,6 +12378,22 @@
       else if (e.key === 'Enter') { return; }
     });
   }
+  // Reforço de segurança: se por qualquer motivo o blur do campo editável não
+  // disparar (ex.: clique rápido entre o color-picker nativo e outro controle
+  // da barrinha), um clique fora do texto E fora da barrinha sempre encerra a
+  // edição — evita a barrinha ficar "presa" na tela sem reagir a mais nada.
+  document.addEventListener('pointerdown', (e) => {
+    const bar = el('map-text-inline-toolbar');
+    if(!bar || !bar.classList.contains('open')) return;
+    if(bar.contains(e.target)) return;
+    const targetEl = document.getElementById('map-text-inline-target');
+    if(targetEl && targetEl.contains(e.target)) return;
+    if(targetEl){
+      const wrapper = targetEl.closest('.map-text');
+      if(wrapper && wrapper.dataset.id){ finishInlineTextEdit(wrapper, wrapper.dataset.id); return; }
+    }
+    hideInlineTextToolbar();
+  }, true);
 
   function onTextResizePointerDown(e){
     if(!effectiveMaster()) return;
