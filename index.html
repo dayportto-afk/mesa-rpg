@@ -244,6 +244,24 @@
     text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.9);
   }
 
+  /* Reordenação personalizada da barra lateral do mestre */
+  #icon-rail.icon-rail-reordering{ overflow-y:auto; user-select:none; -webkit-user-select:none; }
+  #icon-rail.icon-rail-reordering .icon-rail-item{ transition:transform .12s ease, opacity .12s ease; }
+  #icon-rail.icon-rail-reordering .icon-rail-btn{ cursor:grabbing; }
+  .icon-rail-item.icon-rail-held{
+    opacity:.72; transform:scale(.94);
+  }
+  .icon-rail-item.icon-rail-held .icon-rail-btn{
+    border-color:var(--amber-bright); color:var(--amber-bright);
+    box-shadow:0 0 0 2px rgba(226,165,63,.22), 0 4px 14px rgba(0,0,0,.5);
+  }
+  .icon-rail-item.icon-rail-longpress{
+    animation:icon-rail-ready .34s ease 2;
+  }
+  @keyframes icon-rail-ready{
+    50%{ transform:scale(1.08); }
+  }
+
   .float-panel{
     display:none; flex-direction:column; position:absolute; z-index:130;
     width:280px; max-width:90vw; max-height:80vh; max-height:80dvh;
@@ -4233,8 +4251,93 @@
   function closeAllFloatPanels(){
     document.querySelectorAll('.float-panel.open').forEach(p => p.classList.remove('open'));
   }
+  let suppressIconRailClickUntil = 0;
+  let iconRailOrderSignature = '';
+
+  function iconRailItemId(item){
+    const btn=item && item.querySelector ? item.querySelector('.icon-rail-btn[data-panel]') : null;
+    return btn ? btn.getAttribute('data-panel') : '';
+  }
+  function currentIconRailOrder(){
+    return Array.from($iconRail.querySelectorAll(':scope > .icon-rail-item')).map(iconRailItemId).filter(Boolean);
+  }
+  function applyIconRailOrder(){
+    if(!$iconRail || $iconRail.classList.contains('icon-rail-reordering')) return;
+    const stored=Array.isArray(state.meta && state.meta.iconRailOrder) ? state.meta.iconRailOrder : [];
+    const items=Array.from($iconRail.querySelectorAll(':scope > .icon-rail-item'));
+    const byId=new Map(items.map(item=>[iconRailItemId(item),item]));
+    const complete=[];
+    stored.forEach(id=>{ if(byId.has(id) && !complete.includes(id)) complete.push(id); });
+    items.forEach(item=>{ const id=iconRailItemId(item); if(id && !complete.includes(id)) complete.push(id); });
+    const sig=complete.join('|');
+    if(sig===iconRailOrderSignature) return;
+    complete.forEach(id=>{ const item=byId.get(id); if(item) $iconRail.appendChild(item); });
+    iconRailOrderSignature=sig;
+  }
+  async function persistIconRailOrder(){
+    if(!effectiveMaster()) return;
+    state.meta.iconRailOrder=currentIconRailOrder();
+    iconRailOrderSignature=state.meta.iconRailOrder.join('|');
+    await safeSet(slotKey('meta'), state.meta);
+  }
+
+  // Pressione o botão esquerdo por 2 s e continue segurando para reposicionar.
+  // Um clique normal continua abrindo/fechando a ferramenta como antes.
+  let iconRailPress=null;
+  $iconRail.addEventListener('pointerdown', e=>{
+    if(!effectiveMaster() || e.button!==0) return;
+    const btn=e.target.closest('.icon-rail-btn');
+    const item=btn && btn.closest('.icon-rail-item');
+    if(!btn || !item) return;
+    const press={pointerId:e.pointerId,item,btn,active:false,startX:e.clientX,startY:e.clientY,timer:null};
+    iconRailPress=press;
+    press.timer=setTimeout(()=>{
+      if(iconRailPress!==press) return;
+      press.active=true;
+      suppressIconRailClickUntil=Date.now()+700;
+      $iconRail.classList.add('icon-rail-reordering');
+      item.classList.add('icon-rail-held','icon-rail-longpress');
+      setTimeout(()=>item.classList.remove('icon-rail-longpress'),800);
+      try{ $iconRail.setPointerCapture(e.pointerId); }catch(err){}
+      if(navigator.vibrate) navigator.vibrate(35);
+    },2000);
+  });
+  $iconRail.addEventListener('pointermove', e=>{
+    const press=iconRailPress;
+    if(!press || press.pointerId!==e.pointerId) return;
+    if(!press.active){
+      // Movimento acidental antes de completar os 2 s cancela o gesto.
+      if(Math.hypot(e.clientX-press.startX,e.clientY-press.startY)>9){ clearTimeout(press.timer); iconRailPress=null; }
+      return;
+    }
+    e.preventDefault();
+    const siblings=Array.from($iconRail.querySelectorAll(':scope > .icon-rail-item')).filter(x=>x!==press.item);
+    let before=null;
+    for(const candidate of siblings){
+      const r=candidate.getBoundingClientRect();
+      if(e.clientY < r.top + r.height/2){ before=candidate; break; }
+    }
+    if(before) $iconRail.insertBefore(press.item,before);
+    else $iconRail.appendChild(press.item);
+  });
+  async function finishIconRailPress(e){
+    const press=iconRailPress;
+    if(!press || (e && press.pointerId!==e.pointerId)) return;
+    clearTimeout(press.timer);
+    iconRailPress=null;
+    if(!press.active) return;
+    suppressIconRailClickUntil=Date.now()+700;
+    press.item.classList.remove('icon-rail-held','icon-rail-longpress');
+    $iconRail.classList.remove('icon-rail-reordering');
+    try{ $iconRail.releasePointerCapture(press.pointerId); }catch(err){}
+    await persistIconRailOrder();
+  }
+  $iconRail.addEventListener('pointerup', e=>{ void finishIconRailPress(e); });
+  $iconRail.addEventListener('pointercancel', e=>{ void finishIconRailPress(e); });
+
   document.querySelectorAll('.icon-rail-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      if(Date.now()<suppressIconRailClickUntil){ e.preventDefault(); e.stopPropagation(); return; }
       const id = btn.getAttribute('data-panel');
       const panel = el(id);
       if(panel.classList.contains('open')) closeFloatPanel(id);
@@ -6306,6 +6409,9 @@
     }
     if(!Array.isArray(state.meta.tokenFolders)) state.meta.tokenFolders = [];
     if(!Array.isArray(state.meta.customStatuses)) state.meta.customStatuses = [];
+    if(!Array.isArray(state.meta.iconRailOrder)) state.meta.iconRailOrder = [];
+    iconRailOrderSignature='';
+    applyIconRailOrder();
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; lastSeenRollId = state.diceRolls[0] ? state.diceRolls[0].id : 'NONE'; }catch(e){} }
     if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
@@ -6800,6 +6906,7 @@
     el('btn-preview-toggle').classList.toggle('toggle-active', state.previewAsPlayer);
     $appScreen.classList.toggle('is-master', effectiveMaster());
     $iconRail.classList.toggle('hidden', !effectiveMaster());
+    if(effectiveMaster()) applyIconRailOrder();
     document.body.classList.toggle('role-master', effectiveMaster());
     $title.disabled = true;
 
