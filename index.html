@@ -247,7 +247,11 @@
   /* Reordenação personalizada da barra lateral do mestre */
   #icon-rail.icon-rail-reordering{ overflow-y:auto; user-select:none; -webkit-user-select:none; }
   #icon-rail.icon-rail-reordering .icon-rail-item{ transition:transform .12s ease, opacity .12s ease; }
-  #icon-rail.icon-rail-reordering .icon-rail-btn{ cursor:grabbing; }
+  #icon-rail.icon-rail-reordering .icon-rail-btn{ cursor:grab; }
+  #icon-rail.icon-rail-reordering .icon-rail-btn:active{ cursor:grabbing; }
+  #icon-rail-reposition-wrap{ margin-top:4px; padding-top:8px; border-top:1px solid var(--line); width:56px; flex-shrink:0; }
+  #icon-rail-reposition-btn{ width:56px; min-height:34px; padding:5px 3px; font-size:8px; line-height:1.15; white-space:normal; text-transform:none; letter-spacing:0; }
+  #icon-rail.icon-rail-reordering #icon-rail-reposition-btn{ border-color:var(--amber-bright); color:var(--amber-bright); background:#1c1509; }
   .icon-rail-item.icon-rail-held{
     opacity:.72; transform:scale(.94);
   }
@@ -2188,6 +2192,9 @@
         <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn icon-rail-danger" data-panel="float-danger" title="Zona de perigo">⚠️</button>
           <span class="icon-rail-label">Perigo</span>
+        </div>
+        <div id="icon-rail-reposition-wrap">
+          <button type="button" id="icon-rail-reposition-btn" title="Reposicionar ícones; pressione Esc para terminar">Reposicionar</button>
         </div>
       </div>
 
@@ -4282,115 +4289,107 @@
     await safeSet(slotKey('meta'), state.meta);
   }
 
-  // Pressione e segure o botão esquerdo por 2 s para ativar o reposicionamento.
-  // Depois da ativação, o movimento é acompanhado pelo documento inteiro para
-  // não perder o arraste quando o cursor sai da barra lateral.
-  let iconRailPress=null;
+  // Reposicionamento explícito: o mestre ativa pelo botão no fim da barra e encerra com Esc.
+  let iconRailRepositionMode=false;
+  let iconRailDrag=null;
   let iconRailDragMoveHandler=null;
   let iconRailDragUpHandler=null;
 
-  function clearIconRailPressTimer(){
-    if(iconRailPress && iconRailPress.timer){
-      clearTimeout(iconRailPress.timer);
-      iconRailPress.timer=null;
+  function setIconRailRepositionMode(active){
+    if(!effectiveMaster()) active=false;
+    iconRailRepositionMode=!!active;
+    $iconRail.classList.toggle('icon-rail-reordering',iconRailRepositionMode);
+    const rb=el('icon-rail-reposition-btn');
+    if(rb){
+      rb.textContent=iconRailRepositionMode ? 'Reposicionando…' : 'Reposicionar';
+      rb.title=iconRailRepositionMode ? 'Arraste os ícones. Pressione Esc para terminar.' : 'Reposicionar ícones; pressione Esc para terminar';
+    }
+    if(!iconRailRepositionMode){
+      if(iconRailDrag && iconRailDrag.item) iconRailDrag.item.classList.remove('icon-rail-held');
+      iconRailDrag=null;
+      document.body.style.userSelect='';
+      document.body.style.webkitUserSelect='';
     }
   }
 
-  function beginIconRailReorder(press){
-    if(!press || iconRailPress!==press || !effectiveMaster()) return;
-    press.active=true;
-    press.timer=null;
-    suppressIconRailClickUntil=Date.now()+5000;
-    $iconRail.classList.add('icon-rail-reordering');
-    press.item.classList.add('icon-rail-held','icon-rail-longpress');
-    setTimeout(()=>press.item && press.item.classList.remove('icon-rail-longpress'),800);
-    document.body.style.userSelect='none';
-    document.body.style.webkitUserSelect='none';
-    if(navigator.vibrate) navigator.vibrate(35);
-  }
-
   function moveIconRailHeldItem(clientY){
-    const press=iconRailPress;
-    if(!press || !press.active) return;
-    const siblings=Array.from($iconRail.querySelectorAll(':scope > .icon-rail-item')).filter(x=>x!==press.item);
+    const drag=iconRailDrag;
+    if(!drag || !iconRailRepositionMode) return;
+    const siblings=Array.from($iconRail.querySelectorAll(':scope > .icon-rail-item')).filter(x=>x!==drag.item);
     let before=null;
     for(const candidate of siblings){
       const r=candidate.getBoundingClientRect();
       if(clientY < r.top + r.height/2){ before=candidate; break; }
     }
-    if(before) $iconRail.insertBefore(press.item,before);
-    else $iconRail.appendChild(press.item);
+    const repositionWrap=el('icon-rail-reposition-wrap');
+    if(before) $iconRail.insertBefore(drag.item,before);
+    else if(repositionWrap) $iconRail.insertBefore(drag.item,repositionWrap);
+    else $iconRail.appendChild(drag.item);
   }
 
-  async function finishIconRailReorder(){
-    const press=iconRailPress;
-    if(!press) return;
-    clearIconRailPressTimer();
-    iconRailPress=null;
+  async function finishIconRailDrag(){
+    const drag=iconRailDrag;
     if(iconRailDragMoveHandler){ document.removeEventListener('mousemove',iconRailDragMoveHandler,true); iconRailDragMoveHandler=null; }
     if(iconRailDragUpHandler){ document.removeEventListener('mouseup',iconRailDragUpHandler,true); iconRailDragUpHandler=null; }
     document.body.style.userSelect='';
     document.body.style.webkitUserSelect='';
-    if(!press.active) return;
-    suppressIconRailClickUntil=Date.now()+1200;
-    press.item.classList.remove('icon-rail-held','icon-rail-longpress');
-    $iconRail.classList.remove('icon-rail-reordering');
+    if(!drag) return;
+    drag.item.classList.remove('icon-rail-held');
+    iconRailDrag=null;
+    suppressIconRailClickUntil=Date.now()+400;
     await persistIconRailOrder();
   }
 
+  const iconRailRepositionBtn=el('icon-rail-reposition-btn');
+  if(iconRailRepositionBtn){
+    iconRailRepositionBtn.addEventListener('click',e=>{
+      e.preventDefault(); e.stopPropagation();
+      if(!effectiveMaster()) return;
+      setIconRailRepositionMode(true);
+    });
+  }
+
   $iconRail.addEventListener('mousedown', e=>{
-    if(!effectiveMaster() || e.button!==0) return;
-    const btn=e.target.closest('.icon-rail-btn');
+    if(!effectiveMaster() || !iconRailRepositionMode || e.button!==0) return;
+    const btn=e.target.closest('.icon-rail-btn[data-panel]');
     const item=btn && btn.closest('.icon-rail-item');
     if(!btn || !item) return;
-
-    // Finaliza qualquer gesto anterior que tenha ficado pendente.
-    if(iconRailPress){
-      clearIconRailPressTimer();
-      iconRailPress=null;
-    }
-
-    const press={item,btn,active:false,startX:e.clientX,startY:e.clientY,timer:null};
-    iconRailPress=press;
-    press.timer=setTimeout(()=>beginIconRailReorder(press),2000);
-
+    e.preventDefault(); e.stopPropagation();
+    suppressIconRailClickUntil=Date.now()+1500;
+    iconRailDrag={item,btn};
+    item.classList.add('icon-rail-held');
+    document.body.style.userSelect='none';
+    document.body.style.webkitUserSelect='none';
     iconRailDragMoveHandler=(ev)=>{
-      if(iconRailPress!==press) return;
-      if(!press.active){
-        // Permite pequenos tremores naturais da mão sem cancelar o pressionar longo.
-        if(Math.hypot(ev.clientX-press.startX,ev.clientY-press.startY)>18){
-          clearIconRailPressTimer();
-          iconRailPress=null;
-          document.removeEventListener('mousemove',iconRailDragMoveHandler,true);
-          document.removeEventListener('mouseup',iconRailDragUpHandler,true);
-          iconRailDragMoveHandler=null;
-          iconRailDragUpHandler=null;
-        }
-        return;
-      }
+      if(!iconRailDrag || !iconRailRepositionMode) return;
       ev.preventDefault();
       moveIconRailHeldItem(ev.clientY);
     };
     iconRailDragUpHandler=(ev)=>{
-      if(iconRailPress!==press) return;
-      if(press.active){ ev.preventDefault(); ev.stopPropagation(); }
-      void finishIconRailReorder();
+      if(iconRailDrag){ ev.preventDefault(); ev.stopPropagation(); }
+      void finishIconRailDrag();
     };
     document.addEventListener('mousemove',iconRailDragMoveHandler,true);
     document.addEventListener('mouseup',iconRailDragUpHandler,true);
   });
 
-  // Evita menu de contexto/arraste nativo interferindo durante a reorganização.
   $iconRail.addEventListener('dragstart',e=>{
-    if(iconRailPress && iconRailPress.active) e.preventDefault();
+    if(iconRailRepositionMode) e.preventDefault();
   });
   $iconRail.addEventListener('contextmenu',e=>{
-    if(iconRailPress && iconRailPress.active) e.preventDefault();
+    if(iconRailRepositionMode) e.preventDefault();
   });
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape' && iconRailRepositionMode){
+      e.preventDefault();
+      void finishIconRailDrag().finally(()=>setIconRailRepositionMode(false));
+    }
+  },true);
 
   document.querySelectorAll('.icon-rail-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      if(Date.now()<suppressIconRailClickUntil){ e.preventDefault(); e.stopPropagation(); return; }
+      if(iconRailRepositionMode || Date.now()<suppressIconRailClickUntil){ e.preventDefault(); e.stopPropagation(); return; }
       const id = btn.getAttribute('data-panel');
       const panel = el(id);
       if(panel.classList.contains('open')) closeFloatPanel(id);
