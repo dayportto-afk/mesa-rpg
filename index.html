@@ -345,26 +345,56 @@
   }
   .token-row-hp .hp-max-input:focus{ border-color:var(--amber); }
   .token-row-hp .hp-max-label{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:1px; text-transform:uppercase; margin-left:auto;}
-  .token-conditions{
+  .token-status-stack{
     position:absolute;
     left:calc(var(--token-status-size,18px) * -.1);
     top:calc(var(--token-status-size,18px) * .1);
     transform:translateX(-100%);
-    display:flex; flex-direction:column; gap:var(--token-status-gap,2px); z-index:5;
+    display:flex; flex-direction:column; align-items:flex-end;
+    gap:var(--token-status-gap,2px); z-index:5;
   }
+  .token-status-stack-right{
+    position:absolute;
+    right:calc(var(--token-status-size,18px) * -.1);
+    top:calc(var(--token-status-size,18px) * .1);
+    transform:translateX(100%);
+    display:flex; flex-direction:column; align-items:flex-start;
+    gap:var(--token-status-gap,2px); z-index:5;
+  }
+  .token-light-row{ display:flex; flex-direction:row; gap:var(--token-status-gap,2px); }
+  .token-conditions{
+    display:flex; flex-direction:row; flex-wrap:wrap; justify-content:flex-end;
+    gap:var(--token-status-gap,2px);
+    max-width:calc(var(--token-status-size,18px) * 2.3);
+  }
+  .token-status-stack-right .token-conditions{ justify-content:flex-start; }
   .token-condition{
+    position:relative;
     width:var(--token-status-size,18px); height:var(--token-status-size,18px); border-radius:50%;
     background:#150f09; border:max(1px, calc(var(--token-status-size,18px) * .06)) solid var(--amber-bright);
     display:flex; align-items:center; justify-content:center;
     font-size:var(--token-status-font,11px); line-height:1; cursor:help;
     flex-shrink:0;
   }
+  .token-condition-turns{
+    position:absolute; right:-3px; bottom:-3px; min-width:11px; height:11px; padding:0 2px;
+    border-radius:6px; background:#0c0906; border:1px solid var(--amber-bright);
+    color:var(--amber-bright); font-family:'JetBrains Mono', monospace; font-size:7px; line-height:10px;
+    text-align:center; pointer-events:none;
+  }
   .condition-chip-row{ display:flex; flex-wrap:wrap; gap:5px; padding-left:2px; margin-top:2px; }
   .condition-chip{
+    position:relative;
     width:26px; height:26px; padding:0; font-size:13px; border-radius:50%;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .condition-chip.toggle-active{ background:var(--amber); border-color:var(--amber); }
+  .condition-chip-turns{
+    position:absolute; right:-3px; bottom:-3px; min-width:12px; height:12px; padding:0 2px;
+    border-radius:6px; background:#0c0906; border:1px solid var(--amber-bright);
+    color:var(--amber-bright); font-family:'JetBrains Mono', monospace; font-size:8px; line-height:11px;
+    text-align:center; pointer-events:none;
+  }
 
   .phrase-input{
     width:100%; margin-top:4px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
@@ -722,6 +752,7 @@
     background:transparent;
     pointer-events:none; z-index:852;
   }
+  body.barrier-drawing{ user-select:none; -webkit-user-select:none; }
   .token.active-turn{
     box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 12px 4px var(--token-outline-shadow), 0 0 0 4px var(--initiative-turn-color);
   }
@@ -1019,6 +1050,21 @@
   #emoji-picker-grid{ display:grid; grid-template-columns:repeat(8,1fr); gap:4px; max-height:225px; overflow-y:auto; padding-right:2px; }
   #emoji-picker-grid button{ width:34px; height:34px; padding:0; font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center; text-transform:none; }
   #emoji-picker-empty{ display:none; padding:12px 4px; text-align:center; color:var(--parchment-dim); font-size:12px; }
+  #conditions-picker{
+    display:none; position:fixed; z-index:2000003; width:236px; max-width:92vw; max-height:calc(100dvh - 16px);
+    overflow-y:auto; overscroll-behavior:contain; background:var(--bg-panel); border:1px solid var(--amber);
+    border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:9px;
+  }
+  #conditions-picker.open{ display:block; }
+  .conditions-picker-title{
+    font-family:'Cinzel', serif; font-size:12px; color:var(--amber-bright); letter-spacing:.5px;
+    margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--line);
+  }
+  .conditions-picker-divider{
+    font-family:'JetBrains Mono', monospace; font-size:9px; text-transform:uppercase; letter-spacing:1px;
+    color:var(--parchment-dim); margin:9px 0 5px;
+  }
+  .conditions-picker-empty{ font-size:11px; color:var(--parchment-dim); padding:4px 0; line-height:1.4; }
   .custom-status-chip{ width:auto !important; min-width:26px; padding:0 6px !important; border-radius:12px !important; }
   .custom-status-chip.toggle-active{ background:var(--amber); color:#1a1206; }
   .token-condition.custom-condition{
@@ -1048,6 +1094,8 @@
   #context-menu .context-range-title{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment); }
   #context-menu .context-range-value{ color:var(--amber-bright); min-width:38px; text-align:right; }
   #context-menu .context-range-control input[type=range]{ display:block; width:100%; margin:0; accent-color:var(--amber); cursor:ew-resize; }
+  #context-menu .context-range-control input[type=color]{ display:block; width:100%; height:28px; margin:0; padding:0; border:1px solid var(--line); border-radius:4px; background:transparent; cursor:pointer; }
+  #context-menu .context-range-title button{ display:inline-block !important; width:auto !important; padding:2px 8px !important; font-size:9px !important; border:1px solid var(--line) !important; border-radius:3px !important; }
   .move-distance-label{ position:absolute; pointer-events:none; z-index:2000000; transform:translate(-50%,-115%); background:#150f09; border:1px solid var(--amber-bright); color:var(--amber-bright); border-radius:4px; padding:3px 7px; font-family:'JetBrains Mono',monospace; font-size:10px; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.45); }
 
   /* Campaign journal (same drawer pattern; open to master AND players) */
@@ -1565,7 +1613,9 @@
   .modal-actions{ display:flex; gap:8px; margin-top:16px; }
   .modal-actions button{ flex:1; }
   #light-point-diameter{ width:100%; }
-  #light-point-aperture, #light-point-direction{ width:100%; accent-color:var(--amber-bright); }
+  #light-point-aperture, #light-point-direction, #light-point-intensity{ width:100%; accent-color:var(--amber-bright); }
+  #light-point-color{ width:100%; height:32px; padding:0; border:1px solid var(--line); border-radius:4px; background:transparent; cursor:pointer; }
+  #light-point-color[disabled]{ opacity:.4; cursor:not-allowed; }
   #light-point-diameter-value{ display:block; margin-top:6px; text-align:center; font-family:'JetBrains Mono',monospace; color:var(--amber-bright); font-size:12px; }
 
   #token-preview{ display:flex; align-items:center; gap:10px; margin-top:8px; }
@@ -2789,6 +2839,7 @@
     </div>
 
     <div id="context-menu" role="menu"></div>
+    <div id="conditions-picker" role="menu"></div>
     <div id="emoji-picker" aria-label="Catálogo de emojis">
       <input type="text" id="emoji-picker-search" placeholder="Buscar emoji ou categoria...">
       <div class="emoji-picker-categories" id="emoji-picker-categories"></div>
@@ -2992,6 +3043,14 @@
           <label for="light-point-direction">Direção: <span id="light-point-direction-value">0°</span></label>
           <input type="range" id="light-point-direction" min="0" max="355" step="5" value="0">
         </div>
+      </div>
+      <div class="field">
+        <label for="light-point-intensity">Intensidade: <span id="light-point-intensity-value">100%</span></label>
+        <input type="range" id="light-point-intensity" min="10" max="100" step="5" value="100">
+      </div>
+      <div class="field">
+        <label style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="light-point-color-enable" style="width:auto;"> Colorir esta luz</label>
+        <input type="color" id="light-point-color" value="#ffb347">
       </div>
       <div class="modal-actions">
         <button type="button" id="light-point-editor-cancel">Cancelar</button>
@@ -4306,7 +4365,7 @@
   });
 
   el('tokens-panel-close').addEventListener('click', closeTokensPanel);
-  el('context-menu').addEventListener('click',e=>{ const b=e.target.closest('[data-context-action]'); if(b)executeContextAction(b.getAttribute('data-context-action')); });
+  el('context-menu').addEventListener('click',e=>{ const b=e.target.closest('[data-context-action]'); if(b)executeContextAction(b.getAttribute('data-context-action'),b.getBoundingClientRect()); });
   document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#context-menu'))closeContextMenu(); });
   window.addEventListener('blur',closeContextMenu);
   el('tokens-backdrop').addEventListener('click', closeTokensPanel);
@@ -4578,10 +4637,12 @@
     const sorted = sortedInitiative();
     if(sorted.length === 0) return;
     let idx = sorted.findIndex(e => e.id === state.initiative.activeId);
+    const endingEntry = idx >= 0 ? sorted[idx] : null;
     idx = (idx + 1) % sorted.length;
     if(idx === 0) state.initiative.round = (state.initiative.round || 1) + 1;
     state.initiative.activeId = sorted[idx].id;
     state.initiative.turnSeq = (state.initiative.turnSeq || 0) + 1;
+    if(endingEntry) await tickConditionDurations(endingEntry.tokenId);
     renderInitiativeList();
     renderInitiativeHud();
     renderTokens();
@@ -5078,7 +5139,11 @@
         '<button type="button" data-xp-plus="'+tok.id+'">+</button>' +
       '</div>' +
       '<div class="condition-chip-row">' +
-        CONDITIONS.map(c => '<button type="button" class="condition-chip'+((tok.conditions||[]).includes(c.key)?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+'">'+c.icon+'</button>').join('') +
+        CONDITIONS.map(c => {
+          const active=(tok.conditions||[]).includes(c.key);
+          const turns=active&&tok.conditionDurations&&tok.conditionDurations[c.key];
+          return '<button type="button" class="condition-chip'+(active?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+(turns?' — '+turns+' turno(s) restante(s)':'')+'">'+c.icon+(turns?'<span class="condition-chip-turns">'+turns+'</span>':'')+'</button>';
+        }).join('') +
       '</div>' +
       notesBlockMarkup(tok);
     wireVitalsControls($body);
@@ -6295,7 +6360,12 @@
     if(key !== 'z' && key !== 'y') return;
     const active = document.activeElement;
     const tag = active ? active.tagName.toLowerCase() : '';
-    const isTyping = tag === 'input' || tag === 'textarea' || (active && active.isContentEditable);
+    // Só conta como "digitando" pra campos de texto de verdade — sliders, color
+    // picker e checkboxes (como os controles do painel de Barreiras de Luz) não
+    // devem bloquear o atalho de desfazer/refazer quando estão com foco.
+    const nonTextInputTypes = ['range','color','checkbox','radio','button','submit','file'];
+    const inputType = tag === 'input' ? (active.type || 'text').toLowerCase() : '';
+    const isTyping = (tag === 'input' && !nonTextInputTypes.includes(inputType)) || tag === 'textarea' || (active && active.isContentEditable);
     if(isTyping) return;
     if(state.previewAsPlayer) return;
     e.preventDefault();
@@ -6684,9 +6754,9 @@
     showToast('Pasta excluída. As fichas foram movidas para Sem pasta.');
   }
   async function toggleCustomStatus(tokenId,statusId){ const tok=state.tokens.find(t=>t.id===tokenId); if(!tok)return; if(!Array.isArray(tok.customStatuses))tok.customStatuses=[]; const i=tok.customStatuses.indexOf(statusId); if(i>=0)tok.customStatuses.splice(i,1);else tok.customStatuses.push(statusId); await persistTokens(); render(); }
-  function customStatusBadgesMarkup(tok){
+  function customStatusBadgesList(tok){
     const active=Array.isArray(tok.customStatuses)?tok.customStatuses:[];
-    return active.map(id=>{ const st=customStatusList().find(s=>s.id===id); return st?'<div class="token-condition custom-condition" style="--status-color:'+escapeHtml(st.color||'#e2a53f')+'" title="'+escapeHtml(st.name)+'">'+escapeHtml(st.icon||'●')+'</div>':''; }).join('');
+    return active.map(id=>{ const st=customStatusList().find(s=>s.id===id); return st?'<div class="token-condition custom-condition" style="--status-color:'+escapeHtml(st.color||'#e2a53f')+'" title="'+escapeHtml(st.name)+'">'+escapeHtml(st.icon||'●')+'</div>':''; }).filter(Boolean);
   }
   function customStatusControlsMarkup(tok){
     if(!customStatusList().length) return '';
@@ -6925,6 +6995,10 @@
   }
   let lastBarrierPointerPt=null;
   function renderLightBarriers(){
+    // Evita que o navegador desenhe uma seleção de texto/imagem por cima do mapa
+    // enquanto o mestre arrasta pra desenhar uma barreira (isso podia parecer um
+    // preenchimento indevido no meio do retângulo, por exemplo).
+    document.body.classList.toggle('barrier-drawing', !!(state.barrierDraftStart||state.barrierCurvePoints||state.barrierRectStart));
     document.querySelectorAll('.light-barrier, .barrier-door-handle, .barrier-draft-line').forEach(node=>node.remove());
     const page=currentPage();
     if(!page||!effectiveMaster()) return; // jogadores nunca veem nada disto
@@ -7255,6 +7329,7 @@
   let contextTarget=null;
   function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
   function openContextMenu(e,type,id){
+    closeConditionsPicker();
     const tokForLantern=type==='token'?state.tokens.find(t=>t.id===id):null;
     if(!effectiveMaster()&&!canToggleTokenLantern(tokForLantern)&&!(type==='token'&&canResizeToken(tokForLantern))) return;
     e.preventDefault(); e.stopPropagation();
@@ -7271,6 +7346,7 @@
         lightActions.push(['📏 Alcance individual','lanternradius',null,'Define o alcance de luz da lanterna deste token']);
         lightActions.push(['👥 Grupos de luz: '+tokenLightGroupLabel(tok),'lightgroups',null,'Escolhe quais grupos podem ver a luz da lanterna deste token. Só faz efeito quando a visibilidade da iluminação está em "Grupos" (Névoa → Escuridão e lanternas): jogadores cujo próprio token não compartilhar nenhum desses grupos não enxergam essa luz.']);
         lightActions.push([tokenHasDarkvision(tok)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
+        lightActions.push(['🩹 Condições','conditions',null,'Envenenado, invisível, e outras condições — inclusive personalizadas. Abre um menuzinho com todas as opções pra marcar quantas quiser de uma vez.']);
         if(tok.masterLocked){
           const hpMode=npcHpDisplayMode(currentPage());
           lightActions.push([(hpMode==='descriptive'?'✓ ':'')+'NPCs: status descritivo','npchpdescriptive','context-section-start']);
@@ -7301,7 +7377,16 @@
       const tok=state.tokens.find(t=>t.id===id&&!t.isReference&&!t.isMapObject);
       if(tok&&canResizeToken(tok)){
         const size=tokenSize(tok);
-        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↔ Tamanho</span><span class="context-range-value" data-context-size-value>'+size+'px</span></div><input type="range" min="10" max="500" step="1" value="'+size+'" aria-label="Tamanho do token" data-context-token-size></div>');
+        // Se o token clicado faz parte de uma seleção múltipla (Ctrl), o slider
+        // redimensiona TODOS os selecionados de uma vez, mantendo a proporção
+        // entre eles (mesma lógica da alcinha de arrastar) — não só o clicado.
+        const groupIds=(effectiveMaster()&&multiSelectedTokenIds.has(id)&&multiSelectedTokenIds.size>=2)?[...multiSelectedTokenIds]:null;
+        const groupStartSizes=groupIds?new Map(groupIds.map(gid=>{
+          const t2=state.tokens.find(t=>t.id===gid);
+          return [gid, t2?tokenSize(t2):size];
+        })):null;
+        const label=groupIds?'↔ Tamanho ('+groupIds.length+' selecionados)':'↔ Tamanho';
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>'+label+'</span><span class="context-range-value" data-context-size-value>'+size+'px</span></div><input type="range" min="10" max="500" step="1" value="'+size+'" aria-label="Tamanho do token" data-context-token-size></div>');
         const slider=menu.querySelector('[data-context-token-size]');
         const valueLabel=menu.querySelector('[data-context-size-value]');
         let undoCaptured=false;
@@ -7309,8 +7394,19 @@
           const t2=state.tokens.find(x=>x.id===id); if(!t2)return;
           if(!undoCaptured){ pushUndo(); undoCaptured=true; }
           const newSize=Math.max(10,Math.min(500,Number(slider.value)||size));
-          if(!t2.sizes) t2.sizes={};
-          t2.sizes[state.currentPageId]=newSize;
+          if(groupIds){
+            const ratio=newSize/(size||newSize||1);
+            groupIds.forEach(gid=>{
+              const g2=state.tokens.find(t=>t.id===gid); if(!g2)return;
+              const gMax=(g2.isReference||g2.isMapObject)?1200:500;
+              const gSize=Math.max(10,Math.min(gMax,Math.round((groupStartSizes.get(gid)||size)*ratio)));
+              if(!g2.sizes) g2.sizes={};
+              g2.sizes[state.currentPageId]=gSize;
+            });
+          } else {
+            if(!t2.sizes) t2.sizes={};
+            t2.sizes[state.currentPageId]=newSize;
+          }
           valueLabel.textContent=newSize+'px';
           renderTokens();
         });
@@ -7344,6 +7440,52 @@
           });
         }
       }
+      if(tok&&canToggleTokenLantern(tok)&&effectiveMaster()){
+        const lantern=tokenLanternState(tok,true);
+        const intensity=Math.max(10,Math.min(100,Number(lantern.intensity)||100));
+        const hasColor=/^#[0-9a-f]{6}$/i.test(String(lantern.color||''));
+        const colorVal=hasColor?lantern.color:'#ffb347';
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>🎨 Cor da luz</span><button type="button" data-context-lantern-color-reset title="Voltar à cor natural (sem tingir)">Padrão</button></div><input type="color" value="'+colorVal+'" aria-label="Cor da luz da lanterna" data-context-lantern-color></div><div class="context-range-control"><div class="context-range-title"><span>🔆 Intensidade</span><span class="context-range-value" data-context-lantern-intensity-value>'+intensity+'%</span></div><input type="range" min="10" max="100" step="5" value="'+intensity+'" aria-label="Intensidade da luz da lanterna" data-context-lantern-intensity></div>');
+        const intensitySlider=menu.querySelector('[data-context-lantern-intensity]');
+        const intensityValueLabel=menu.querySelector('[data-context-lantern-intensity-value]');
+        const colorInput=menu.querySelector('[data-context-lantern-color]');
+        const colorResetBtn=menu.querySelector('[data-context-lantern-color-reset]');
+        let intensityUndo=false, colorUndo=false;
+        intensitySlider.addEventListener('input',()=>{
+          const t2=state.tokens.find(x=>x.id===id); if(!t2)return;
+          if(!intensityUndo){ pushUndo(); intensityUndo=true; }
+          const lantern2=tokenLanternState(t2,true);
+          lantern2.intensity=Math.max(10,Math.min(100,Number(intensitySlider.value)||100));
+          intensityValueLabel.textContent=lantern2.intensity+'%';
+          setupDarknessOverlay();
+        });
+        intensitySlider.addEventListener('change',async()=>{
+          if(!intensityUndo)return;
+          intensityUndo=false;
+          await persistTokens();
+        });
+        colorInput.addEventListener('input',()=>{
+          const t2=state.tokens.find(x=>x.id===id); if(!t2)return;
+          if(!colorUndo){ pushUndo(); colorUndo=true; }
+          const lantern2=tokenLanternState(t2,true);
+          lantern2.color=colorInput.value;
+          setupDarknessOverlay();
+        });
+        colorInput.addEventListener('change',async()=>{
+          if(!colorUndo)return;
+          colorUndo=false;
+          await persistTokens();
+        });
+        colorResetBtn.addEventListener('click',async()=>{
+          const t2=state.tokens.find(x=>x.id===id); if(!t2)return;
+          pushUndo();
+          const lantern2=tokenLanternState(t2,true);
+          lantern2.color=null;
+          colorInput.value='#ffb347';
+          setupDarknessOverlay();
+          await persistTokens();
+        });
+      }
     }
     if(type==='mapobject'){
       const object=state.tokens.find(t=>t.id===id&&t.isMapObject);
@@ -7370,6 +7512,36 @@
         ]);
         drawMoved=false; fogMoved=false; undoCaptured=false;
       });
+    }
+    if(type==='text'){
+      const page=currentPage();
+      const txt=page&&page.texts.find(t=>t.id===id);
+      if(txt){
+        const width=Math.round(typeof txt.boxWidth==='number'?txt.boxWidth:28);
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↔ Largura</span><span class="context-range-value" data-context-text-width-value>'+width+'%</span></div><input type="range" min="4" max="580" step="1" value="'+width+'" aria-label="Largura do campo de texto" data-context-text-width></div>');
+        const slider=menu.querySelector('[data-context-text-width]');
+        const valueLabel=menu.querySelector('[data-context-text-width-value]');
+        let undoCaptured=false;
+        slider.addEventListener('input',()=>{
+          const p2=currentPage(); const t2=p2&&p2.texts.find(t=>t.id===id); if(!t2)return;
+          if(!undoCaptured){ pushUndo(); undoCaptured=true; }
+          const w=Math.max(4,Math.min(580,Number(slider.value)||width));
+          t2.boxWidth=w;
+          valueLabel.textContent=Math.round(w)+'%';
+          const node=document.querySelector('.map-text[data-id="'+id+'"]');
+          if(node){
+            node.style.width=w+'%';
+            const contentWrap=node.querySelector('.map-text-content-wrap');
+            const contentEl=node.querySelector('.map-text-content');
+            applyTextMarkerRects(contentWrap,contentEl,t2);
+          }
+        });
+        slider.addEventListener('change',async()=>{
+          if(!undoCaptured)return;
+          undoCaptured=false;
+          const p2=currentPage(); if(p2) await persistPageTexts(p2);
+        });
+      }
     }
     if(type==='barrier'){
       const page=currentPage();
@@ -7400,7 +7572,7 @@
     menu.style.left=Math.max(8,Math.min(e.clientX,window.innerWidth-menuWidth-8))+'px';
     menu.style.top=Math.max(8,Math.min(e.clientY,window.innerHeight-menuHeight-8))+'px';
   }
-  async function executeContextAction(action){
+  async function executeContextAction(action,anchorRect){
     const c=contextTarget; closeContextMenu(); if(!c)return;
     if(c.type==='text'){
       const page=currentPage(),txt=page&&page.texts.find(t=>t.id===c.id); if(!txt)return;
@@ -7489,6 +7661,10 @@
       if(tokenHasDarkvision(tok)) delete tok.darkvisionByPage[state.currentPageId];
       else tok.darkvisionByPage[state.currentPageId]=true;
       render(); await persistTokens(); return;
+    }
+    if(action==='conditions'&&effectiveMaster()&&!tok.isReference&&!tok.isMapObject){
+      openConditionsPicker(tok.id,anchorRect);
+      return;
     }
     if(action==='open'&&!tok.isReference&&!tok.isMapObject){openTokenSheet(tok);return;}
     if(action==='duplicate'){await duplicateToken(tok.id);return;}
@@ -7645,15 +7821,28 @@
       const lantern=tokenLanternState(tok,false);
       const lanternBadge=lantern&&lantern.enabled?'<div class="token-condition token-light-modifier" title="Lanterna acesa">🔦</div>':'';
       const darkvisionBadge=effectiveMaster()&&tokenHasDarkvision(tok)?'<div class="token-condition token-light-modifier" title="Visão no escuro">👁</div>':'';
-      const condBadges = lanternBadge + darkvisionBadge + (tok.conditions || []).map(key => {
+      const lightRow=(lanternBadge+darkvisionBadge)?'<div class="token-light-row">'+lanternBadge+darkvisionBadge+'</div>':'';
+      const allBadges = (tok.conditions || []).map(key => {
         const c = CONDITIONS.find(c => c.key === key);
-        return c ? '<div class="token-condition" title="'+c.label+'">'+c.icon+'</div>' : '';
-      }).join('') + customStatusBadgesMarkup(tok);
+        if(!c) return '';
+        const turns=tok.conditionDurations&&tok.conditionDurations[key];
+        const turnsBadge=turns?'<span class="token-condition-turns">'+turns+'</span>':'';
+        return '<div class="token-condition" title="'+c.label+(turns?' — '+turns+' turno(s) restante(s)':'')+'">'+c.icon+turnsBadge+'</div>';
+      }).concat(customStatusBadgesList(tok)).filter(Boolean);
+      // Com a lanterna já ocupando a coluna esquerda, várias condições ativas ao
+      // mesmo tempo empilhadas só à esquerda ficavam feias/apertadas — agora elas
+      // se distribuem alternadamente entre esquerda e direita do token.
+      const leftBadges=[], rightBadges=[];
+      allBadges.forEach((badge,i)=>{ (i%2===0?leftBadges:rightBadges).push(badge); });
+      const leftConditionsRow=leftBadges.length?'<div class="token-conditions">'+leftBadges.join('')+'</div>':'';
+      const rightConditionsRow=rightBadges.length?'<div class="token-conditions">'+rightBadges.join('')+'</div>':'';
+      const statusStackLeft=(lightRow||leftConditionsRow)?'<div class="token-status-stack">'+lightRow+leftConditionsRow+'</div>':'';
+      const statusStackRight=rightConditionsRow?'<div class="token-status-stack-right">'+rightConditionsRow+'</div>':'';
       t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
                     (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     (qualitativeHp ? '<div class="token-hp-status'+(qualitativeHpHoverOnly?' hover-only':'')+'" title="'+qualitativeHpTitle+'">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
-                    (condBadges ? '<div class="token-conditions">'+condBadges+'</div>' : '') +
+                    statusStackLeft + statusStackRight +
                     (tok.masterLocked && effectiveMaster() ? '<div class="token-lock-badge" title="'+(tok.playersCanMove?'Jogadores podem mover este NPC':'Só o mestre pode mover')+'">🔒</div>' : '');
       t.addEventListener('pointerdown', onTokenPointerDown);
       t.addEventListener('contextmenu', e=>openContextMenu(e,'token',tok.id));
@@ -8439,7 +8628,11 @@
             '<button type="button" data-xp-plus="'+tok.id+'">+</button>' +
           '</div>' +
           '<div class="condition-chip-row">' +
-            CONDITIONS.map(c => '<button type="button" class="condition-chip'+((tok.conditions||[]).includes(c.key)?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+'">'+c.icon+'</button>').join('') +
+            CONDITIONS.map(c => {
+              const active=(tok.conditions||[]).includes(c.key);
+              const turns=active&&tok.conditionDurations&&tok.conditionDurations[c.key];
+              return '<button type="button" class="condition-chip'+(active?' toggle-active':'')+'" data-condition="'+tok.id+':'+c.key+'" title="'+c.label+(turns?' — '+turns+' turno(s) restante(s)':'')+'">'+c.icon+(turns?'<span class="condition-chip-turns">'+turns+'</span>':'')+'</button>';
+            }).join('') +
           '</div>' +
           customStatusControlsMarkup(tok) +
           tokenFolderControlMarkup(tok) +
@@ -8878,6 +9071,8 @@
   function refreshLiveMoveDependentLayers(){
     const page=currentPage();
     if(page) redrawObjectAttachmentCanvases(page);
+    const drawCanvas=document.getElementById('draw-canvas');
+    if(page&&drawCanvas) redrawDrawCanvas(drawCanvas,page);
     setupDarknessOverlay();
   }
 
@@ -10112,14 +10307,105 @@
   async function toggleCondition(id, key){
     const tok = state.tokens.find(t => t.id === id);
     if(!tok) return;
-    pushUndo();
     if(!tok.conditions) tok.conditions = [];
     const idx = tok.conditions.indexOf(key);
-    if(idx === -1) tok.conditions.push(key);
-    else tok.conditions.splice(idx, 1);
+    if(idx === -1){
+      const c = CONDITIONS.find(c => c.key === key);
+      // Duração opcional em turnos — some sozinha quando chega em zero (ver
+      // tickConditionDurations, chamada a cada "Próximo turno"). Deixar vazio
+      // mantém a condição indefinida, como antes. Várias condições podem ter
+      // sua própria contagem ao mesmo tempo, cada uma no mesmo token.
+      const entered = prompt('Duração de "'+(c?c.label:key)+'" em turnos (conta regressiva a cada "Próximo turno"). Deixe vazio para efeito indefinido.','');
+      if(entered === null) return;
+      pushUndo();
+      tok.conditions.push(key);
+      const turns = entered.trim()==='' ? null : Math.max(1,Math.round(Number(entered))||1);
+      if(!tok.conditionDurations) tok.conditionDurations = {};
+      if(turns) tok.conditionDurations[key] = turns;
+      else delete tok.conditionDurations[key];
+    } else {
+      pushUndo();
+      tok.conditions.splice(idx, 1);
+      if(tok.conditionDurations) delete tok.conditionDurations[key];
+    }
     render();
     await persistTokens();
   }
+
+  // Chamada quando o turno de UM token termina (ver nextInitiativeTurn): reduz
+  // em 1 cada condição com duração ativa NESSE token, remove as que zeraram e
+  // avisa o mestre quais terminaram. Cada condição tem sua própria contagem,
+  // então várias podem estar ativas e expirar em momentos diferentes.
+  async function tickConditionDurations(tokenId){
+    const tok = state.tokens.find(t => t.id === tokenId);
+    if(!tok || !tok.conditionDurations) return;
+    const expired = [];
+    Object.keys(tok.conditionDurations).forEach(key => {
+      const remaining = Math.max(0,(Number(tok.conditionDurations[key])||1)-1);
+      if(remaining <= 0){
+        delete tok.conditionDurations[key];
+        if(Array.isArray(tok.conditions)){ const i=tok.conditions.indexOf(key); if(i>=0) tok.conditions.splice(i,1); }
+        const c = CONDITIONS.find(c => c.key === key);
+        expired.push(c?c.label:key);
+      } else {
+        tok.conditionDurations[key] = remaining;
+      }
+    });
+    if(expired.length){
+      showToast((tok.name||'Ficha')+': '+expired.join(', ')+' — efeito terminou.');
+      await persistTokens();
+    }
+  }
+
+  // Menuzinho flutuante de "Condições", aberto pelo clique direito do token —
+  // junta as condições fixas (envenenado, invisível etc) e as personalizadas
+  // num só lugar, com botões que ligam/desligam na hora, sem fechar o painel,
+  // pra marcar quantas quiser em sequência.
+  let conditionsPickerTokenId=null;
+  function closeConditionsPicker(){
+    const p=el('conditions-picker'); if(p)p.classList.remove('open');
+    conditionsPickerTokenId=null;
+  }
+  function renderConditionsPicker(){
+    const picker=el('conditions-picker'); if(!picker||!conditionsPickerTokenId)return;
+    const tok=state.tokens.find(t=>t.id===conditionsPickerTokenId);
+    if(!tok){ closeConditionsPicker(); return; }
+    const builtIn=CONDITIONS.map(c=>{
+      const active=(tok.conditions||[]).includes(c.key);
+      const turns=active&&tok.conditionDurations&&tok.conditionDurations[c.key];
+      return '<button type="button" class="condition-chip'+(active?' toggle-active':'')+'" data-picker-condition="'+c.key+'" title="'+c.label+(turns?' — '+turns+' turno(s) restante(s)':'')+'">'+c.icon+(turns?'<span class="condition-chip-turns">'+turns+'</span>':'')+'</button>';
+    }).join('');
+    const customs=customStatusList();
+    const customHtml=customs.length
+      ? ('<div class="conditions-picker-divider">Personalizadas</div><div class="condition-chip-row">'+customs.map(st=>{
+          const active=Array.isArray(tok.customStatuses)&&tok.customStatuses.includes(st.id);
+          return '<button type="button" class="condition-chip'+(active?' toggle-active':'')+'" data-picker-custom-status="'+st.id+'" title="'+escapeHtml(st.name)+'" style="border-color:'+escapeHtml(st.color||'#e2a53f')+'">'+escapeHtml(st.icon||'●')+'</button>';
+        }).join('')+'</div>')
+      : '<div class="conditions-picker-divider">Personalizadas</div><div class="conditions-picker-empty">Nenhuma criada ainda — dá pra criar em Fichas → Status personalizados.</div>';
+    picker.innerHTML='<div class="conditions-picker-title">🩹 Condições — '+escapeHtml(tok.name)+'</div><div class="condition-chip-row">'+builtIn+'</div>'+customHtml;
+  }
+  function openConditionsPicker(tokenId,anchorRect){
+    conditionsPickerTokenId=tokenId;
+    renderConditionsPicker();
+    const picker=el('conditions-picker'); if(!picker)return;
+    picker.style.left='8px'; picker.style.top='8px'; picker.classList.add('open');
+    const x=anchorRect?anchorRect.right+6:16, y=anchorRect?anchorRect.top:16;
+    const pickerWidth=Math.min(picker.offsetWidth||236,window.innerWidth-16);
+    const pickerHeight=Math.min(picker.scrollHeight||220,window.innerHeight-16);
+    picker.style.left=Math.max(8,Math.min(x,window.innerWidth-pickerWidth-8))+'px';
+    picker.style.top=Math.max(8,Math.min(y,window.innerHeight-pickerHeight-8))+'px';
+  }
+  el('conditions-picker').addEventListener('click',async e=>{
+    if(!conditionsPickerTokenId)return;
+    const condBtn=e.target.closest('[data-picker-condition]');
+    if(condBtn){ await toggleCondition(conditionsPickerTokenId,condBtn.getAttribute('data-picker-condition')); renderConditionsPicker(); return; }
+    const custBtn=e.target.closest('[data-picker-custom-status]');
+    if(custBtn){ await toggleCustomStatus(conditionsPickerTokenId,custBtn.getAttribute('data-picker-custom-status')); renderConditionsPicker(); return; }
+  });
+  document.addEventListener('pointerdown',e=>{
+    if(!e.target.closest('#conditions-picker') && !e.target.closest('[data-context-action="conditions"]')) closeConditionsPicker();
+  });
+  window.addEventListener('resize',()=>{ if(el('conditions-picker')&&el('conditions-picker').classList.contains('open')) closeConditionsPicker(); });
 
   async function toggleMasterLock(id){
     const tok = state.tokens.find(t => t.id === id);
@@ -11452,10 +11738,11 @@
 
   // Encadeamento reto: primeiro clique arma o início, o próximo fecha o segmento
   // e já arma o início do próximo (dá pra contornar uma sala inteira clicando).
-  // Quando uma porta é desenhada por cima de um trecho de parede já existente
-  // (mesma linha, sobreposição real), aquele trecho "abre" automaticamente
-  // pra dar lugar à porta — sem isso a parede continuaria sólida por baixo.
-  function splitWallsForDoor(barriers, dx1, dy1, dx2, dy2){
+  // Quando uma porta OU janela é desenhada por cima de um trecho de parede já
+  // existente (mesma linha, sobreposição real), aquele trecho "abre" automaticamente
+  // pra dar lugar à porta/janela — sem isso a parede continuaria sólida por baixo.
+  // Chamada em todos os modos de desenho (reto, curva e retângulo).
+  function splitWallsForOpening(barriers, dx1, dy1, dx2, dy2){
     const tolerance = 1.2; // % do mapa — o quão perto da linha conta como "em cima da parede"
     const newList = [];
     barriers.list.forEach(b => {
@@ -11484,7 +11771,7 @@
     const page=currentPage(); if(!page)return;
     const barriers=ensureLightBarriers(page);
     pushUndo();
-    if(type==='door') splitWallsForDoor(barriers, x1, y1, x2, y2);
+    if(type==='door'||type==='window') splitWallsForOpening(barriers, x1, y1, x2, y2);
     barriers.list.push({
       id:newId('barrier'), x1, y1, x2, y2, type,
       open:false,
@@ -11539,6 +11826,7 @@
     const barriers=ensureLightBarriers(page);
     pushUndo();
     for(let i=0;i<points.length-1;i++){
+      if(state.barrierTool==='door'||state.barrierTool==='window') splitWallsForOpening(barriers, points[i].x, points[i].y, points[i+1].x, points[i+1].y);
       barriers.list.push({
         id:newId('barrier'), x1:points[i].x, y1:points[i].y, x2:points[i+1].x, y2:points[i+1].y,
         type:state.barrierTool, open:false,
@@ -11578,6 +11866,7 @@
     const corners=[{x:minX,y:minY},{x:maxX,y:minY},{x:maxX,y:maxY},{x:minX,y:maxY}];
     for(let i=0;i<4;i++){
       const a=corners[i], b=corners[(i+1)%4];
+      if(state.barrierTool==='door'||state.barrierTool==='window') splitWallsForOpening(barriers, a.x, a.y, b.x, b.y);
       barriers.list.push({
         id:newId('barrier'), x1:a.x, y1:a.y, x2:b.x, y2:b.y,
         type:state.barrierTool, open:false,
@@ -11871,6 +12160,8 @@
       point.shape=point.shape==='cone'?'cone':'circle';
       point.aperture=Math.max(10,Math.min(180,Number(point.aperture)||70));
       point.angle=Number(point.angle)||0;
+      point.intensity=Math.max(10,Math.min(100,Number(point.intensity)||100));
+      point.color=/^#[0-9a-f]{6}$/i.test(String(point.color||''))?String(point.color).toLowerCase():null;
       point.groupIds=Array.isArray(point.groupIds)?point.groupIds.filter(id=>validGroupIds.has(id)):[];
     });
     return fog.lighting;
@@ -11973,21 +12264,30 @@
     point.range=point.shape==='cone'?diameter:diameter/2;
     point.aperture=Math.max(10,Math.min(180,Number(el('light-point-aperture').value)||70));
     point.angle=(Math.max(0,Math.min(355,Number(el('light-point-direction').value)||0))*Math.PI)/180;
+    point.intensity=Math.max(10,Math.min(100,Number(el('light-point-intensity').value)||100));
+    point.color=el('light-point-color-enable').checked?el('light-point-color').value:null;
     el('light-point-size-label').textContent=point.shape==='cone'?'Alcance do cone':'Diâmetro da luz';
     el('light-point-diameter-value').textContent=diameter+' '+cfg.label;
     el('light-point-aperture-value').textContent=point.aperture+'°';
     el('light-point-direction-value').textContent=Math.round((point.angle*180)/Math.PI)+'°';
+    el('light-point-intensity-value').textContent=point.intensity+'%';
+    el('light-point-color').disabled=!el('light-point-color-enable').checked;
     el('light-point-cone-controls').style.display=point.shape==='cone'?'block':'none';
     setupDarknessOverlay();
   }
   function openLightPointEditor(point){
     const page=currentPage(); if(!page||!point||!effectiveMaster())return;
     const lighting=ensureLightingModel(page), cfg=lightPointDiameterConfig(lighting.unit), slider=el('light-point-diameter');
-    lightPointEditorState={page,point,lighting,original:{range:point.range,shape:point.shape,aperture:point.aperture,angle:point.angle}};
+    lightPointEditorState={page,point,lighting,original:{range:point.range,shape:point.shape,aperture:point.aperture,angle:point.angle,intensity:point.intensity,color:point.color}};
     el('light-point-name-edit').value=point.name;
     el('light-point-shape').value=point.shape;
     el('light-point-aperture').value=point.aperture;
     el('light-point-direction').value=Math.round((((point.angle*180)/Math.PI)%360+360)%360/5)*5%360;
+    el('light-point-intensity').value=Math.max(10,Math.min(100,Number(point.intensity)||100));
+    const hasColor=/^#[0-9a-f]{6}$/i.test(String(point.color||''));
+    el('light-point-color-enable').checked=hasColor;
+    el('light-point-color').value=hasColor?point.color:'#ffb347';
+    el('light-point-color').disabled=!hasColor;
     slider.min=cfg.min; slider.max=cfg.max; slider.step=cfg.step;
     slider.value=snapLightPointDiameter(point.range*(point.shape==='cone'?1:2),cfg);
     updateLightPointEditorPreview();
@@ -12002,6 +12302,9 @@
   el('light-point-diameter').addEventListener('input',updateLightPointEditorPreview);
   el('light-point-aperture').addEventListener('input',updateLightPointEditorPreview);
   el('light-point-direction').addEventListener('input',updateLightPointEditorPreview);
+  el('light-point-intensity').addEventListener('input',updateLightPointEditorPreview);
+  el('light-point-color').addEventListener('input',updateLightPointEditorPreview);
+  el('light-point-color-enable').addEventListener('change',updateLightPointEditorPreview);
   el('light-point-shape').addEventListener('change',()=>{
     if(!lightPointEditorState)return;
     const point=lightPointEditorState.point, cfg=lightPointDiameterConfig(lightPointEditorState.lighting.unit);
@@ -12013,7 +12316,7 @@
   el('light-point-editor-overlay').addEventListener('pointerdown',e=>{ if(e.target===e.currentTarget)cancelLightPointEditor(); });
   el('light-point-editor-save').addEventListener('click',async()=>{
     const editor=lightPointEditorState; if(!editor)return;
-    const updated={range:editor.point.range,shape:editor.point.shape,aperture:editor.point.aperture,angle:editor.point.angle};
+    const updated={range:editor.point.range,shape:editor.point.shape,aperture:editor.point.aperture,angle:editor.point.angle,intensity:editor.point.intensity,color:editor.point.color};
     Object.assign(editor.point,editor.original);
     pushUndo();
     Object.assign(editor.point,updated);
@@ -12031,7 +12334,7 @@
     if(xRatio<0||xRatio>1||yRatio<0||yRatio>1)return;
     e.preventDefault(); e.stopPropagation();
     const lighting=ensureLightingModel(page);
-    const base={id:newId('lp'),name:'Tocha',x:xRatio*100,y:yRatio*100,range:lighting.range,enabled:true,shape:'circle',aperture:70,angle:0,groupIds:[]};
+    const base={id:newId('lp'),name:'Tocha',x:xRatio*100,y:yRatio*100,range:lighting.range,enabled:true,shape:'circle',aperture:70,angle:0,intensity:100,color:null,groupIds:[]};
     const configured=configureLightPoint(base,lighting,true); if(!configured)return;
     pushUndo(); Object.assign(base,configured); lighting.points.push(base); lighting.enabled=true;
     state.lightPointArmed=false;
@@ -12126,7 +12429,7 @@
     if(!tok.lanternByPage){ if(!create) return null; tok.lanternByPage={}; }
     if(!tok.lanternByPage[state.currentPageId]){
       if(!create) return null;
-      tok.lanternByPage[state.currentPageId]={enabled:false,angle:0,range:null};
+      tok.lanternByPage[state.currentPageId]={enabled:false,angle:0,range:null,intensity:null,color:null};
     }
     return tok.lanternByPage[state.currentPageId];
   }
@@ -12275,6 +12578,16 @@
     const scaleX=canvas.width/Math.max(1,$canvas.clientWidth), scaleY=canvas.height/Math.max(1,$canvas.clientHeight);
     const viewerGroups=lighting.visibility==='groups'?currentViewerLightGroups():new Set();
 
+    // Cor individual por lanterna/ponto de luz: tinge a área revelada (tocha
+    // alaranjada, luz mágica azulada etc). Isso só pode ser pintado DEPOIS que
+    // toda a escuridão já foi recortada — se pintássemos antes, o recorte final
+    // (destination-out) apagaria de volta a própria cor que acabamos de somar.
+    const tintJobs=[];
+    function hexToRgbTriplet(hex){
+      const h=hex.slice(1);
+      return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+    }
+
     // Ferramenta à parte e opcional (Barreiras de Luz): só entra em ação quando
     // o mestre ativa explicitamente NESTA página e existe pelo menos uma
     // barreira desenhada. Fora isso, o caminho abaixo é idêntico ao de sempre.
@@ -12312,13 +12625,19 @@
       const angle=liveTokenAngle(tok,Number(lantern.angle)||0);
       const half=(lighting.angle*Math.PI/180)/2;
       const sourceRadius=Math.max(10,(tokenSize(tok)*.62)*Math.max(scaleX,scaleY));
+      // Intensidade individual (10–100%): o quanto ESTA luz consegue dispersar a
+      // escuridão. 100% clareia por completo, como sempre; menos que isso deixa
+      // uma penumbra residual mesmo dentro do próprio alcance (tocha fraca).
+      const lightAlpha=Math.max(0.1,Math.min(1,(lantern.intensity==null?100:Number(lantern.intensity))/100));
+      const tintColor=/^#[0-9a-f]{6}$/i.test(String(lantern.color||''))?lantern.color:null;
+      if(tintColor) tintJobs.push({x,y,range,angle,half,shape:lighting.shape,color:tintColor,alpha:0.32*lightAlpha});
       if(!barriersActive){
-        // ---- caminho de sempre, sem nenhuma alteração ----
+        // ---- caminho de sempre ----
         ctx.save();
         ctx.globalCompositeOperation='destination-out';
         const glow=ctx.createRadialGradient(x,y,0,x,y,range);
-        glow.addColorStop(0,'rgba(0,0,0,1)');
-        glow.addColorStop(.82,'rgba(0,0,0,1)');
+        glow.addColorStop(0,'rgba(0,0,0,'+lightAlpha+')');
+        glow.addColorStop(.82,'rgba(0,0,0,'+lightAlpha+')');
         glow.addColorStop(1,'rgba(0,0,0,0)');
         ctx.fillStyle=glow;
         ctx.beginPath();
@@ -12332,11 +12651,13 @@
         if(lighting.shape==='circle') ctx.arc(x,y,clearRange,0,Math.PI*2);
         else{ ctx.moveTo(x,y); ctx.arc(x,y,clearRange,angle-half,angle+half); ctx.closePath(); }
         ctx.clip();
-        ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
+        ctx.globalCompositeOperation='destination-out';
+        ctx.fillStyle='rgba(0,0,0,'+lightAlpha+')';
+        ctx.fillRect(x-range-2,y-range-2,range*2+4,range*2+4);
         ctx.restore();
         ctx.save();
         ctx.globalCompositeOperation='destination-out';
-        ctx.fillStyle='rgba(0,0,0,1)';
+        ctx.fillStyle='rgba(0,0,0,'+lightAlpha+')';
         ctx.beginPath(); ctx.arc(x,y,sourceRadius,0,Math.PI*2); ctx.fill();
         ctx.restore();
         return;
@@ -12347,7 +12668,7 @@
       // parede como um halo indevido. Preenchimento direto evita isso de vez.
       maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height);
       maskCtx.globalCompositeOperation='source-over';
-      maskCtx.fillStyle='rgba(255,255,255,1)';
+      maskCtx.fillStyle='rgba(255,255,255,'+lightAlpha+')';
       maskCtx.beginPath();
       if(lighting.shape==='circle') maskCtx.arc(x,y,range,0,Math.PI*2);
       else{ maskCtx.moveTo(x,y); maskCtx.arc(x,y,range,angle-half,angle+half); maskCtx.closePath(); }
@@ -12362,13 +12683,16 @@
       const x=(point.x/100)*canvas.width, y=(point.y/100)*canvas.height;
       const range=lanternRangePixels(page,{range:point.range},canvas);
       const pointAngle=Number(point.angle)||0, pointHalf=((Number(point.aperture)||70)*Math.PI/180)/2;
+      const lightAlpha=Math.max(0.1,Math.min(1,(point.intensity==null?100:Number(point.intensity))/100));
+      const tintColor=/^#[0-9a-f]{6}$/i.test(String(point.color||''))?point.color:null;
+      if(tintColor) tintJobs.push({x,y,range,angle:pointAngle,half:pointHalf,shape:point.shape,color:tintColor,alpha:0.32*lightAlpha});
       if(!barriersActive){
-        // ---- caminho de sempre, sem nenhuma alteração ----
+        // ---- caminho de sempre ----
         ctx.save();
         ctx.globalCompositeOperation='destination-out';
         const glow=ctx.createRadialGradient(x,y,0,x,y,range);
-        glow.addColorStop(0,'rgba(0,0,0,1)');
-        glow.addColorStop(.82,'rgba(0,0,0,1)');
+        glow.addColorStop(0,'rgba(0,0,0,'+lightAlpha+')');
+        glow.addColorStop(.82,'rgba(0,0,0,'+lightAlpha+')');
         glow.addColorStop(1,'rgba(0,0,0,0)');
         ctx.fillStyle=glow;
         ctx.beginPath();
@@ -12381,11 +12705,13 @@
         if(point.shape==='cone'){ ctx.moveTo(x,y); ctx.arc(x,y,Math.max(1,range*.82),pointAngle-pointHalf,pointAngle+pointHalf); ctx.closePath(); }
         else ctx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2);
         ctx.clip();
-        ctx.clearRect(x-range-2,y-range-2,range*2+4,range*2+4);
+        ctx.globalCompositeOperation='destination-out';
+        ctx.fillStyle='rgba(0,0,0,'+lightAlpha+')';
+        ctx.fillRect(x-range-2,y-range-2,range*2+4,range*2+4);
         ctx.restore();
         ctx.save();
         ctx.globalCompositeOperation='destination-out';
-        ctx.fillStyle='rgba(0,0,0,1)';
+        ctx.fillStyle='rgba(0,0,0,'+lightAlpha+')';
         ctx.beginPath(); ctx.arc(x,y,Math.max(6,8*Math.max(scaleX,scaleY)),0,Math.PI*2); ctx.fill();
         ctx.restore();
         return;
@@ -12394,7 +12720,7 @@
       // Borda sólida e definida (sem degradê) — mesmo motivo do bloco da lanterna.
       maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height);
       maskCtx.globalCompositeOperation='source-over';
-      maskCtx.fillStyle='rgba(255,255,255,1)';
+      maskCtx.fillStyle='rgba(255,255,255,'+lightAlpha+')';
       maskCtx.beginPath();
       if(point.shape==='cone'){ maskCtx.moveTo(x,y); maskCtx.arc(x,y,range,pointAngle-pointHalf,pointAngle+pointHalf); maskCtx.closePath(); }
       else maskCtx.arc(x,y,range,0,Math.PI*2);
@@ -12409,6 +12735,25 @@
       ctx.globalCompositeOperation='destination-out';
       ctx.drawImage(accCanvas,0,0);
       ctx.globalCompositeOperation='source-over';
+    }
+
+    // Pinta por cima a cor de cada luz que tiver cor individual definida —
+    // sempre por último, depois de toda escuridão já recortada.
+    if(tintJobs.length){
+      tintJobs.forEach(job=>{
+        ctx.save();
+        ctx.globalCompositeOperation='source-over';
+        const rgb=hexToRgbTriplet(job.color);
+        const grad=ctx.createRadialGradient(job.x,job.y,0,job.x,job.y,job.range);
+        grad.addColorStop(0,'rgba('+rgb.join(',')+','+job.alpha+')');
+        grad.addColorStop(1,'rgba('+rgb.join(',')+',0)');
+        ctx.fillStyle=grad;
+        ctx.beginPath();
+        if(job.shape==='cone'){ ctx.moveTo(job.x,job.y); ctx.arc(job.x,job.y,job.range,job.angle-job.half,job.angle+job.half); ctx.closePath(); }
+        else ctx.arc(job.x,job.y,job.range,0,Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      });
     }
   }
 
@@ -12440,7 +12785,7 @@
     };
   }
 
-  function redrawObjectAttachmentCanvases(page,inProgressDraw,inProgressFog){
+  function redrawObjectAttachmentCanvases(page,inProgressFog){
     if(!page) return;
     document.getElementById('fog-object-canvas')?.remove();
     document.getElementById('draw-object-canvas')?.remove();
@@ -12448,19 +12793,20 @@
     if(!canvas) return;
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
+    // Só névoa entra aqui — a névoa precisa cobrir tokens por cima de tudo, de
+    // propósito. O desenho (traço livre/formas) NUNCA usa essa camada: ele é
+    // redesenhado à parte, em #draw-canvas ou junto do objeto ao qual foi preso,
+    // sempre abaixo dos tokens (ver redrawDrawCanvas).
     const layers=[];
-    ensureFogModel(page).mapStrokes.forEach(stroke=>layers.push({kind:'fog',stroke}));
-    ensureFogModel(page).objectStrokes.forEach(stroke=>layers.push({kind:'fog',stroke}));
-    ((page.draw&&page.draw.strokes)||[]).forEach(stroke=>layers.push({kind:'draw',stroke}));
-    if(inProgressFog) layers.push({kind:'fog',stroke:inProgressFog});
-    if(inProgressDraw) layers.push({kind:'draw',stroke:inProgressDraw});
+    ensureFogModel(page).mapStrokes.forEach(stroke=>layers.push({stroke}));
+    ensureFogModel(page).objectStrokes.forEach(stroke=>layers.push({stroke}));
+    if(inProgressFog) layers.push({stroke:inProgressFog});
     layers.sort((a,b)=>(Number(a.stroke.createdAt)||0)-(Number(b.stroke.createdAt)||0));
     layers.forEach(layer=>{
       const delta=remoteLiveCanvasDelta(layer.stroke&&layer.stroke.platformId,canvas);
       ctx.save();
       if(delta) ctx.translate(delta.x,delta.y);
-      if(layer.kind==='fog') renderFogStrokeOnCtx(ctx,layer.stroke);
-      else drawStrokeOnCtx(ctx,layer.stroke);
+      renderFogStrokeOnCtx(ctx,layer.stroke);
       ctx.restore();
     });
   }
@@ -12672,9 +13018,24 @@
   function redrawDrawCanvas(canvas, page, inProgressStroke){
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // O canvas da ferramenta recebe os eventos; a exibição de todos os traços
-    // ocorre na camada cronológica compartilhada com a névoa.
-    redrawObjectAttachmentCanvases(page,inProgressStroke);
+    // Todo traço da ferramenta de desenho vive nesta camada — a mesma que fica
+    // logo abaixo dos tokens (ver setupDrawCanvas, que a insere antes do primeiro
+    // token no DOM). Traço preso a um objeto do mapa (platformId) acompanha o
+    // objeto (segue seu deslocamento ao vivo via remoteLiveCanvasDelta e é
+    // realmente movido/rotacionado com ele — ver translateObjectAttachmentLayers
+    // e rotateMapObjectAndContents), mas nunca sobe pra uma camada acima dos
+    // tokens: o desenho fica sempre perto de onde foi usado (objeto ou mapa), e
+    // o token sempre passa por cima dele ao andar.
+    const strokes = ((page&&page.draw&&page.draw.strokes)||[]).slice();
+    if(inProgressStroke) strokes.push(inProgressStroke);
+    strokes.sort((a,b)=>(Number(a.createdAt)||0)-(Number(b.createdAt)||0));
+    strokes.forEach(stroke=>{
+      const delta=remoteLiveCanvasDelta(stroke.platformId,canvas);
+      ctx.save();
+      if(delta) ctx.translate(delta.x,delta.y);
+      drawStrokeOnCtx(ctx,stroke);
+      ctx.restore();
+    });
   }
 
   function translateStrokeGeometry(stroke,dx,dy){
@@ -12941,7 +13302,7 @@
     if(!session.platformId&&session.mode==='reveal'){
       renderFogStrokeOnCtx(session.ctx,liveStroke);
     }
-    redrawObjectAttachmentCanvases(session.page,null,liveStroke);
+    redrawObjectAttachmentCanvases(session.page,liveStroke);
   }
 
   function startFogPaint(e){
@@ -13540,12 +13901,16 @@
       state.fogMode = false;
       state.pingArmed = false;
       state.measureArmed = false;
+      state.measureDrag = null;
+      state.lightPointArmed = false;
       state.barrierTool = null;
       state.barrierDraftStart = null;
       state.barrierCurvePoints = null;
       state.barrierRectStart = null;
       multiSelectedTokenIds = new Set();
       state.selectedTextId = null;
+      clearMeasureVisual();
+      closeContextMenu();
       closeOpenToolPanels();
       render();
       return;
