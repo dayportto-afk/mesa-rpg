@@ -570,6 +570,44 @@
   #access-code-actions{ display:flex; gap:8px; margin-top:8px; }
   #access-code-actions button{ flex:1; }
 
+  /* Session Notes: private master planner */
+  #float-session-notes{ width:680px; max-width:94vw; }
+  .session-notes-shell{ display:grid; grid-template-columns:190px minmax(0,1fr); gap:10px; min-height:430px; }
+  .session-notes-sidebar{ border-right:1px solid var(--line); padding-right:10px; display:flex; flex-direction:column; gap:7px; min-width:0; }
+  .session-notes-sidebar-top{ display:flex; gap:5px; }
+  .session-notes-sidebar-top button{ flex:1; padding:6px 5px; font-size:9px; }
+  #session-notes-search{ font-size:12px; padding:6px 7px; }
+  #session-notes-list{ display:flex; flex-direction:column; gap:5px; overflow-y:auto; max-height:390px; padding-right:2px; }
+  .session-note-card{ width:100%; text-align:left; padding:8px; background:#120e08; border:1px solid var(--line); border-radius:4px; text-transform:none; letter-spacing:0; }
+  .session-note-card.active{ border-color:var(--amber-bright); background:#1b1409; }
+  .session-note-card-title{ font-family:'EB Garamond',serif; font-size:13px; color:var(--parchment); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .session-note-card-meta{ margin-top:2px; font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--parchment-dim); }
+  .session-notes-editor-wrap{ min-width:0; display:flex; flex-direction:column; }
+  #session-note-title{ font-family:'Cinzel',serif; font-size:16px; color:var(--amber-bright); margin-bottom:7px; }
+  .session-rich-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:6px; border:1px solid var(--line); border-bottom:none; border-radius:5px 5px 0 0; background:#0c0906; }
+  .session-rich-toolbar button{ width:28px; height:27px; padding:0; font-size:11px; text-transform:none; }
+  .session-rich-toolbar select{ width:auto; height:28px; padding:3px 5px; font-size:11px; }
+  .session-rich-toolbar input[type=color]{ width:29px; height:27px; padding:1px; border:1px solid var(--line); border-radius:3px; background:#120e08; }
+  #session-note-font{ max-width:120px; }
+  #session-note-size{ width:72px; }
+  #session-note-editor{ min-height:330px; max-height:52vh; overflow:auto; padding:14px 16px; border:1px solid var(--line); border-radius:0 0 5px 5px; background:#120e08; color:var(--parchment); outline:none; font-family:'EB Garamond',serif; font-size:15px; line-height:1.55; white-space:normal; word-break:break-word; }
+  #session-note-editor:focus{ border-color:var(--amber); }
+  #session-note-editor:empty:before{ content:attr(data-placeholder); color:var(--parchment-dim); pointer-events:none; }
+  #session-note-editor p{ margin:.35em 0 .7em; }
+  #session-note-editor blockquote{ margin:.7em 0; padding:.45em .8em; border-left:3px solid var(--amber); background:rgba(200,137,46,.08); }
+  .session-note-actions{ display:flex; gap:6px; margin-top:7px; align-items:center; }
+  .session-note-actions button{ flex:0 0 auto; }
+  #session-note-save-state{ margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
+  .session-note-private-badge{ font-family:'JetBrains Mono',monospace; font-size:9px; color:#d9b56c; border:1px solid var(--line); border-radius:3px; padding:3px 6px; margin-left:6px; }
+  @media(max-width:700px){
+    #float-session-notes{ width:96vw; }
+    .session-notes-shell{ grid-template-columns:1fr; min-height:0; }
+    .session-notes-sidebar{ border-right:none; border-bottom:1px solid var(--line); padding-right:0; padding-bottom:8px; }
+    #session-notes-list{ max-height:115px; flex-direction:row; overflow-x:auto; overflow-y:hidden; }
+    .session-note-card{ min-width:145px; }
+    #session-note-editor{ min-height:300px; }
+  }
+
   /* Fog panel */
   .fog-mode-row{ display:flex; gap:6px; margin-top:8px; }
   .fog-mode-row button{ flex:1; }
@@ -2125,6 +2163,10 @@
           <span class="icon-rail-label">Oráculo</span>
         </div>
         <div class="icon-rail-item">
+          <button type="button" class="icon-rail-btn" data-panel="float-session-notes" title="Notas privadas para planejar sessões">📓</button>
+          <span class="icon-rail-label">Notas</span>
+        </div>
+        <div class="icon-rail-item">
           <button type="button" class="icon-rail-btn icon-rail-danger" data-panel="float-danger" title="Zona de perigo">⚠️</button>
           <span class="icon-rail-label">Perigo</span>
         </div>
@@ -2344,6 +2386,64 @@
         </div>
       </div>
 
+      <div class="float-panel" id="float-session-notes" style="left:245px; top:30px;">
+        <div class="float-panel-header">
+          <span>📓 Notas de Sessão <span class="session-note-private-badge">🔒 só mestre</span></span>
+          <button type="button" class="float-panel-close" data-close-panel="float-session-notes">✕</button>
+        </div>
+        <div class="float-panel-body">
+          <div class="session-notes-shell">
+            <div class="session-notes-sidebar">
+              <div class="session-notes-sidebar-top">
+                <button type="button" id="btn-session-note-new" class="primary">＋ Sessão</button>
+                <button type="button" id="btn-session-note-duplicate" title="Duplicar a sessão atual">⧉</button>
+              </div>
+              <input type="text" id="session-notes-search" placeholder="Buscar sessão...">
+              <div id="session-notes-list"></div>
+            </div>
+            <div class="session-notes-editor-wrap">
+              <input type="text" id="session-note-title" placeholder="Ex.: Sessão 08 — O templo inundado">
+              <div class="session-rich-toolbar" id="session-rich-toolbar">
+                <button type="button" data-session-cmd="bold" title="Negrito"><b>N</b></button>
+                <button type="button" data-session-cmd="italic" title="Itálico"><i>I</i></button>
+                <button type="button" data-session-cmd="underline" title="Sublinhado"><u>S</u></button>
+                <button type="button" data-session-cmd="strikeThrough" title="Tachado"><s>T</s></button>
+                <select id="session-note-font" title="Fonte da seleção">
+                  <option value="'EB Garamond', serif">EB Garamond</option>
+                  <option value="'Cinzel', serif">Cinzel</option>
+                  <option value="'IM Fell English', serif">IM Fell English</option>
+                  <option value="'Uncial Antiqua', serif">Uncial Antiqua</option>
+                  <option value="'Special Elite', monospace">Special Elite</option>
+                  <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                </select>
+                <select id="session-note-size" title="Tamanho da seleção">
+                  <option value="11">11 px</option><option value="13">13 px</option><option value="15" selected>15 px</option>
+                  <option value="18">18 px</option><option value="22">22 px</option><option value="28">28 px</option><option value="36">36 px</option>
+                </select>
+                <input type="color" id="session-note-color" value="#e8dcc0" title="Cor do texto selecionado">
+                <input type="color" id="session-note-highlight" value="#5a431b" title="Marca-texto / fundo da seleção">
+                <button type="button" data-session-cmd="justifyLeft" title="Alinhar à esquerda">≡</button>
+                <button type="button" data-session-cmd="justifyCenter" title="Centralizar">≣</button>
+                <button type="button" data-session-cmd="justifyRight" title="Alinhar à direita">≡</button>
+                <button type="button" data-session-cmd="justifyFull" title="Justificar">☰</button>
+                <button type="button" data-session-cmd="insertUnorderedList" title="Lista com marcadores">•☷</button>
+                <button type="button" data-session-cmd="insertOrderedList" title="Lista numerada">1.</button>
+                <button type="button" data-session-block="blockquote" title="Citação / bloco de destaque">❝</button>
+                <button type="button" data-session-cmd="removeFormat" title="Limpar formatação da seleção">Tx</button>
+                <button type="button" data-session-cmd="undo" title="Desfazer edição">↩</button>
+                <button type="button" data-session-cmd="redo" title="Refazer edição">↪</button>
+              </div>
+              <div id="session-note-editor" contenteditable="true" spellcheck="true" data-placeholder="Planeje a sessão: abertura, cenas, NPCs, pistas, encontros, segredos, improvisos, recompensas, lembretes..."></div>
+              <div class="session-note-actions">
+                <button type="button" id="btn-session-note-save" class="primary">Salvar agora</button>
+                <button type="button" id="btn-session-note-delete" class="danger">Excluir sessão</button>
+                <span id="session-note-save-state">Privado do mestre</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="float-panel" id="float-fog" style="left:200px; top:16px;">
         <div class="float-panel-header">
           <span>🌫️ Névoa de guerra</span>
@@ -2354,6 +2454,10 @@
           <div class="fog-mode-row">
             <button id="btn-fog-cover" class="toggle-active">Cobrir</button>
             <button id="btn-fog-reveal">Revelar</button>
+          </div>
+          <div class="fog-mode-row" id="fog-shape-row">
+            <button id="btn-fog-brush-shape" class="toggle-active" title="Pintar livremente">🖌️ Pincel</button>
+            <button id="btn-fog-rect-shape" title="Arraste para criar um retângulo exato">▭ Retângulo</button>
           </div>
           <div id="fog-brush-row">
             <label for="fog-brush">Pincel</label>
@@ -2372,7 +2476,7 @@
             <button type="button" class="fog-swatch" data-fog-color="#5a2f6b" style="background:#5a2f6b;" title="Roxa"></button>
             <input type="color" id="fog-color-picker" value="#050402" title="Cor personalizada">
           </div>
-          <div class="hint">Com o modo ativo, pinte livremente sobre o mapa para cobrir ou revelar áreas — como um pincel, sem ficar preso a retângulos. A névoa é própria de cada página do histórico.</div>
+          <div class="hint">Escolha <b>Cobrir</b> ou <b>Revelar</b> e depois use <b>Pincel</b> para traço livre ou <b>Retângulo</b> para arrastar uma área exata. A névoa é própria de cada página do histórico.</div>
           <button id="btn-fog-clear" class="danger" style="width:100%; margin-top:8px;">Remover toda a névoa desta página</button>
           <div id="lighting-settings" style="border-top:1px solid var(--line); margin-top:12px; padding-top:10px;">
             <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--amber-bright);margin-bottom:8px;">🌑 Escuridão e lanternas</div>
@@ -3177,10 +3281,13 @@
     tokens:[],          // [{id,name,image,size,hp,positions:{pageId:{x,y}}}]
     fogMode:false,
     fogPaintMode:'cover',
+    fogShape:'brush',
     fogBrush:45,
     fogColor:'#050402',
     fogOpacity:94,
     fogStroke:null,
+    sessionNotes:[],
+    activeSessionNoteId:null,
     lightPointArmed:false,
     barrierTool:null,
     barrierDraftStart:null,
@@ -4117,6 +4224,7 @@
     if(!panel) return;
     panel.classList.add('open');
     bringFloatToFront(panel);
+    if(id==='float-session-notes') renderSessionNotes();
   }
   function closeFloatPanel(id){
     const panel = el(id);
@@ -4136,6 +4244,136 @@
   document.querySelectorAll('.float-panel-close').forEach(btn => {
     btn.addEventListener('click', () => closeFloatPanel(btn.getAttribute('data-close-panel')));
   });
+
+  // ---------- notas de sessão privadas do mestre ----------
+  let sessionNotesSaveTimer = null;
+  let savedSessionSelection = null;
+
+  function sanitizeSessionNoteHtml(html){
+    const allowed = new Set(['DIV','P','BR','SPAN','B','STRONG','I','EM','U','S','STRIKE','UL','OL','LI','BLOCKQUOTE','H1','H2','H3']);
+    const allowedStyles = new Set(['color','background-color','font-family','font-size','text-align','font-weight','font-style','text-decoration']);
+    const tmp=document.createElement('div'); tmp.innerHTML=html||'';
+    (function clean(node){
+      Array.from(node.childNodes).forEach(child=>{
+        if(child.nodeType===1){
+          clean(child);
+          if(!allowed.has(child.tagName)){
+            while(child.firstChild) node.insertBefore(child.firstChild,child);
+            node.removeChild(child); return;
+          }
+          Array.from(child.attributes).forEach(a=>{ if(a.name!=='style') child.removeAttribute(a.name); });
+          if(child.hasAttribute('style')){
+            const keep=[];
+            for(const prop of Array.from(child.style)){
+              if(allowedStyles.has(prop)){
+                let val=child.style.getPropertyValue(prop);
+                if(prop==='font-size'){
+                  const n=parseFloat(val); if(!Number.isFinite(n)||n<8||n>72) continue;
+                  val=n+'px';
+                }
+                if(prop==='font-family') val=val.replace(/[;{}]/g,'');
+                if((prop==='color'||prop==='background-color') && /url|expression/i.test(val)) continue;
+                keep.push(prop+':'+val);
+              }
+            }
+            child.removeAttribute('style'); if(keep.length) child.setAttribute('style',keep.join(';'));
+          }
+        }else if(child.nodeType!==3) node.removeChild(child);
+      });
+    })(tmp);
+    return tmp.innerHTML;
+  }
+
+  function sessionNotesSorted(){
+    return (state.sessionNotes||[]).slice().sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0) || (Number(a.createdAt)||0)-(Number(b.createdAt)||0));
+  }
+  function activeSessionNote(){ return (state.sessionNotes||[]).find(n=>n.id===state.activeSessionNoteId)||null; }
+  async function persistSessionNotes(){
+    if(!state.isMaster) return;
+    await safeSet(slotKey('session-notes'), {list:state.sessionNotes||[],activeId:state.activeSessionNoteId||null});
+  }
+  function sessionNoteTime(ts){
+    if(!ts) return '';
+    try{return new Date(ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch(e){return '';}
+  }
+  function renderSessionNotes(){
+    const list=el('session-notes-list'), title=el('session-note-title'), editor=el('session-note-editor');
+    if(!list||!title||!editor) return;
+    const q=(el('session-notes-search').value||'').trim().toLocaleLowerCase('pt-BR');
+    const notes=sessionNotesSorted().filter(n=>!q || ((n.title||'')+' '+editorTextFromHtml(n.html||'')).toLocaleLowerCase('pt-BR').includes(q));
+    list.innerHTML=notes.map(n=>'<button type="button" class="session-note-card '+(n.id===state.activeSessionNoteId?'active':'')+'" data-session-note-id="'+escapeHtml(n.id)+'"><div class="session-note-card-title">'+escapeHtml(n.title||'Sessão sem título')+'</div><div class="session-note-card-meta">'+sessionNoteTime(n.updatedAt||n.createdAt)+'</div></button>').join('');
+    list.querySelectorAll('[data-session-note-id]').forEach(b=>b.addEventListener('click',()=>{ saveCurrentSessionNoteFromEditor(false); state.activeSessionNoteId=b.getAttribute('data-session-note-id'); renderSessionNotes(); void persistSessionNotes(); }));
+    const note=activeSessionNote();
+    const disabled=!note;
+    title.disabled=disabled; editor.contentEditable=disabled?'false':'true'; el('btn-session-note-save').disabled=disabled; el('btn-session-note-delete').disabled=disabled; el('btn-session-note-duplicate').disabled=disabled;
+    if(note){
+      if(title.dataset.noteId!==note.id){ title.value=note.title||''; editor.innerHTML=sanitizeSessionNoteHtml(note.html||''); title.dataset.noteId=note.id; }
+    }else{ title.value=''; editor.innerHTML=''; title.dataset.noteId=''; }
+    el('session-note-save-state').textContent=note?'Salvo na campanha · privado do mestre':'Crie uma sessão para começar';
+  }
+  function editorTextFromHtml(html){ const d=document.createElement('div'); d.innerHTML=html||''; return d.textContent||''; }
+  function saveCurrentSessionNoteFromEditor(schedulePersist=true){
+    if(!state.isMaster) return;
+    const note=activeSessionNote(); if(!note) return;
+    note.title=(el('session-note-title').value||'').trim()||'Sessão sem título';
+    note.html=sanitizeSessionNoteHtml(el('session-note-editor').innerHTML);
+    note.updatedAt=Date.now();
+    el('session-note-save-state').textContent=schedulePersist?'Salvando...':'Alterações locais';
+    if(schedulePersist){
+      clearTimeout(sessionNotesSaveTimer);
+      sessionNotesSaveTimer=setTimeout(async()=>{ await persistSessionNotes(); el('session-note-save-state').textContent='Salvo · privado do mestre'; renderSessionNotes(); },450);
+    }
+  }
+  async function createSessionNote(copyFrom=null){
+    if(!state.isMaster) return;
+    saveCurrentSessionNoteFromEditor(false);
+    const idx=(state.sessionNotes||[]).length+1, now=Date.now();
+    const n={id:newId('sn'),title:copyFrom?((copyFrom.title||'Sessão')+' — cópia'):('Sessão '+String(idx).padStart(2,'0')),html:copyFrom?(copyFrom.html||''):'',createdAt:now,updatedAt:now,order:idx};
+    state.sessionNotes.push(n); state.activeSessionNoteId=n.id; await persistSessionNotes(); renderSessionNotes(); el('session-note-title').focus(); el('session-note-title').select();
+  }
+  async function deleteSessionNote(){
+    const n=activeSessionNote(); if(!n||!state.isMaster) return;
+    if(!confirm('Excluir as notas de "'+(n.title||'esta sessão')+'"?')) return;
+    state.sessionNotes=state.sessionNotes.filter(x=>x.id!==n.id); state.activeSessionNoteId=(sessionNotesSorted()[0]||{}).id||null; await persistSessionNotes(); renderSessionNotes();
+  }
+  function rememberSessionSelection(){
+    const ed=el('session-note-editor'), sel=window.getSelection(); if(!ed||!sel||!sel.rangeCount) return;
+    const r=sel.getRangeAt(0); if(ed.contains(r.commonAncestorContainer)) savedSessionSelection=r.cloneRange();
+  }
+  function restoreSessionSelection(){
+    if(!savedSessionSelection) return false; const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(savedSessionSelection); return true;
+  }
+  function applySessionStyle(styleObj){
+    const ed=el('session-note-editor'); if(!ed) return; ed.focus(); restoreSessionSelection();
+    const sel=window.getSelection(); if(!sel||!sel.rangeCount||sel.isCollapsed) return;
+    const range=sel.getRangeAt(0); if(!ed.contains(range.commonAncestorContainer)) return;
+    const span=document.createElement('span'); Object.assign(span.style,styleObj);
+    try{ range.surroundContents(span); }catch(e){ const frag=range.extractContents(); span.appendChild(frag); range.insertNode(span); }
+    sel.removeAllRanges(); const nr=document.createRange(); nr.selectNodeContents(span); sel.addRange(nr); savedSessionSelection=nr.cloneRange(); saveCurrentSessionNoteFromEditor(true);
+  }
+  function runSessionCommand(cmd,value=null){
+    const ed=el('session-note-editor'); if(!ed) return; ed.focus(); restoreSessionSelection();
+    try{ document.execCommand('styleWithCSS',false,true); }catch(e){}
+    document.execCommand(cmd,false,value); rememberSessionSelection(); saveCurrentSessionNoteFromEditor(true);
+  }
+  function initSessionNotesEditor(){
+    const ed=el('session-note-editor'); if(!ed) return;
+    ed.addEventListener('keyup',rememberSessionSelection); ed.addEventListener('mouseup',rememberSessionSelection); ed.addEventListener('input',()=>saveCurrentSessionNoteFromEditor(true)); ed.addEventListener('blur',()=>saveCurrentSessionNoteFromEditor(true));
+    el('session-note-title').addEventListener('input',()=>saveCurrentSessionNoteFromEditor(true));
+    el('session-notes-search').addEventListener('input',renderSessionNotes);
+    el('btn-session-note-new').addEventListener('click',()=>void createSessionNote());
+    el('btn-session-note-duplicate').addEventListener('click',()=>{const n=activeSessionNote();if(n)void createSessionNote(n);});
+    el('btn-session-note-delete').addEventListener('click',()=>void deleteSessionNote());
+    el('btn-session-note-save').addEventListener('click',async()=>{saveCurrentSessionNoteFromEditor(false);await persistSessionNotes();el('session-note-save-state').textContent='Salvo · privado do mestre';renderSessionNotes();});
+    el('session-rich-toolbar').addEventListener('mousedown',e=>{ if(e.target.closest('button,select,input')){ rememberSessionSelection(); if(e.target.closest('button')) e.preventDefault(); } });
+    el('session-rich-toolbar').querySelectorAll('[data-session-cmd]').forEach(b=>b.addEventListener('click',()=>runSessionCommand(b.getAttribute('data-session-cmd'))));
+    el('session-rich-toolbar').querySelectorAll('[data-session-block]').forEach(b=>b.addEventListener('click',()=>runSessionCommand('formatBlock',b.getAttribute('data-session-block'))));
+    el('session-note-font').addEventListener('change',e=>applySessionStyle({fontFamily:e.target.value}));
+    el('session-note-size').addEventListener('change',e=>applySessionStyle({fontSize:Number(e.target.value)+'px'}));
+    el('session-note-color').addEventListener('input',e=>applySessionStyle({color:e.target.value}));
+    el('session-note-highlight').addEventListener('input',e=>applySessionStyle({backgroundColor:e.target.value}));
+  }
+  initSessionNotesEditor();
 
   // ---------- oráculo do mestre ----------
   (function initOracle(){
@@ -5504,7 +5742,7 @@
       await addCampaignToIndex(currentSlot);
       stopAllListeners();
       state.tokens=[]; state.pages=[]; state.currentPageId=null;
-      state.initiative={list:[],activeId:null,round:1,turnSeq:0,combatId:null}; state.combatHistory=[]; state.journal=[]; state.sends=[]; state.diceRolls=[];
+      state.initiative={list:[],activeId:null,round:1,turnSeq:0,combatId:null}; state.combatHistory=[]; state.journal=[]; state.sends=[]; state.diceRolls=[]; state.sessionNotes=[]; state.activeSessionNoteId=null;
       await loadSlotData();
       render(); startRealtimeSync(); closeAllFloatPanels();
       showToast('Backup restaurado com sucesso.');
@@ -5781,6 +6019,8 @@
     state.tokens = [];
     state.pages = [];
     state.currentPageId = null;
+    state.sessionNotes = [];
+    state.activeSessionNoteId = null;
     state.meta = { title:'Campanha sem nome', masterPass:'', playerCode:'', tokenFolders:[], customStatuses:[] };
 
     $portalScreen.classList.add('hidden');
@@ -5943,7 +6183,8 @@
         safeDelete(slotKey('meta')),
         safeDelete(slotKey('tokens')),
         safeDelete(slotKey('pages-index')),
-        safeDelete(slotKey('dice-log'))
+        safeDelete(slotKey('dice-log')),
+        safeDelete(slotKey('session-notes'))
       ];
       state.pages.forEach(p => {
         jobs.push(safeDelete(slotKey('page-'+p.id+'-map')));
@@ -6029,6 +6270,7 @@
       safeDelete('c'+id+'-tokens'),
       safeDelete('c'+id+'-pages-index'),
       safeDelete('c'+id+'-dice-log'),
+      safeDelete('c'+id+'-session-notes'),
       safeDelete('c'+id+'-music-tracks'),
       safeDelete('c'+id+'-music-state')
     ];
@@ -6050,6 +6292,18 @@
       safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state'))
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
+    state.sessionNotes = [];
+    state.activeSessionNoteId = null;
+    if(state.isMaster){
+      const sessionNotesRaw = await safeGet(slotKey('session-notes'));
+      if(sessionNotesRaw){
+        try{
+          const parsed = JSON.parse(sessionNotesRaw);
+          state.sessionNotes = Array.isArray(parsed.list) ? parsed.list : [];
+          state.activeSessionNoteId = parsed.activeId || (state.sessionNotes[0] && state.sessionNotes[0].id) || null;
+        }catch(e){}
+      }
+    }
     if(!Array.isArray(state.meta.tokenFolders)) state.meta.tokenFolders = [];
     if(!Array.isArray(state.meta.customStatuses)) state.meta.customStatuses = [];
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
@@ -6556,6 +6810,9 @@
     el('btn-fog-toggle').classList.toggle('toggle-active', state.fogMode);
     el('btn-fog-cover').classList.toggle('toggle-active', state.fogPaintMode === 'cover');
     el('btn-fog-reveal').classList.toggle('toggle-active', state.fogPaintMode === 'reveal');
+    el('btn-fog-brush-shape').classList.toggle('toggle-active', state.fogShape === 'brush');
+    el('btn-fog-rect-shape').classList.toggle('toggle-active', state.fogShape === 'rect');
+    el('fog-brush').disabled = state.fogShape === 'rect';
     el('fog-brush').value = state.fogBrush;
     el('fog-opacity').value = state.fogOpacity;
     document.querySelectorAll('.fog-swatch:not(.draw-swatch)').forEach(sw => {
@@ -11587,6 +11844,8 @@
   el('btn-fog-toggle').addEventListener('click', () => { state.fogMode = !state.fogMode; if(state.fogMode){ state.drawMode = false; state.lightPointArmed=false; state.barrierTool=null; state.barrierDraftStart=null; } render(); });
   el('btn-fog-cover').addEventListener('click', () => { state.fogPaintMode = 'cover'; render(); });
   el('btn-fog-reveal').addEventListener('click', () => { state.fogPaintMode = 'reveal'; render(); });
+  el('btn-fog-brush-shape').addEventListener('click', () => { state.fogShape = 'brush'; render(); });
+  el('btn-fog-rect-shape').addEventListener('click', () => { state.fogShape = 'rect'; render(); });
   el('fog-brush').addEventListener('input', (e) => { state.fogBrush = Number(e.target.value); });
   el('fog-opacity').addEventListener('input', (e) => { state.fogOpacity = Number(e.target.value); });
   document.querySelectorAll('.fog-swatch:not(.draw-swatch)').forEach(sw => {
@@ -12956,12 +13215,19 @@
 
   function renderFogStrokeOnCtx(ctx, stroke){
     const pts = stroke.points || [];
-    if(!pts.length) return;
     const mode = stroke.mode || 'cover';
     ctx.save();
     ctx.globalCompositeOperation = mode === 'reveal' ? 'destination-out' : 'source-over';
     ctx.strokeStyle = mode === 'reveal' ? 'rgba(0,0,0,1)' : hexToRgba(stroke.color, (stroke.opacity || 100) / 100);
     ctx.fillStyle = mode === 'reveal' ? 'rgba(0,0,0,1)' : hexToRgba(stroke.color, (stroke.opacity || 100) / 100);
+    if(stroke.shape === 'rect' && stroke.start && stroke.end){
+      const x=Math.min(stroke.start.x,stroke.end.x), y=Math.min(stroke.start.y,stroke.end.y);
+      const w=Math.abs(stroke.end.x-stroke.start.x), h=Math.abs(stroke.end.y-stroke.start.y);
+      ctx.fillRect(x,y,w,h);
+      ctx.restore();
+      return;
+    }
+    if(!pts.length){ ctx.restore(); return; }
     ctx.lineWidth = Math.max(2, (stroke.brush || 1) * 2);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -13126,6 +13392,8 @@
       ensureFogModel(page).objectStrokes.forEach(stroke=>{
         if(stroke.platformId!==move.platformId) return;
         (stroke.points||[]).forEach(pt=>{ pt.x+=fogDx; pt.y+=fogDy; });
+        if(stroke.start){ stroke.start.x+=fogDx; stroke.start.y+=fogDy; }
+        if(stroke.end){ stroke.end.x+=fogDx; stroke.end.y+=fogDy; }
         fogMoved=true;
       });
     });
@@ -13298,6 +13566,9 @@
       color: session.color,
       opacity: session.opacity,
       brush: session.brush,
+      shape: session.shape || 'brush',
+      start: session.start,
+      end: session.end,
       points: session.points
     };
     // Uma revelação comum também perfura a névoa raster antiga durante a prévia.
@@ -13322,9 +13593,12 @@
       createdAt:Date.now(),
       platformId:mapObjectIdAtCanvasPoint(pt,canvas),
       brush: state.fogBrush,
+      shape: state.fogShape || 'brush',
       mode: state.fogPaintMode,
       color: state.fogColor,
       opacity: state.fogOpacity,
+      start: { x:pt.x, y:pt.y },
+      end: { x:pt.x, y:pt.y },
       points: [{ x: pt.x, y: pt.y }],
       baseFogImageData: canvas._baseFogImageData || ctx.getImageData(0, 0, canvas.width, canvas.height)
     };
@@ -13336,6 +13610,11 @@
     if(!s) return;
     const pt = canvasPointFromEvent(e, s.canvas);
     if(!pt.inBounds) return;
+    if(s.shape === 'rect'){
+      s.end = {x:pt.x,y:pt.y};
+      redrawFogCanvasStrokeSession(s);
+      return;
+    }
     const last = s.points[s.points.length - 1];
     if(last && Math.hypot(pt.x - last.x, pt.y - last.y) < 0.75) return;
     s.points.push({ x: pt.x, y: pt.y });
@@ -13347,7 +13626,7 @@
     if(!s || !page) return;
     const stroke={
       id:newId('fg'), createdAt:s.createdAt, platformId:s.platformId, mode:s.mode, color:s.color,
-      opacity:s.opacity, brush:s.brush, points:s.points
+      opacity:s.opacity, brush:s.brush, shape:s.shape || 'brush', start:s.start, end:s.end, points:s.points
     };
     const fogModel=ensureFogModel(page);
     if(s.platformId) fogModel.objectStrokes.push(stroke);
