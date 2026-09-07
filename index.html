@@ -374,7 +374,7 @@
     background:#150f09; border:max(1px, calc(var(--token-status-size,18px) * .06)) solid var(--amber-bright);
     display:flex; align-items:center; justify-content:center;
     font-size:var(--token-status-font,11px); line-height:1; cursor:help;
-    flex-shrink:0;
+    flex-shrink:0; opacity:.6;
   }
   .token-condition-turns{
     position:absolute; right:-3px; bottom:-3px; min-width:11px; height:11px; padding:0 2px;
@@ -7001,7 +7001,7 @@
     // enquanto o mestre arrasta pra desenhar uma barreira (isso podia parecer um
     // preenchimento indevido no meio do retângulo, por exemplo).
     document.body.classList.toggle('barrier-drawing', !!(state.barrierDraftStart||state.barrierCurvePoints||state.barrierRectStart));
-    document.querySelectorAll('.light-barrier, .barrier-door-handle, .barrier-draft-line').forEach(node=>node.remove());
+    document.querySelectorAll('.light-barrier, .barrier-door-handle, .barrier-draft-line, .barrier-draft-rect').forEach(node=>node.remove());
     const page=currentPage();
     if(!page||!effectiveMaster()) return; // jogadores nunca veem nada disto
     const canvasW=$canvas.offsetWidth, canvasH=$canvas.offsetHeight;
