@@ -727,13 +727,10 @@
   .reference-lock-badge{ position:absolute; top:4px; right:4px; z-index:8; background:#150f09; border:1px solid var(--wax); border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; pointer-events:none; }
   .reference-lock-badge.object-lock-badge{ transform:scale(.333333); transform-origin:top right; }
   #map-canvas img{ position:relative; z-index:0; display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
-  #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:999998; }
-  /* Camada de desenho: acima dos objetos do mapa, abaixo dos tokens de personagem. */
-  #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:899998; }
-  #object-attachment-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:999999; pointer-events:none; }
+  #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
+  #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0; }
+  #object-attachment-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:900001; pointer-events:none; }
   #darkness-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:1000001; pointer-events:none; }
-  /* Em modo desenho os tokens continuam visíveis por cima, mas não bloqueiam o ponteiro. */
-  #map-viewport.draw-mode .token:not(.map-object){ pointer-events:none !important; }
   #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:9; }
 
   #empty-map{
@@ -8155,13 +8152,9 @@
         t.style.setProperty('--token-turn-ring-offset', turnRingOffset + 'px');
       }
       let renderedZ=clampStageZOrder(typeof pos.zOrder === 'number' ? pos.zOrder : MAP_LAYER_FLOOR_Z);
-      // Faixas de camada fixas:
-      // objetos/referências < desenho < personagens < névoa.
-      // Isso permite desenhar sobre objetos (inclusive travados) sem cobrir os personagens.
-      if(tok.isMapObject){
-        renderedZ=Math.min(899997, renderedZ);
-      }else if(!tok.isReference){
-        renderedZ=900000 + Math.min(99990, renderedZ);
+      if(!tok.isMapObject && tok.platformByPage && tok.platformByPage[state.currentPageId]){
+        const platform=state.tokens.find(p=>p.id===tok.platformByPage[state.currentPageId]&&p.isMapObject);
+        if(platform) renderedZ=Math.max(renderedZ,900002);
       }
       t.style.zIndex = String(renderedZ);
       if(tok.isMapObject){
@@ -13216,7 +13209,7 @@
     if(!page) return;
     document.getElementById('fog-object-canvas')?.remove();
     document.getElementById('draw-object-canvas')?.remove();
-    const canvas=getObjectAttachmentCanvas('object-attachment-canvas',999999);
+    const canvas=getObjectAttachmentCanvas('object-attachment-canvas',900001);
     if(!canvas) return;
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -13303,7 +13296,6 @@
       canvas.width = img.naturalWidth || 1200;
       canvas.height = img.naturalHeight || 800;
       canvas.style.pointerEvents = state.drawMode ? 'auto' : 'none';
-      canvas.style.zIndex = '899998';
       // Insert before the first token (if any) so the draw layer always renders below tokens,
       // regardless of DOM append order elsewhere.
       const firstToken = $canvas.querySelector('.token');
