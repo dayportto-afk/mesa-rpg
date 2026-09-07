@@ -1240,17 +1240,6 @@
     transition:box-shadow .15s;
   }
   .token img{ width:100%; height:100%; object-fit:cover; border-radius:50%; pointer-events:none; -webkit-user-drag:none;}
-  /* Anel decorativo com a textura do preset (metal/madeira/latão), só fora de combate.
-     Em combate a borda do token passa a indicar a vida (ver JS: t.style.borderColor = hpCol),
-     então o anel temático some para não conflitar com essa leitura. */
-  .token.token-character::after{
-    content:''; position:absolute; inset:-3px; border-radius:50%;
-    background:var(--token-theme-texture,none);
-    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-    mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-    pointer-events:none;
-  }
-  .token.token-character.in-combat::after{ display:none; }
   .token.token-reference{ border-radius:8px; border-color:var(--parchment-dim); --token-outline-shadow:rgba(0,0,0,0); }
   .token.token-reference img{ border-radius:6px; object-fit:contain; background:#0a0704; }
   .token.map-object{
@@ -6664,23 +6653,17 @@
     brass:'repeating-linear-gradient(128deg, #7a5322 0 3px, #cf9a42 3px 6px, #5c3d18 6px 8px, #b07c30 8px 12px)',
     wood:'repeating-linear-gradient(97deg, #4a2e18 0 4px, #7a4f28 4px 7px, #3a2412 7px 9px, #6b4423 9px 13px)'
   };
-  const THEME_RING_TEXTURES = {
-    metal:'repeating-conic-gradient(#6d7176 0deg 9deg, #aeb3b8 9deg 18deg, #4f5357 18deg 27deg, #969ba0 27deg 36deg)',
-    brass:'repeating-conic-gradient(#7a5322 0deg 9deg, #cf9a42 9deg 18deg, #5c3d18 18deg 27deg, #b07c30 27deg 36deg)',
-    wood:'repeating-conic-gradient(#4a2e18 0deg 10deg, #7a4f28 10deg 20deg, #3a2412 20deg 27deg, #6b4423 27deg 36deg)'
-  };
-
   const RPG_THEME_PRESETS = {
-    scifi: { label:'🚀 Ficção Científica', bg:'#0a0e14', panel:'#0f1620', text:'#c9e8f5', accent:'#3ec8f0', topbar:'#0d1620', tokenOutline:'#3ec8f0', font:"'Share Tech Mono', monospace", headingFont:"'Orbitron', sans-serif", labelFont:"'Share Tech Mono', monospace", texture:'metal' },
-    tecnologico: { label:'🖥️ Cyberpunk / Tecnológico', bg:'#0c0512', panel:'#150a1e', text:'#f0d9f7', accent:'#ff2ec4', topbar:'#170a20', tokenOutline:'#39f0d8', font:"'Share Tech Mono', monospace", headingFont:"'Orbitron', sans-serif", labelFont:"'Share Tech Mono', monospace", texture:'metal' },
-    vampiro: { label:'🩸 Vampiro Gótico', bg:'#120608', panel:'#1c0a0e', text:'#e8d4d0', accent:'#a11d2e', topbar:'#1a080b', tokenOutline:'#a11d2e', font:"'Cormorant Garamond', serif", headingFont:"'Metamorphous', serif", labelFont:"'JetBrains Mono', monospace", texture:'' },
-    dnd: { label:'🐉 D&D Clássico', bg:'#171008', panel:'#241a0f', text:'#ecdcc0', accent:'#c98a2b', topbar:'#1e1409', tokenOutline:'#c98a2b', font:"'EB Garamond', serif", headingFont:"'Cinzel', serif", labelFont:"'JetBrains Mono', monospace", texture:'wood' },
-    fantasia: { label:'🍃 Fantasia Élfica', bg:'#0f1811', panel:'#182619', text:'#e4efe0', accent:'#bfa15a', topbar:'#122016', tokenOutline:'#bfa15a', font:"'Cormorant Garamond', serif", headingFont:"'Uncial Antiqua', serif", labelFont:"'JetBrains Mono', monospace", texture:'' },
-    nautico: { label:'⚓ Náutico / Pirata', bg:'#0a141c', panel:'#10202c', text:'#dce8ec', accent:'#c98a4a', topbar:'#0d1a24', tokenOutline:'#c98a4a', font:"'EB Garamond', serif", headingFont:"'Pirata One', serif", labelFont:"'JetBrains Mono', monospace", texture:'wood' },
-    steampunk: { label:'⚙️ Steampunk', bg:'#140f08', panel:'#211809', text:'#ecd9b8', accent:'#c07830', topbar:'#1c1408', tokenOutline:'#c07830', font:"'EB Garamond', serif", headingFont:"'IM Fell English', serif", labelFont:"'JetBrains Mono', monospace", texture:'brass' },
-    terror: { label:'💀 Terror Cósmico', bg:'#0a0e08', panel:'#131a10', text:'#c9d4c0', accent:'#6f9a4a', topbar:'#0d1409', tokenOutline:'#6f9a4a', font:"'EB Garamond', serif", headingFont:"'Special Elite', monospace", labelFont:"'Special Elite', monospace", texture:'' },
-    nordico: { label:'❄️ Nórdico / Viking', bg:'#0c1216', panel:'#151f24', text:'#dbe6ea', accent:'#7fa8b8', topbar:'#101a1e', tokenOutline:'#7fa8b8', font:"'Cormorant Garamond', serif", headingFont:"'MedievalSharp', serif", labelFont:"'JetBrains Mono', monospace", texture:'metal' },
-    posapoc: { label:'☢️ Pós-Apocalíptico', bg:'#120e08', panel:'#1e160c', text:'#dcd0b8', accent:'#b8562a', topbar:'#160f07', tokenOutline:'#b8562a', font:"'JetBrains Mono', monospace", headingFont:"'Special Elite', monospace", labelFont:"'JetBrains Mono', monospace", texture:'metal' }
+    scifi: { label:'🚀 Ficção Científica', bg:'#0b0f14', panel:'#101820', text:'#c3d6dd', accent:'#4a90a8', topbar:'#0d151c', tokenOutline:'#4a90a8', font:"'Share Tech Mono', monospace", headingFont:"'Orbitron', sans-serif", labelFont:"'Share Tech Mono', monospace", texture:'metal' },
+    tecnologico: { label:'🖥️ Cyberpunk / Tecnológico', bg:'#0e0a14', panel:'#171020', text:'#ddd0e0', accent:'#8a5a86', topbar:'#190f22', tokenOutline:'#8a5a86', font:"'Share Tech Mono', monospace", headingFont:"'Orbitron', sans-serif", labelFont:"'Share Tech Mono', monospace", texture:'metal' },
+    vampiro: { label:'🩸 Vampiro Gótico', bg:'#140709', panel:'#1e0c10', text:'#ddc9c6', accent:'#8a2430', topbar:'#1c090c', tokenOutline:'#8a2430', font:"'Cormorant Garamond', serif", headingFont:"'Metamorphous', serif", labelFont:"'JetBrains Mono', monospace", texture:'' },
+    dnd: { label:'🐉 D&D Clássico', bg:'#171008', panel:'#241a0f', text:'#e6d7bd', accent:'#b8813a', topbar:'#1e1409', tokenOutline:'#b8813a', font:"'EB Garamond', serif", headingFont:"'Cinzel', serif", labelFont:"'JetBrains Mono', monospace", texture:'wood' },
+    fantasia: { label:'🍃 Fantasia Élfica', bg:'#101a12', panel:'#18241a', text:'#dde8da', accent:'#a8935a', topbar:'#131f15', tokenOutline:'#a8935a', font:"'Cormorant Garamond', serif", headingFont:"'Uncial Antiqua', serif", labelFont:"'JetBrains Mono', monospace", texture:'' },
+    nautico: { label:'⚓ Náutico / Pirata', bg:'#0a141c', panel:'#10202c', text:'#d4dfe3', accent:'#a87a4a', topbar:'#0d1a24', tokenOutline:'#a87a4a', font:"'EB Garamond', serif", headingFont:"'Pirata One', serif", labelFont:"'JetBrains Mono', monospace", texture:'wood' },
+    steampunk: { label:'⚙️ Steampunk', bg:'#140f08', panel:'#211809', text:'#e0cdb0', accent:'#a86e35', topbar:'#1c1408', tokenOutline:'#a86e35', font:"'EB Garamond', serif", headingFont:"'IM Fell English', serif", labelFont:"'JetBrains Mono', monospace", texture:'brass' },
+    terror: { label:'💀 Terror Cósmico', bg:'#0a0e08', panel:'#131a10', text:'#c2cabb', accent:'#5f7f48', topbar:'#0d1409', tokenOutline:'#5f7f48', font:"'EB Garamond', serif", headingFont:"'Special Elite', monospace", labelFont:"'Special Elite', monospace", texture:'' },
+    nordico: { label:'❄️ Nórdico / Viking', bg:'#0c1216', panel:'#151f24', text:'#cdd8db', accent:'#6f95a3', topbar:'#101a1e', tokenOutline:'#6f95a3', font:"'Cormorant Garamond', serif", headingFont:"'MedievalSharp', serif", labelFont:"'JetBrains Mono', monospace", texture:'metal' },
+    posapoc: { label:'☢️ Pós-Apocalíptico', bg:'#120e08', panel:'#1e160c', text:'#d2c6ab', accent:'#9c5030', topbar:'#160f07', tokenOutline:'#9c5030', font:"'JetBrains Mono', monospace", headingFont:"'Special Elite', monospace", labelFont:"'JetBrains Mono', monospace", texture:'metal' }
   };
   function darkenHex(hex, amount){
     let h = String(hex||'#000000').replace('#','');
@@ -6726,7 +6709,6 @@
     root.setProperty('--ui-border-width', t.texture ? '3px' : '1px');
     root.setProperty('--ui-border-texture', (t.texture && THEME_TEXTURES[t.texture]) || 'none');
     root.setProperty('--ui-map-border-texture', (t.texture && THEME_TEXTURES[t.texture]) || 'none');
-    root.setProperty('--token-theme-texture', (t.texture && THEME_RING_TEXTURES[t.texture]) || 'none');
     root.setProperty('--ui-panel-pattern','none');
     root.setProperty('--ui-button-pattern','linear-gradient(180deg,rgba(255,255,255,.025),rgba(0,0,0,.10))');
     root.setProperty('--ui-area-pattern','none');
