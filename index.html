@@ -220,9 +220,10 @@
   #main{ flex:1; display:flex; min-height:0; position:relative;}
 
   #icon-rail{
-    position:absolute; top:16px; left:16px; bottom:16px; z-index:120;
-    display:flex; flex-direction:column; gap:10px;
-    overflow-y:auto; overflow-x:hidden; padding-right:2px;
+    position:absolute; top:6px; left:12px; bottom:6px; z-index:120;
+    display:flex; flex-direction:column; gap:9px;
+    overflow-y:auto; overflow-x:hidden; padding:2px 8px 8px 2px;
+    min-width:94px;
     scrollbar-width:thin; scrollbar-color:var(--amber) transparent;
   }
   #icon-rail::-webkit-scrollbar{ width:5px; }
@@ -230,7 +231,7 @@
   #icon-rail::-webkit-scrollbar-track{ background:transparent; }
   #icon-rail.hidden{ display:none; }
   .icon-rail-item{
-    display:flex; flex-direction:column; align-items:center; gap:3px; width:56px; flex-shrink:0;
+    position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; width:56px; flex-shrink:0;
   }
   .icon-rail-btn{
     width:42px; height:42px; padding:0; border-radius:50%; font-size:19px;
@@ -243,10 +244,16 @@
     letter-spacing:0.3px; text-align:center; line-height:1.1;
     text-shadow:0 1px 3px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.9);
   }
+  #icon-rail-reorder-item{ width:86px; margin-top:1px; padding-bottom:2px; }
+  #icon-rail-reorder-item .icon-rail-label{ display:none; }
+  #btn-icon-rail-reorder{
+    width:86px; min-width:86px; height:32px; padding:0 5px; border-radius:4px;
+    font-size:8px; letter-spacing:0; text-transform:none; white-space:nowrap; line-height:1;
+    font-family:'JetBrains Mono',monospace;
+  }
   #btn-icon-rail-reorder.toggle-active{ background:var(--amber); border-color:var(--amber-bright); color:#150f09; }
-  .icon-rail-item{ position:relative; }
   .icon-rail-reorder-controls{
-    display:none; position:absolute; top:-6px; right:-6px; flex-direction:column; gap:2px; z-index:2;
+    display:none; position:absolute; top:-6px; right:-5px; flex-direction:column; gap:2px; z-index:2;
   }
   #icon-rail.reordering .icon-rail-item:not(#icon-rail-reorder-item) .icon-rail-reorder-controls{ display:flex; }
   #icon-rail.reordering .icon-rail-item:not(#icon-rail-reorder-item) .icon-rail-btn{ opacity:.55; }
@@ -559,6 +566,50 @@
   .token-row-actions button{ flex:1; padding:6px 8px; font-size:10px; }
 
   .hint{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); line-height:1.6; margin-top:6px;}
+
+  /* Session Notes — private master planner */
+  #float-session-notes{ width:min(760px,92vw) !important; max-height:88vh; max-height:88dvh; }
+  #float-session-notes .float-panel-body{ padding:0; overflow:hidden; }
+  .sn-shell{ display:grid; grid-template-columns:190px minmax(0,1fr); min-height:480px; max-height:calc(88vh - 46px); }
+  .sn-sidebar{ border-right:1px solid var(--line); padding:10px; display:flex; flex-direction:column; gap:8px; min-height:0; background:#17120c; }
+  .sn-sidebar-top{ display:flex; gap:6px; }
+  .sn-sidebar-top button{ flex:1; padding:7px 5px; font-size:9px; }
+  #session-notes-search{ font-size:12px; padding:7px 8px; }
+  #session-notes-list{ display:flex; flex-direction:column; gap:6px; overflow-y:auto; min-height:0; padding-right:2px; }
+  .sn-list-item{ width:100%; text-align:left; padding:8px; background:#120e08; border:1px solid var(--line); border-radius:4px; cursor:pointer; text-transform:none; }
+  .sn-list-item:hover{ border-color:var(--amber); }
+  .sn-list-item.active{ border-color:var(--amber-bright); background:#21180d; box-shadow:inset 3px 0 0 var(--amber); }
+  .sn-list-number{ display:block; font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--amber-bright); text-transform:uppercase; letter-spacing:.7px; }
+  .sn-list-title{ display:block; margin-top:3px; font-family:'EB Garamond',serif; font-size:13px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sn-list-date{ display:block; margin-top:2px; font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--parchment-dim); }
+  .sn-editor-wrap{ display:flex; flex-direction:column; min-width:0; min-height:0; padding:12px; gap:8px; overflow:hidden; }
+  .sn-empty{ margin:auto; max-width:360px; text-align:center; color:var(--parchment-dim); font-size:14px; line-height:1.5; }
+  .sn-title-row{ display:grid; grid-template-columns:88px minmax(0,1fr); gap:8px; }
+  #session-notes-number{ text-align:center; }
+  #session-notes-title{ font-family:'Cinzel',serif; }
+  .sn-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:7px; border:1px solid var(--line); border-radius:4px; background:#120e08; }
+  .sn-toolbar button{ width:29px; height:27px; padding:0; text-transform:none; font-size:12px; flex-shrink:0; }
+  .sn-toolbar button.wide{ width:auto; min-width:32px; padding:0 6px; font-size:9px; }
+  .sn-toolbar select{ width:auto; height:27px; padding:2px 5px; font-size:11px; flex:0 1 auto; }
+  .sn-toolbar .sn-font-select{ max-width:116px; }
+  .sn-toolbar .sn-size-select{ width:62px; }
+  .sn-toolbar input[type=color]{ width:28px; height:27px; padding:1px; border:1px solid var(--line); border-radius:3px; background:#0c0906; cursor:pointer; }
+  .sn-toolbar-sep{ width:1px; height:21px; background:var(--line); margin:0 2px; }
+  #session-notes-content{ flex:1; min-height:250px; overflow:auto; background:#0c0906; border:1px solid var(--line); border-radius:4px; color:var(--parchment); padding:14px 16px; outline:none; font-family:'EB Garamond',serif; font-size:16px; line-height:1.5; white-space:normal; word-break:break-word; }
+  #session-notes-content:focus{ border-color:var(--amber); }
+  #session-notes-content:empty:before{ content:attr(data-placeholder); color:var(--parchment-dim); pointer-events:none; }
+  #session-notes-content blockquote{ margin:10px 0; padding:9px 12px; border-left:3px solid var(--amber); background:rgba(200,137,46,.1); border-radius:0 4px 4px 0; }
+  #session-notes-content ul, #session-notes-content ol{ padding-left:28px; }
+  .sn-footer{ display:flex; align-items:center; gap:6px; }
+  .sn-footer .spacer{ flex:1; }
+  #session-notes-save-status{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
+  #session-notes-save-status.saving{ color:var(--amber-bright); }
+  .sn-footer button{ padding:7px 9px; font-size:9px; }
+  @media(max-width:700px){
+    .sn-shell{ grid-template-columns:145px minmax(0,1fr); min-height:430px; }
+    .sn-title-row{ grid-template-columns:72px minmax(0,1fr); }
+    .sn-toolbar .sn-font-select{ max-width:90px; }
+  }
 
   /* Page history panel */
   #page-history-list{ display:flex; flex-direction:column; gap:6px; margin-top:10px; max-height:220px; overflow-y:auto; }
@@ -2166,7 +2217,7 @@
           <span class="icon-rail-label">Perigo</span>
         </div>
         <div class="icon-rail-item" id="icon-rail-reorder-item">
-          <button type="button" class="icon-rail-btn" id="btn-icon-rail-reorder" title="Reordenar os ícones desta barra do seu jeito">↕️</button>
+          <button type="button" class="icon-rail-btn" id="btn-icon-rail-reorder" title="Ativar modo de reposicionamento">↕ Reposicionar</button>
           <span class="icon-rail-label">Reposicionar</span>
         </div>
       </div>
@@ -2625,31 +2676,43 @@
           <button id="btn-export-campaign" type="button" style="width:100%;">Baixar backup (.json)</button>
           <label class="file-btn" for="campaign-backup-input" style="margin-top:8px;">Restaurar backup (.json)</label>
           <input type="file" id="campaign-backup-input" accept="application/json,.json">
-          <div class="hint" style="margin-bottom:14px;">O backup inclui mapas, fichas, páginas, névoa, desenhos, textos, iniciativa, histórico de combate, diário, conversas, música e configurações. Ao restaurar, o conteúdo atual é substituído, mas a senha e o código de acesso atuais desta vaga são preservados.</div>
+          <div class="hint" style="margin-bottom:14px;">O backup inclui mapas, fichas, páginas, névoa, desenhos, textos, iniciativa, histórico de combate, diário, Notas de Sessão privadas, conversas, música e configurações. Ao restaurar, o conteúdo atual é substituído, mas a senha e o código de acesso atuais desta vaga são preservados.</div>
           <div style="border-top:1px solid var(--line); margin:4px 0 12px;"></div>
           <button id="btn-delete-campaign" class="danger" style="width:100%;">Excluir esta campanha</button>
           <div class="hint">Apaga todo o histórico de mapas, fichas, névoa e configurações desta campanha. A vaga volta a ficar livre para uma campanha futura. Não pode ser desfeito.</div>
         </div>
       </div>
 
-      <div class="float-panel" id="float-session-notes" style="left:320px; top:16px; width:320px;">
+      <div class="float-panel" id="float-session-notes" style="left:320px; top:16px;">
         <div class="float-panel-header">
-          <span>🗒️ Notas de Sessão</span>
+          <span>🗒️ Notas de Sessão <small style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--parchment-dim);margin-left:5px;">PRIVADO DO MESTRE</small></span>
           <button type="button" class="float-panel-close" data-close-panel="float-session-notes">✕</button>
         </div>
         <div class="float-panel-body">
-          <div class="hint">Só o mestre vê essas notas — organize a ideia geral de cada sessão aqui (ganchos, cenas planejadas, o que pode acontecer). Ninguém mais no site enxerga este painel.</div>
-          <div class="journal-session-row" style="margin-top:8px;">
-            <label for="session-notes-number">Sessão nº</label>
-            <input type="number" id="session-notes-number" min="1" step="1" placeholder="1">
+          <div class="sn-shell">
+            <aside class="sn-sidebar">
+              <div class="sn-sidebar-top"><button type="button" id="btn-session-notes-new" class="primary">+ Nova</button></div>
+              <input type="text" id="session-notes-search" placeholder="Buscar nas sessões…" autocomplete="off">
+              <div id="session-notes-list"></div>
+            </aside>
+            <section class="sn-editor-wrap" id="session-notes-editor-wrap">
+              <div class="sn-empty" id="session-notes-empty">Crie uma sessão ou escolha uma nota existente para começar a planejar.</div>
+              <div id="session-notes-editor" style="display:none;flex:1;min-height:0;flex-direction:column;gap:8px;">
+                <div class="sn-title-row"><input type="number" id="session-notes-number" min="1" step="1" placeholder="Sessão nº" title="Número da sessão"><input type="text" id="session-notes-title" placeholder="Título da sessão"></div>
+                <div class="sn-toolbar" id="session-notes-toolbar" aria-label="Formatação das notas">
+                  <button type="button" data-sn-cmd="undo" title="Desfazer">↶</button><button type="button" data-sn-cmd="redo" title="Refazer">↷</button><span class="sn-toolbar-sep"></span>
+                  <button type="button" data-sn-cmd="bold" title="Negrito"><b>N</b></button><button type="button" data-sn-cmd="italic" title="Itálico"><i>I</i></button><button type="button" data-sn-cmd="underline" title="Sublinhado"><u>S</u></button><button type="button" data-sn-cmd="strikeThrough" title="Tachado"><s>T</s></button><span class="sn-toolbar-sep"></span>
+                  <select id="session-notes-font" class="sn-font-select" title="Fonte"><option value="EB Garamond">EB Garamond</option><option value="Cinzel">Cinzel</option><option value="IM Fell English">IM Fell English</option><option value="Uncial Antiqua">Uncial Antiqua</option><option value="Special Elite">Special Elite</option><option value="JetBrains Mono">JetBrains Mono</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option></select>
+                  <select id="session-notes-size" class="sn-size-select" title="Tamanho do texto"><option value="1">10 px</option><option value="2">13 px</option><option value="3" selected>16 px</option><option value="4">18 px</option><option value="5">24 px</option><option value="6">32 px</option><option value="7">42 px</option></select>
+                  <label title="Cor do texto"><input type="color" id="session-notes-color" value="#e8dcc0"></label><label title="Marca-texto"><input type="color" id="session-notes-highlight" value="#6d5521"></label><span class="sn-toolbar-sep"></span>
+                  <button type="button" data-sn-cmd="justifyLeft" title="Alinhar à esquerda">≡</button><button type="button" data-sn-cmd="justifyCenter" title="Centralizar">≣</button><button type="button" data-sn-cmd="justifyRight" title="Alinhar à direita">≡</button><button type="button" data-sn-cmd="justifyFull" title="Justificar">☰</button><span class="sn-toolbar-sep"></span>
+                  <button type="button" data-sn-cmd="insertUnorderedList" title="Lista com marcadores">•☰</button><button type="button" data-sn-cmd="insertOrderedList" title="Lista numerada">1.</button><button type="button" class="wide" data-sn-block="blockquote" title="Bloco de destaque">▌Destaque</button><button type="button" class="wide" data-sn-cmd="removeFormat" title="Limpar formatação">Limpar</button>
+                </div>
+                <div id="session-notes-content" contenteditable="true" spellcheck="true" data-placeholder="Planeje a sessão: abertura, cenas, NPCs, pistas, encontros, segredos, consequências…"></div>
+                <div class="sn-footer"><span id="session-notes-save-status">Salvo</span><span class="spacer"></span><button type="button" id="btn-session-notes-duplicate">Duplicar</button><button type="button" id="btn-session-notes-delete" class="danger">Excluir</button><button type="button" id="btn-session-notes-save" class="primary">Salvar agora</button></div>
+              </div>
+            </section>
           </div>
-          <input type="text" id="session-notes-title" placeholder="Título / resumo rápido (opcional)" style="margin-top:8px;">
-          <textarea id="session-notes-content" rows="5" placeholder="Ideia geral da sessão: ganchos, cenas planejadas, NPCs, o que pode acontecer..." style="width:100%; margin-top:8px; resize:vertical; background:#120e08; border:1px solid var(--line); border-radius:3px; color:var(--parchment); padding:9px 10px; font-family:'EB Garamond', serif; font-size:15px; outline:none;"></textarea>
-          <div style="display:flex; gap:6px; margin-top:8px;">
-            <button id="btn-session-notes-add" class="primary" style="flex:1;">Adicionar nota</button>
-            <button type="button" id="btn-session-notes-cancel-edit" style="display:none;">Cancelar edição</button>
-          </div>
-          <div id="session-notes-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
         </div>
       </div>
 
@@ -3448,14 +3511,19 @@
     await persistMetaOnly();
   }
   function setIconRailReordering(on){
-    iconRailReordering = on;
-    if($iconRail) $iconRail.classList.toggle('reordering', on);
+    iconRailReordering = !!on;
+    if($iconRail) $iconRail.classList.toggle('reordering', iconRailReordering);
     const btn = el('btn-icon-rail-reorder');
-    if(btn) btn.classList.toggle('toggle-active', on);
+    if(btn){
+      btn.classList.toggle('toggle-active', iconRailReordering);
+      btn.textContent = iconRailReordering ? 'Esc · Finalizar' : '↕ Reposicionar';
+      btn.title = iconRailReordering ? 'Pressione Esc para encerrar o reposicionamento' : 'Ativar modo de reposicionamento';
+    }
     renderIconRailReorderControls();
   }
   const iconRailReorderBtn = el('btn-icon-rail-reorder');
   if(iconRailReorderBtn) iconRailReorderBtn.addEventListener('click', () => setIconRailReordering(!iconRailReordering));
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && iconRailReordering){ setIconRailReordering(false); } });
   const $title = el('campaign-title');
   const $canvas = el('map-canvas');
   const $tokenList = el('token-list');
@@ -5521,86 +5589,53 @@
 
   // ---------- notas de sessão (privadas, só o mestre vê e edita) ----------
   async function persistSessionNotes(){
-    await safeSet(slotKey('session-notes'), { list: state.sessionNotes });
+    if(!effectiveMaster()) return false;
+    return await safeSet(slotKey('session-notes'), { list: state.sessionNotes });
   }
-  let editingSessionNoteId = null;
-  function resetSessionNoteForm(){
-    editingSessionNoteId = null;
-    el('session-notes-number').value = '';
-    el('session-notes-title').value = '';
-    el('session-notes-content').value = '';
-    el('btn-session-notes-add').textContent = 'Adicionar nota';
-    el('btn-session-notes-cancel-edit').style.display = 'none';
+  let activeSessionNoteId = null;
+  let sessionNotesSaveTimer = null;
+  let sessionNotesSavedRange = null;
+  function normalizeSessionNote(note){
+    if(!note || typeof note !== 'object') note = {};
+    const legacy = typeof note.content === 'string' ? note.content : '';
+    if(typeof note.contentHtml !== 'string') note.contentHtml = legacy ? escapeHtml(legacy).replace(/\n/g,'<br>') : '';
+    if(!note.id) note.id = newId('sn');
+    if(!('session' in note)) note.session = null;
+    if(typeof note.title !== 'string') note.title = '';
+    if(!note.updatedAt) note.updatedAt = Date.now();
+    delete note.content;
+    return note;
   }
-  function renderSessionNotesList(){
-    const $list = el('session-notes-list');
-    if(!$list) return;
-    if(!effectiveMaster()){ $list.innerHTML = ''; return; }
-    if(!state.sessionNotes.length){
-      $list.innerHTML = '<div class="hint">Nenhuma nota ainda. Escreva a ideia geral da próxima sessão acima.</div>';
-      return;
-    }
-    const sorted = state.sessionNotes.slice().sort((a, b) => {
-      const sa = (a.session === undefined || a.session === null || a.session === '') ? -1 : Number(a.session);
-      const sb = (b.session === undefined || b.session === null || b.session === '') ? -1 : Number(b.session);
-      if(sb !== sa) return sb - sa;
-      return (b.updatedAt||0) - (a.updatedAt||0);
-    });
-    $list.innerHTML = sorted.map(note => {
-      const label = (note.session===undefined||note.session===null||note.session==='') ? 'Sem sessão definida' : ('Sessão ' + escapeHtml(String(note.session)));
-      return (
-        '<div class="journal-entry">' +
-          '<div class="journal-entry-meta">' +
-            '<span class="journal-author">'+label+(note.title?(' · '+escapeHtml(note.title)):'')+'</span>' +
-            '<span style="display:flex; gap:4px;"><button type="button" class="journal-edit" data-session-note-edit="'+note.id+'" title="Editar">✎</button><button type="button" class="danger journal-remove" data-session-note-remove="'+note.id+'">✕</button></span>' +
-          '</div>' +
-          '<div class="journal-entry-text">'+escapeHtml(note.content||'')+'</div>' +
-        '</div>'
-      );
-    }).join('');
-    $list.querySelectorAll('[data-session-note-edit]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const note = state.sessionNotes.find(n => n.id === btn.getAttribute('data-session-note-edit'));
-        if(!note) return;
-        editingSessionNoteId = note.id;
-        el('session-notes-number').value = (note.session===undefined||note.session===null) ? '' : note.session;
-        el('session-notes-title').value = note.title || '';
-        el('session-notes-content').value = note.content || '';
-        el('btn-session-notes-add').textContent = 'Salvar alterações';
-        el('btn-session-notes-cancel-edit').style.display = '';
-        el('session-notes-content').focus();
-      });
-    });
-    $list.querySelectorAll('[data-session-note-remove]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-session-note-remove');
-        if(!confirm('Excluir esta nota de sessão? Não pode ser desfeito.')) return;
-        state.sessionNotes = state.sessionNotes.filter(n => n.id !== id);
-        if(editingSessionNoteId === id) resetSessionNoteForm();
-        await persistSessionNotes();
-        renderSessionNotesList();
-      });
-    });
-  }
-  const sessionNotesAddBtn = el('btn-session-notes-add');
-  if(sessionNotesAddBtn) sessionNotesAddBtn.addEventListener('click', async () => {
-    const content = el('session-notes-content').value.trim();
-    const title = el('session-notes-title').value.trim();
-    const sessionRaw = el('session-notes-number').value;
-    const session = sessionRaw === '' ? null : Math.max(1, Math.round(Number(sessionRaw)) || 1);
-    if(!content && !title){ el('session-notes-content').focus(); return; }
-    if(editingSessionNoteId){
-      const note = state.sessionNotes.find(n => n.id === editingSessionNoteId);
-      if(note){ note.session = session; note.title = title; note.content = content; note.updatedAt = Date.now(); }
-    } else {
-      state.sessionNotes.push({ id:newId('sn'), session, title, content, updatedAt:Date.now() });
-    }
-    resetSessionNoteForm();
-    await persistSessionNotes();
-    renderSessionNotesList();
-  });
-  const sessionNotesCancelBtn = el('btn-session-notes-cancel-edit');
-  if(sessionNotesCancelBtn) sessionNotesCancelBtn.addEventListener('click', resetSessionNoteForm);
+  function normalizeAllSessionNotes(){ if(!Array.isArray(state.sessionNotes)) state.sessionNotes=[]; state.sessionNotes=state.sessionNotes.map(normalizeSessionNote); }
+  function stripSessionNoteHtml(html){ const tmp=document.createElement('div'); tmp.innerHTML=html||''; return (tmp.textContent||tmp.innerText||'').replace(/\s+/g,' ').trim(); }
+  function formatSessionNoteDate(ts){ if(!ts)return ''; const d=new Date(ts); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+  function currentSessionNote(){ return state.sessionNotes.find(n=>n.id===activeSessionNoteId)||null; }
+  function setSessionNotesSaveStatus(text,saving){ const status=el('session-notes-save-status'); if(!status)return; status.textContent=text; status.classList.toggle('saving',!!saving); }
+  function pullSessionNoteFromEditor(){ const note=currentSessionNote(); if(!note||!effectiveMaster())return null; const raw=el('session-notes-number').value; note.session=raw===''?null:Math.max(1,Math.round(Number(raw))||1); note.title=el('session-notes-title').value.trim(); note.contentHtml=el('session-notes-content').innerHTML; note.updatedAt=Date.now(); return note; }
+  async function saveActiveSessionNote(options={}){ if(!effectiveMaster())return; const note=pullSessionNoteFromEditor(); if(!note)return; clearTimeout(sessionNotesSaveTimer); sessionNotesSaveTimer=null; setSessionNotesSaveStatus('Salvando…',true); await persistSessionNotes(); setSessionNotesSaveStatus('Salvo',false); if(options.renderList!==false)renderSessionNotesList(); }
+  function scheduleSessionNoteAutosave(){ if(!effectiveMaster()||!currentSessionNote())return; pullSessionNoteFromEditor(); setSessionNotesSaveStatus('Alterações pendentes',true); clearTimeout(sessionNotesSaveTimer); sessionNotesSaveTimer=setTimeout(()=>{void saveActiveSessionNote({renderList:true});},650); }
+  function showSessionNoteEditor(note){ const editor=el('session-notes-editor'),empty=el('session-notes-empty'); if(!editor||!empty)return; if(!note){editor.style.display='none';empty.style.display='block';return;} empty.style.display='none';editor.style.display='flex'; el('session-notes-number').value=note.session==null?'':note.session; el('session-notes-title').value=note.title||''; el('session-notes-content').innerHTML=note.contentHtml||''; setSessionNotesSaveStatus('Salvo',false); }
+  function openSessionNote(id){ if(!effectiveMaster())return; if(activeSessionNoteId&&activeSessionNoteId!==id&&currentSessionNote())pullSessionNoteFromEditor(); activeSessionNoteId=id; showSessionNoteEditor(currentSessionNote()); renderSessionNotesList(); }
+  function renderSessionNotesList(){ const list=el('session-notes-list'); if(!list)return; if(!effectiveMaster()){list.innerHTML='';showSessionNoteEditor(null);return;} normalizeAllSessionNotes(); const q=(el('session-notes-search')?.value||'').trim().toLowerCase(); const sorted=state.sessionNotes.slice().sort((a,b)=>{const sa=a.session==null?-1:Number(a.session),sb=b.session==null?-1:Number(b.session);if(sb!==sa)return sb-sa;return (b.updatedAt||0)-(a.updatedAt||0);}); const filtered=sorted.filter(note=>!q||[note.session==null?'':String(note.session),note.title||'',stripSessionNoteHtml(note.contentHtml)].join(' ').toLowerCase().includes(q)); if(!filtered.length){list.innerHTML='<div class="hint">'+(q?'Nenhuma sessão encontrada.':'Nenhuma sessão criada ainda.')+'</div>';return;} list.innerHTML=filtered.map(note=>{const number=note.session==null?'Sessão sem nº':'Sessão '+escapeHtml(String(note.session));const title=note.title||'Sem título';return '<button type="button" class="sn-list-item'+(note.id===activeSessionNoteId?' active':'')+'" data-session-note-open="'+note.id+'"><span class="sn-list-number">'+number+'</span><span class="sn-list-title">'+escapeHtml(title)+'</span><span class="sn-list-date">'+formatSessionNoteDate(note.updatedAt)+'</span></button>';}).join(''); list.querySelectorAll('[data-session-note-open]').forEach(btn=>btn.addEventListener('click',()=>openSessionNote(btn.getAttribute('data-session-note-open')))); }
+  async function createSessionNote(){ if(!effectiveMaster())return; if(currentSessionNote())await saveActiveSessionNote({renderList:false}); const maxSession=state.sessionNotes.reduce((m,n)=>n.session==null?m:Math.max(m,Number(n.session)||0),0); const note=normalizeSessionNote({id:newId('sn'),session:maxSession+1,title:'',contentHtml:'',updatedAt:Date.now()}); state.sessionNotes.push(note); activeSessionNoteId=note.id; await persistSessionNotes(); showSessionNoteEditor(note);renderSessionNotesList();el('session-notes-title').focus(); }
+  async function duplicateActiveSessionNote(){ if(!effectiveMaster())return; const source=pullSessionNoteFromEditor();if(!source)return; const copy=normalizeSessionNote({id:newId('sn'),session:source.session,title:(source.title||'Sem título')+' — cópia',contentHtml:source.contentHtml||'',updatedAt:Date.now()}); state.sessionNotes.push(copy);activeSessionNoteId=copy.id;await persistSessionNotes();showSessionNoteEditor(copy);renderSessionNotesList(); }
+  async function deleteActiveSessionNote(){ const note=currentSessionNote();if(!note||!effectiveMaster())return;if(!confirm('Excluir esta nota de sessão? Não pode ser desfeito.'))return;state.sessionNotes=state.sessionNotes.filter(n=>n.id!==note.id);activeSessionNoteId=state.sessionNotes.length?state.sessionNotes.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0].id:null;await persistSessionNotes();showSessionNoteEditor(currentSessionNote());renderSessionNotesList(); }
+  function saveSessionNotesSelection(){ const editor=el('session-notes-content'),sel=window.getSelection();if(!editor||!sel||!sel.rangeCount)return;const range=sel.getRangeAt(0);if(editor.contains(range.commonAncestorContainer))sessionNotesSavedRange=range.cloneRange(); }
+  function restoreSessionNotesSelection(){ if(!sessionNotesSavedRange)return;const sel=window.getSelection();sel.removeAllRanges();sel.addRange(sessionNotesSavedRange); }
+  function runSessionNotesCommand(cmd,value=null){ const editor=el('session-notes-content');if(!editor||!currentSessionNote())return;editor.focus();restoreSessionNotesSelection();try{document.execCommand('styleWithCSS',false,true);}catch(e){}document.execCommand(cmd,false,value);saveSessionNotesSelection();scheduleSessionNoteAutosave(); }
+  function runSessionNotesBlock(tag){ const editor=el('session-notes-content');if(!editor||!currentSessionNote())return;editor.focus();restoreSessionNotesSelection();document.execCommand('formatBlock',false,tag);saveSessionNotesSelection();scheduleSessionNoteAutosave(); }
+  const snNew=el('btn-session-notes-new');if(snNew)snNew.addEventListener('click',()=>void createSessionNote());
+  const snSearch=el('session-notes-search');if(snSearch)snSearch.addEventListener('input',renderSessionNotesList);
+  const snSave=el('btn-session-notes-save');if(snSave)snSave.addEventListener('click',()=>void saveActiveSessionNote());
+  const snDup=el('btn-session-notes-duplicate');if(snDup)snDup.addEventListener('click',()=>void duplicateActiveSessionNote());
+  const snDel=el('btn-session-notes-delete');if(snDel)snDel.addEventListener('click',()=>void deleteActiveSessionNote());
+  ['session-notes-number','session-notes-title'].forEach(id=>{const node=el(id);if(node)node.addEventListener('input',scheduleSessionNoteAutosave);});
+  const snContent=el('session-notes-content');if(snContent){snContent.addEventListener('input',scheduleSessionNoteAutosave);snContent.addEventListener('keyup',saveSessionNotesSelection);snContent.addEventListener('mouseup',saveSessionNotesSelection);snContent.addEventListener('focus',saveSessionNotesSelection);}
+  const snToolbar=el('session-notes-toolbar');if(snToolbar){snToolbar.addEventListener('mousedown',e=>{if(e.target.closest('button'))e.preventDefault();});snToolbar.querySelectorAll('[data-sn-cmd]').forEach(btn=>btn.addEventListener('click',()=>runSessionNotesCommand(btn.getAttribute('data-sn-cmd'))));snToolbar.querySelectorAll('[data-sn-block]').forEach(btn=>btn.addEventListener('click',()=>runSessionNotesBlock(btn.getAttribute('data-sn-block'))));}
+  const snFont=el('session-notes-font');if(snFont)snFont.addEventListener('change',()=>runSessionNotesCommand('fontName',snFont.value));
+  const snSize=el('session-notes-size');if(snSize)snSize.addEventListener('change',()=>runSessionNotesCommand('fontSize',snSize.value));
+  const snColor=el('session-notes-color');if(snColor)snColor.addEventListener('input',()=>runSessionNotesCommand('foreColor',snColor.value));
+  const snHighlight=el('session-notes-highlight');if(snHighlight)snHighlight.addEventListener('input',()=>runSessionNotesCommand('hiliteColor',snHighlight.value));
 
   function currentDisplayName(){
     return state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
@@ -6384,6 +6419,8 @@
     state.combatHistory = [];
     state.journal = [];
     state.sessionNotes = [];
+    activeSessionNoteId = null;
+    clearTimeout(sessionNotesSaveTimer); sessionNotesSaveTimer = null;
     state.sendImage = null;
     state.handoutGallery = [];
     state.handoutIndex = 0;
@@ -6707,7 +6744,7 @@
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
     const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, combatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw, sessionNotesRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state')), safeGet(slotKey('session-notes'))
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state')), effectiveMaster() ? safeGet(slotKey('session-notes')) : Promise.resolve(null)
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     if(!Array.isArray(state.meta.tokenFolders)) state.meta.tokenFolders = [];
@@ -6721,7 +6758,7 @@
     if(!('combatId' in state.initiative)) state.initiative.combatId = state.initiative.list.length ? 'legacy-combat' : null;
     if(combatHistoryRaw){ try{ state.combatHistory = JSON.parse(combatHistoryRaw).list || []; lastCombatHistorySnapshot = combatHistoryRaw; }catch(e){} }
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
-    if(sessionNotesRaw){ try{ state.sessionNotes = JSON.parse(sessionNotesRaw).list || []; lastSessionNotesSnapshot = sessionNotesRaw; }catch(e){} }
+    if(effectiveMaster() && sessionNotesRaw){ try{ state.sessionNotes = JSON.parse(sessionNotesRaw).list || []; normalizeAllSessionNotes(); lastSessionNotesSnapshot = sessionNotesRaw; }catch(e){} } else if(!effectiveMaster()){ state.sessionNotes = []; }
     if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
     if(musicTracksRaw){ try{ state.musicTracks = JSON.parse(musicTracksRaw).list || []; lastMusicTracksSnapshot = musicTracksRaw; }catch(e){} }
     if(musicStateRaw){
