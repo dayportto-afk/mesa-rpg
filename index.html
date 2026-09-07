@@ -7265,7 +7265,6 @@
       if(canToggleTokenLantern(tok)){
         const lantern=tokenLanternState(tok,false);
         lightActions=[[lantern&&lantern.enabled?'🔦 Apagar lanterna':'🔦 Acender lanterna','lantern']];
-        if(lantern&&lantern.enabled&&ensureLightingModel(currentPage()).shape==='cone') lightActions.push(['↻ Girar cone 45°','lanternrotate']);
       }
       if(effectiveMaster()){
         lightActions.push([tok.sizeLocked?'🔓 Destravar tamanho':'🔒 Travar tamanho','sizelock']);
@@ -7320,6 +7319,30 @@
           undoCaptured=false;
           await persistTokens();
         });
+      }
+      if(tok&&canToggleTokenLantern(tok)){
+        const lantern=tokenLanternState(tok,false);
+        if(lantern&&lantern.enabled&&ensureLightingModel(currentPage()).shape==='cone'){
+          const angleDeg=Math.round((((Number(lantern.angle)||0)*180/Math.PI)%360+360)%360);
+          menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↻ Direção do cone</span><span class="context-range-value" data-context-lantern-angle-value>'+angleDeg+'°</span></div><input type="range" min="0" max="359" step="1" value="'+angleDeg+'" aria-label="Direção do cone da lanterna" data-context-lantern-angle></div>');
+          const rotSlider=menu.querySelector('[data-context-lantern-angle]');
+          const rotValueLabel=menu.querySelector('[data-context-lantern-angle-value]');
+          let rotUndoCaptured=false;
+          rotSlider.addEventListener('input',()=>{
+            const t2=state.tokens.find(x=>x.id===id); if(!t2||!canToggleTokenLantern(t2))return;
+            if(!rotUndoCaptured){ pushUndo(); rotUndoCaptured=true; }
+            const deg=Number(rotSlider.value)||0;
+            const lantern2=tokenLanternState(t2,true);
+            lantern2.angle=deg*Math.PI/180;
+            rotValueLabel.textContent=deg+'°';
+            setupDarknessOverlay();
+          });
+          rotSlider.addEventListener('change',async()=>{
+            if(!rotUndoCaptured)return;
+            rotUndoCaptured=false;
+            await persistTokens();
+          });
+        }
       }
     }
     if(type==='mapobject'){
@@ -7438,11 +7461,6 @@
       render();
       await Promise.all([persistTokens(),lightingChanged?persistPageFog(page):Promise.resolve()]);
       return;
-    }
-    if(action==='lanternrotate'){
-      if(!canToggleTokenLantern(tok))return;
-      const lantern=tokenLanternState(tok,true); lantern.angle=((Number(lantern.angle)||0)+(Math.PI/4))%(Math.PI*2);
-      render(); await persistTokens(); return;
     }
     if(action==='lanternradius'&&effectiveMaster()){
       const lantern=tokenLanternState(tok,true), lighting=ensureLightingModel(currentPage());
@@ -12129,20 +12147,28 @@
       const minX=Math.min(bx1,bx2), maxX=Math.max(bx1,bx2), minY=Math.min(by1,by2), maxY=Math.max(by1,by2);
       if(maxX<x-range||minX>x+range||maxY<y-range||minY>y+range) return; // descarte por distância, sem calcular sombra
       // Empurra (só pra este cálculo, nunca a posição de verdade) a origem pra
-      // uma distância mínima da linha da parede. Sem isso, quando o personagem
-      // encosta ou quase encosta na parede, as direções até as duas pontas
-      // ficam quase paralelas, a sombra degenera numa fatia fina demais e a
-      // luz "vaza" pro outro lado antes de realmente atravessar.
-      const wallDx=bx2-bx1, wallDy=by2-by1, wallLen=Math.hypot(wallDx,wallDy)||1;
-      const nx=-wallDy/wallLen, ny=wallDx/wallLen;
-      const relX=x-bx1, relY=y-by1;
-      const perp=relX*nx+relY*ny;
+      // uma distância mínima do PONTO MAIS PRÓXIMO do segmento da parede —
+      // seja no meio da linha ou perto de uma das pontas/cantos. Sem isso,
+      // quando o personagem encosta (ou passa perto de um canto), as direções
+      // até as duas pontas ficam quase paralelas, a sombra degenera numa
+      // fatia fina/deformada demais, e sobra luz vazando desconectada do lado
+      // errado da parede.
+      const wallDx=bx2-bx1, wallDy=by2-by1, wallLenSq=(wallDx*wallDx+wallDy*wallDy)||1;
+      let t=((x-bx1)*wallDx+(y-by1)*wallDy)/wallLenSq;
+      t=Math.max(0,Math.min(1,t));
+      const cpx=bx1+wallDx*t, cpy=by1+wallDy*t; // ponto mais próximo do segmento
       const minStandoff=Math.max(6,range*0.015);
       let ox=x, oy=y;
-      if(Math.abs(perp)<minStandoff){
-        const sign=perp<0?-1:1;
-        const adjust=(sign*minStandoff)-perp;
-        ox=x+nx*adjust; oy=y+ny*adjust;
+      const distX=x-cpx, distY=y-cpy;
+      const dist=Math.hypot(distX,distY);
+      if(dist<minStandoff){
+        if(dist<1e-6){
+          // origem exatamente em cima da parede: usa a normal como direção de escape
+          const wallLen=Math.sqrt(wallLenSq);
+          ox=x+(-wallDy/wallLen)*minStandoff; oy=y+(wallDx/wallLen)*minStandoff;
+        } else {
+          ox=cpx+distX/dist*minStandoff; oy=cpy+distY/dist*minStandoff;
+        }
       }
       const dx1=bx1-ox, dy1=by1-oy, dx2=bx2-ox, dy2=by2-oy;
       const len1=Math.max(1,Math.hypot(dx1,dy1)), len2=Math.max(1,Math.hypot(dx2,dy2));
