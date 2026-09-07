@@ -26,6 +26,8 @@
     --barrier-line-color:#e2a53f;
     --topbar-bg-1:#221a10;
     --topbar-bg-2:#17120b;
+    --token-theme-border:#e2a53f;
+    --token-theme-border-soft:rgba(226,165,63,.36);
   }
   *{box-sizing:border-box;}
   html,body{
@@ -760,8 +762,8 @@
   .token{
     position:absolute; width:64px; height:64px; margin:-32px 0 0 -32px;
     border-radius:50%;
-    border:2px solid var(--amber-bright);
-    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 12px 4px var(--token-outline-shadow);
+    border:2px solid var(--token-theme-border);
+    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 0 2px var(--token-theme-border-soft), 0 0 12px 4px var(--token-outline-shadow);
     cursor:grab; touch-action:none; user-select:none;
     transition:box-shadow .15s;
   }
@@ -829,6 +831,15 @@
     pointer-events:none; z-index:852;
   }
   body.barrier-drawing{ user-select:none; -webkit-user-select:none; }
+  /* Fora da iniciativa, personagens usam a moldura da estética da campanha.
+     Ao iniciar combate, a moldura temática é substituída pela borda colorida de HP. */
+  .token.token-character:not(.in-combat){
+    border-color:var(--token-theme-border);
+    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 0 2px var(--token-theme-border-soft), 0 0 12px 4px var(--token-outline-shadow);
+  }
+  .token.token-character.in-combat{
+    box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 12px 4px var(--token-outline-shadow);
+  }
   .token.active-turn{
     box-shadow:0 3px 10px var(--shadow), inset 0 0 0 2px #1a1206, 0 0 12px 4px var(--token-outline-shadow), 0 0 0 4px var(--initiative-turn-color);
   }
@@ -877,7 +888,7 @@
   .token-hp-status.hover-only{ display:none; }
   .token.selected .token-hp-status.hover-only, .token:hover .token-hp-status.hover-only{ display:block; }
   .token.token-current-turn{
-    outline:var(--token-turn-ring-width,3px) solid var(--amber-bright);
+    outline:var(--token-turn-ring-width,3px) solid var(--initiative-turn-color);
     outline-offset:var(--token-turn-ring-offset,4px);
   }
 
@@ -6089,6 +6100,10 @@
     root.setProperty('--amber', t.accent);
     root.setProperty('--topbar-bg-1', hexToRgbaTheme(t.topbar,alpha));
     root.setProperty('--topbar-bg-2', hexToRgbaTheme(darkenHex(t.topbar,0.35),alpha));
+    // A borda padrão dos personagens acompanha a cor de destaque do tema.
+    // Ela é usada somente fora de combate; durante a iniciativa, a borda passa a representar o HP.
+    root.setProperty('--token-theme-border', t.accent);
+    root.setProperty('--token-theme-border-soft', hexToRgbaTheme(t.accent,0.36));
     // Contorno dos tokens: sombra na cor escolhida pelo mestre, com opacidade ajustável.
     const outlineAlpha=Math.max(0,Math.min(100,Number(t.tokenOutlineOpacity ?? 50)))/100;
     root.setProperty('--token-outline-shadow', t.tokenOutlineEnabled ? hexToRgbaTheme(t.tokenOutline,outlineAlpha) : 'rgba(0,0,0,0)');
@@ -8492,11 +8507,16 @@
       const frac = tokenLifeFraction(tok);
       const isDefeated = tokenIsDefeated(tok);
       const hpCol = isDefeated ? '#0a0a0a' : hpColor(frac);
-      t.style.borderColor = hpCol;
+      const inCombat = !!(state.initiative && state.initiative.list && state.initiative.list.length > 0);
+      t.classList.add('token-character');
+      t.classList.toggle('in-combat', inCombat);
+      // Fora do combate, não sobrescrevemos a moldura temática definida por applyTheme().
+      // Quando existe iniciativa, a borda volta a indicar a condição de HP do personagem.
+      if(inCombat) t.style.borderColor = hpCol;
+      else t.style.removeProperty('border-color');
       t.classList.toggle('defeated', isDefeated);
       t.classList.toggle('selected', tok.id === state.selectedTokenId);
       t.classList.toggle('multi-selected', multiSelectedTokenIds.has(tok.id));
-      const inCombat = !!(state.initiative && state.initiative.list && state.initiative.list.length > 0);
       const activeEntry = inCombat ? state.initiative.list.find(e => e.id === state.initiative.activeId) : null;
       t.classList.toggle('token-current-turn', !!(activeEntry && activeEntry.tokenId === tok.id));
       const barTop = -Math.round(size * 0.16) - 6;
