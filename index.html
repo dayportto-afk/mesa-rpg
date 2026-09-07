@@ -9182,6 +9182,19 @@
     const max = effectiveMaster() ? 340 : 100;
     xPct = Math.max(min, Math.min(max, xPct));
     yPct = Math.max(min, Math.min(max, yPct));
+    // Colisão de parede em tempo real (não só ao soltar): trava o token bem
+    // na parede assim que o arraste tentaria cruzá-la, em vez de deixar ele
+    // atravessar visualmente e só corrigir de repente no final.
+    if(!state.dragging.group && !effectiveMaster()){
+      const draggedTok = state.tokens.find(t => t.id === state.dragging.id);
+      if(draggedTok && !draggedTok.isMapObject && !draggedTok.isReference){
+        const prevX = (typeof state.dragging.x === 'number') ? state.dragging.x : (state.dragging.startPos ? state.dragging.startPos.x : xPct);
+        const prevY = (typeof state.dragging.y === 'number') ? state.dragging.y : (state.dragging.startPos ? state.dragging.startPos.y : yPct);
+        if(movementBlockedByBarriers(currentPage(), prevX, prevY, xPct, yPct)){
+          xPct = prevX; yPct = prevY;
+        }
+      }
+    }
     state.dragging.el.style.left = xPct + '%';
     state.dragging.el.style.top = yPct + '%';
     state.dragging.x = xPct;
