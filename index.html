@@ -222,7 +222,7 @@
   #icon-rail{
     position:absolute; top:10px; left:16px; bottom:8px; z-index:120;
     display:flex; flex-direction:column; gap:10px;
-    overflow-y:auto; overflow-x:hidden; padding-right:2px;
+    overflow-y:auto; overflow-x:hidden; padding-right:7px; min-width:72px;
     scrollbar-width:thin; scrollbar-color:var(--amber) transparent;
   }
   #icon-rail::-webkit-scrollbar{ width:5px; }
@@ -230,7 +230,7 @@
   #icon-rail::-webkit-scrollbar-track{ background:transparent; }
   #icon-rail.hidden{ display:none; }
   .icon-rail-item{
-    display:flex; flex-direction:column; align-items:center; gap:3px; width:56px; flex-shrink:0;
+    display:flex; flex-direction:column; align-items:center; gap:3px; width:64px; flex-shrink:0;
   }
   .icon-rail-btn{
     width:42px; height:42px; padding:0; border-radius:50%; font-size:19px;
@@ -249,8 +249,8 @@
   #icon-rail.icon-rail-reordering .icon-rail-item{ transition:transform .12s ease, opacity .12s ease; }
   #icon-rail.icon-rail-reordering .icon-rail-btn{ cursor:grab; }
   #icon-rail.icon-rail-reordering .icon-rail-btn:active{ cursor:grabbing; }
-  #icon-rail-reposition-wrap{ margin-top:4px; padding-top:8px; border-top:1px solid var(--line); width:56px; flex-shrink:0; }
-  #icon-rail-reposition-btn{ width:56px; min-height:34px; padding:5px 3px; font-size:8px; line-height:1.15; white-space:normal; text-transform:none; letter-spacing:0; }
+  #icon-rail-reposition-wrap{ margin-top:4px; padding-top:8px; border-top:1px solid var(--line); width:64px; flex-shrink:0; display:flex; justify-content:center; }
+  #icon-rail-reposition-btn{ width:62px; min-height:34px; padding:5px 2px; font-size:7.5px; line-height:1.15; white-space:nowrap; text-transform:none; letter-spacing:-0.15px; overflow:visible; }
   #icon-rail.icon-rail-reordering #icon-rail-reposition-btn{ border-color:var(--amber-bright); color:var(--amber-bright); background:#1c1509; }
   .icon-rail-item.icon-rail-held{
     opacity:.72; transform:scale(.94);
