@@ -75,7 +75,7 @@
   .screen.hidden{ display:none !important; }
 
   button{
-    font-family:'JetBrains Mono', monospace;
+    font-family:var(--ui-label-font,'JetBrains Mono',monospace);
     font-size:11px; letter-spacing:0.5px; text-transform:uppercase;
     background:var(--bg-panel); background-image:var(--ui-button-pattern,none); color:var(--ui-button-fg,var(--parchment));
     border:1px solid var(--ui-button-border,var(--line)); border-radius:var(--ui-button-radius,10px);
@@ -1056,7 +1056,7 @@
   .sn-list-item:hover{ border-color:var(--amber); }
   .sn-list-item.active{ border-color:var(--amber-bright); background:#21180d; box-shadow:inset 3px 0 0 var(--amber); }
   .sn-list-number{ display:block; font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--amber-bright); text-transform:uppercase; letter-spacing:.7px; }
-  .sn-list-title{ display:block; margin-top:3px; font-family:var(--ui-font,'EB Garamond',serif); font-size:13px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sn-list-title{ display:block; margin-top:3px; font-family:'EB Garamond',serif; font-size:13px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sn-list-date{ display:block; margin-top:2px; font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--parchment-dim); }
   .sn-editor-wrap{ display:flex; flex-direction:column; min-width:0; min-height:0; padding:12px; gap:8px; overflow:hidden; }
   .sn-empty{ margin:auto; max-width:360px; text-align:center; color:var(--parchment-dim); font-size:14px; line-height:1.5; }
@@ -1071,7 +1071,7 @@
   .sn-toolbar .sn-size-select{ width:62px; }
   .sn-toolbar input[type=color]{ width:28px; height:27px; padding:1px; border:1px solid var(--line); border-radius:3px; background:#0c0906; cursor:pointer; }
   .sn-toolbar-sep{ width:1px; height:21px; background:var(--line); margin:0 2px; }
-  #session-notes-content{ flex:1; min-height:250px; overflow:auto; background:#0c0906; border:1px solid var(--line); border-radius:4px; color:var(--parchment); padding:14px 16px; outline:none; font-family:var(--ui-font,'EB Garamond',serif); font-size:16px; line-height:1.5; white-space:normal; word-break:break-word; }
+  #session-notes-content{ flex:1; min-height:250px; overflow:auto; background:#0c0906; border:1px solid var(--line); border-radius:4px; color:var(--parchment); padding:14px 16px; outline:none; font-family:'EB Garamond',serif; font-size:16px; line-height:1.5; white-space:normal; word-break:break-word; }
   #session-notes-content:focus{ border-color:var(--amber); }
   #session-notes-content:empty:before{ content:attr(data-placeholder); color:var(--parchment-dim); pointer-events:none; }
   #session-notes-content blockquote{ margin:10px 0; padding:9px 12px; border-left:3px solid var(--amber); background:rgba(200,137,46,.1); border-radius:0 4px 4px 0; }
@@ -1685,7 +1685,7 @@
   #journal-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
   #journal-input{
     width:100%; background:var(--ui-input-bg,#120e08); border:1px solid var(--ui-input-border,var(--line)); border-radius:var(--ui-control-radius,3px);
-    color:var(--parchment); padding:9px 10px; font-family:var(--ui-font,'EB Garamond',serif); font-size:15px;
+    color:var(--parchment); padding:9px 10px; font-family:'EB Garamond', serif; font-size:15px;
     outline:none; min-height:64px; max-height:220px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;
   }
   #journal-input:empty:before{ content:attr(data-placeholder); color:var(--parchment-dim); }
@@ -1707,7 +1707,7 @@
   }
   .journal-entry-meta .journal-author{ color:var(--amber-bright); }
   .journal-entry-meta .journal-remove, .journal-entry-meta .journal-edit{ padding:2px 7px; font-size:9px; }
-  .journal-entry-text{ font-family:var(--ui-font,'EB Garamond',serif); font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
+  .journal-entry-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.5; white-space:pre-wrap; }
   .journal-group{ display:flex; flex-direction:column; gap:8px; }
   .journal-group-title{
     font-family:'Cinzel', serif; font-size:11px; letter-spacing:1px; text-transform:uppercase;
@@ -1718,7 +1718,7 @@
   .journal-session-row input{ width:64px; background:#120e08; border:1px solid var(--line); border-radius:3px; color:var(--parchment); padding:4px 6px; font-size:12px; }
   .journal-entry-edit{
     width:100%; background:#0c0906; border:1px solid var(--amber); border-radius:3px;
-    color:var(--parchment); padding:8px 9px; font-family:var(--ui-font,'EB Garamond',serif); font-size:14px;
+    color:var(--parchment); padding:8px 9px; font-family:'EB Garamond', serif; font-size:14px;
     outline:none; min-height:50px; max-height:220px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;
   }
 
@@ -1915,7 +1915,7 @@
   }
   .thread-item-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; text-align:left; cursor:pointer; }
   .thread-item .thread-participants{ font-family:'Cinzel', serif; font-size:13px; color:var(--amber-bright); }
-  .thread-item .thread-preview{ font-family:var(--ui-font,'EB Garamond',serif); font-size:12px; color:var(--parchment-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .thread-item .thread-preview{ font-family:'EB Garamond', serif; font-size:12px; color:var(--parchment-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .thread-delete{ flex-shrink:0; padding:5px 9px; font-size:10px; }
 
   #thread-compose-view{ flex:1; display:flex; flex-direction:column; min-height:0; }
@@ -1935,7 +1935,7 @@
   .chat-bubble{ max-width:82%; padding:8px 11px; border-radius:8px; background:#120e08; border:1px solid var(--line); align-self:flex-start; }
   .chat-bubble.mine{ align-self:flex-end; background:#241a0a; border-color:var(--amber); }
   .chat-bubble-author{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:0.5px; margin-bottom:3px; }
-  .chat-bubble-text{ font-family:var(--ui-font,'EB Garamond',serif); font-size:14px; color:var(--parchment); line-height:1.4; white-space:pre-wrap; }
+  .chat-bubble-text{ font-family:'EB Garamond', serif; font-size:14px; color:var(--parchment); line-height:1.4; white-space:pre-wrap; }
   .chat-bubble-image{ max-width:100%; border-radius:5px; margin-top:4px; cursor:zoom-in; user-select:none; -webkit-user-drag:none; -webkit-tap-highlight-color:transparent; }
 
   #thread-compose-bar{ border-top:1px solid var(--line); padding:10px 12px; flex-shrink:0; }
@@ -1943,7 +1943,7 @@
   #thread-compose-row .file-btn{ display:flex; align-items:center; justify-content:center; width:auto; margin:0; padding:8px 10px; flex-shrink:0; }
   #send-text-input{
     flex:1; background:#120e08; border:1px solid var(--line); border-radius:3px;
-    color:var(--parchment); padding:9px 10px; font-family:var(--ui-font,'EB Garamond',serif); font-size:15px;
+    color:var(--parchment); padding:9px 10px; font-family:'EB Garamond', serif; font-size:15px;
     outline:none; max-height:100px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;
   }
   #send-text-input:empty:before{ content:attr(data-placeholder); color:var(--parchment-dim); }
@@ -2781,8 +2781,8 @@
           <span class="icon-rail-label">Perigo</span>
         </div>
         <div class="icon-rail-item" id="icon-rail-reorder-item">
-          <button type="button" class="icon-rail-btn" id="btn-icon-rail-reorder" title="Ativar modo de reposicionamento">↕ Reposicionar</button>
-          <span class="icon-rail-label">Reposicionar</span>
+          <button type="button" class="icon-rail-btn" id="btn-icon-rail-reorder" title="Ativar modo de reposicionamento">↕ Reposic.</button>
+          <span class="icon-rail-label">Reposic.</span>
         </div>
       </div>
 
@@ -4099,7 +4099,7 @@
     const btn = el('btn-icon-rail-reorder');
     if(btn){
       btn.classList.toggle('toggle-active', iconRailReordering);
-      btn.textContent = iconRailReordering ? 'Esc · Finalizar' : '↕ Reposicionar';
+      btn.textContent = iconRailReordering ? 'Esc · Finalizar' : '↕ Reposic.';
       btn.title = iconRailReordering ? 'Pressione Esc para encerrar o reposicionamento' : 'Ativar modo de reposicionamento';
     }
     renderIconRailReorderControls();
