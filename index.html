@@ -7295,7 +7295,7 @@
     else if(type==='barrier'){
       const page=currentPage(); const barrier=page&&ensureLightBarriers(page).list.find(item=>item.id===id); if(!barrier)return;
       if(barrier.type==='door') actions=[[barrier.open?'🔒 Fechar porta':'🔓 Abrir porta','barrierdoor'],['Excluir barreira','barrierdelete','context-danger']];
-      else actions=[['Excluir barreira','barrierdelete','context-danger']];
+      else actions=[[barrier.blocksMovement?'✅ Permitir passagem de tokens':'🚫 Bloquear passagem de tokens','barriermovement',null,'Define se jogadores conseguem atravessar esta barreira andando. Não afeta a luz — isso continua sendo controlado pela própria barreira (parede sempre bloqueia luz; janela conforme a transmissão).'],['Excluir barreira','barrierdelete','context-danger']];
     }
     menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'"'+(a[3]?' title="'+escapeHtml(a[3])+'"':'')+' data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
     if(type==='token'){
@@ -7404,6 +7404,9 @@
       if(!page||!barrier||!effectiveMaster())return;
       if(action==='barrierdoor'&&barrier.type==='door'){
         pushUndo(); barrier.open=!barrier.open; renderLightBarriers(); setupDarknessOverlay(); await persistPageFog(page); return;
+      }
+      if(action==='barriermovement'&&barrier.type!=='door'){
+        pushUndo(); barrier.blocksMovement=!barrier.blocksMovement; await persistPageFog(page); return;
       }
       if(action==='barrierdelete'){
         pushUndo(); barriers.list=barriers.list.filter(item=>item.id!==barrier.id); renderLightBarriers(); setupDarknessOverlay(); await persistPageFog(page); return;
@@ -9277,11 +9280,19 @@
       } else {
         const tok = state.tokens.find(t => t.id === d.id);
         if(tok){
+          let moveX=d.x, moveY=d.y;
+          if(!tok.isMapObject && !tok.isReference){
+            const origX=parseFloat(d.origLeft)||0, origY=parseFloat(d.origTop)||0;
+            if(movementBlockedByBarriers(currentPage(), origX, origY, moveX, moveY)){
+              moveX=origX; moveY=origY;
+              showToast('Uma parede bloqueia essa passagem.');
+            }
+          }
           if(!tok.positions) tok.positions = {};
-          tok.positions[state.currentPageId] = { x:d.x, y:d.y, zOrder: tok.isMapObject ? MAP_LAYER_FLOOR_Z : nextTokenZOrder() };
+          tok.positions[state.currentPageId] = { x:moveX, y:moveY, zOrder: tok.isMapObject ? MAP_LAYER_FLOOR_Z : nextTokenZOrder() };
           locallyProtectedTokenIds.add(tok.id);
           if(tok.isMapObject) bringMapObjectToTopOfObjectStack(tok);
-          if(!tok.isMapObject) updateTokenPlatformMembership(tok,d.x,d.y);
+          if(!tok.isMapObject) updateTokenPlatformMembership(tok,moveX,moveY);
           (d.riders||[]).forEach(r => {
             const rider = state.tokens.find(t=>t.id===r.id); if(!rider) return;
             if(!rider.positions) rider.positions={};
@@ -11801,9 +11812,31 @@
       y2:Math.max(0,Math.min(100,Number(b.y2)||0)),
       type:['wall','door','window'].includes(b.type)?b.type:'wall',
       open:!!b.open,
-      transmission:Math.max(0,Math.min(1,Number(b.transmission)||0))
+      transmission:Math.max(0,Math.min(1,Number(b.transmission)||0)),
+      blocksMovement:b.blocksMovement!==false
     }));
     return fog.lightBarriers;
+  }
+
+  // Portas seguem o próprio aberto/fechado; parede e janela usam o interruptor
+  // "blocksMovement" (o mestre pode liberar a passagem numa parede específica).
+  function barrierBlocksMovement(b){
+    if(b.type==='door') return !b.open;
+    return b.blocksMovement!==false;
+  }
+  function segmentsIntersect(p1,p2,p3,p4){
+    const cross=(o,a,c)=>(a.x-o.x)*(c.y-o.y)-(a.y-o.y)*(c.x-o.x);
+    const d1=cross(p3,p4,p1), d2=cross(p3,p4,p2), d3=cross(p1,p2,p3), d4=cross(p1,p2,p4);
+    return ((d1>0&&d2<0)||(d1<0&&d2>0)) && ((d3>0&&d4<0)||(d3<0&&d4>0));
+  }
+  // Barreiras só travam movimento quando ativadas nesta página, e nunca pro
+  // mestre (que precisa poder reposicionar tokens/monstros livremente).
+  function movementBlockedByBarriers(page,x1,y1,x2,y2){
+    if(!page||effectiveMaster())return false;
+    const barriers=ensureLightBarriers(page);
+    if(!barriers.enabled||!barriers.list.length)return false;
+    const p1={x:x1,y:y1}, p2={x:x2,y:y2};
+    return barriers.list.some(b=>barrierBlocksMovement(b)&&segmentsIntersect(p1,p2,{x:b.x1,y:b.y1},{x:b.x2,y:b.y2}));
   }
 
   function tokenLightGroupIds(tok){
