@@ -719,7 +719,7 @@
   }
   .barrier-draft-rect{
     position:absolute; border:2px dashed var(--barrier-line-color,#e2a53f);
-    background:color-mix(in srgb, var(--barrier-line-color,#e2a53f) 12%, transparent);
+    background:transparent;
     pointer-events:none; z-index:852;
   }
   .token.active-turn{
@@ -11438,10 +11438,39 @@
 
   // Encadeamento reto: primeiro clique arma o início, o próximo fecha o segmento
   // e já arma o início do próximo (dá pra contornar uma sala inteira clicando).
+  // Quando uma porta é desenhada por cima de um trecho de parede já existente
+  // (mesma linha, sobreposição real), aquele trecho "abre" automaticamente
+  // pra dar lugar à porta — sem isso a parede continuaria sólida por baixo.
+  function splitWallsForDoor(barriers, dx1, dy1, dx2, dy2){
+    const tolerance = 1.2; // % do mapa — o quão perto da linha conta como "em cima da parede"
+    const newList = [];
+    barriers.list.forEach(b => {
+      if(b.type !== 'wall'){ newList.push(b); return; }
+      const wallDx=b.x2-b.x1, wallDy=b.y2-b.y1, wallLenSq=(wallDx*wallDx+wallDy*wallDy)||1;
+      function projectPt(px,py){
+        const t=((px-b.x1)*wallDx+(py-b.y1)*wallDy)/wallLenSq;
+        const cx=b.x1+wallDx*t, cy=b.y1+wallDy*t;
+        return { t, dist:Math.hypot(px-cx,py-cy) };
+      }
+      const p1=projectPt(dx1,dy1), p2=projectPt(dx2,dy2);
+      if(p1.dist>tolerance || p2.dist>tolerance){ newList.push(b); return; } // não está em cima desta parede
+      let tMin=Math.max(0,Math.min(p1.t,p2.t)), tMax=Math.min(1,Math.max(p1.t,p2.t));
+      if(tMax<=tMin){ newList.push(b); return; } // toca a linha mas fora do trecho da parede
+      if(tMin>0.02){
+        newList.push(Object.assign({}, b, { id:newId('barrier'), x2:b.x1+wallDx*tMin, y2:b.y1+wallDy*tMin }));
+      }
+      if(tMax<0.98){
+        newList.push(Object.assign({}, b, { id:newId('barrier'), x1:b.x1+wallDx*tMax, y1:b.y1+wallDy*tMax }));
+      }
+      // se a porta cobre o trecho quase todo, a parede simplesmente some (nada é adicionado de volta)
+    });
+    barriers.list = newList;
+  }
   async function addBarrierSegment(type, x1, y1, x2, y2){
     const page=currentPage(); if(!page)return;
     const barriers=ensureLightBarriers(page);
     pushUndo();
+    if(type==='door') splitWallsForDoor(barriers, x1, y1, x2, y2);
     barriers.list.push({
       id:newId('barrier'), x1, y1, x2, y2, type,
       open:false,
