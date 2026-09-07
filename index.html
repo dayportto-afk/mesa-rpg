@@ -6,7 +6,7 @@
 <title>Mesa RPG</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400;1,500&family=Uncial+Antiqua&family=Special+Elite&family=IM+Fell+English:ital@0;1&family=Orbitron:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Pirata+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400;1,500&family=Uncial+Antiqua&family=Special+Elite&family=IM+Fell+English:ital@0;1&family=Orbitron:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Pirata+One&family=Metamorphous&family=MedievalSharp&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
 <style>
@@ -249,6 +249,12 @@
   .theme-custom-title{ margin:10px 0 2px; padding-top:9px; border-top:1px solid var(--line); font-family:var(--ui-heading-font,'Cinzel',serif); color:var(--amber-bright); font-size:11px; letter-spacing:.5px; }
   .theme-preset-actions{ display:flex; gap:6px; margin-top:8px; }
   .theme-preset-actions button{ flex:1; padding:6px 5px; font-size:9px; }
+  .rpg-preset-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:6px; }
+  .rpg-preset-btn{
+    font-size:9.5px; text-transform:none; letter-spacing:0; text-align:left;
+    padding:7px 8px; border-left-width:4px !important; border-left-style:solid !important;
+    display:flex; align-items:center; gap:5px; line-height:1.15;
+  }
 
   body{ font-family:var(--ui-font,'EB Garamond',serif); }
   button, input, select, textarea{ transition:border-color .15s,color .15s,background .15s,box-shadow .15s; }
@@ -260,6 +266,9 @@
   }
   .float-panel{
     border-width:var(--ui-border-width,1px);
+    border-style:solid;
+    border-color:var(--ui-panel-border-color,var(--amber));
+    border-image:var(--ui-border-texture,none) 3;
     border-radius:var(--ui-radius,8px);
     background-color:var(--bg-panel);
     background-image:var(--ui-panel-pattern,none);
@@ -268,7 +277,9 @@
   .float-panel-header{ font-family:var(--ui-heading-font,'Cinzel',serif); }
   #map-canvas{
     border-width:var(--ui-map-border-width,3px);
+    border-style:solid;
     border-color:var(--ui-map-border-color,var(--amber-bright));
+    border-image:var(--ui-map-border-texture,none) 5;
     border-radius:var(--ui-map-radius,0px);
     box-shadow:var(--ui-map-shadow,0 0 60px var(--shadow));
   }
@@ -713,8 +724,9 @@
   #icon-rail-reorder-item .icon-rail-label{ display:none; }
   #btn-icon-rail-reorder{
     width:86px; min-width:86px; height:32px; padding:0 5px; border-radius:4px;
-    font-size:8px; letter-spacing:0; text-transform:none; white-space:nowrap; line-height:1;
+    font-size:6.5px; letter-spacing:0; text-transform:none; white-space:nowrap; line-height:1;
     font-family:'JetBrains Mono',monospace;
+    border-image:var(--ui-border-texture,none) 3;
   }
   #btn-icon-rail-reorder.toggle-active{ background:var(--amber); border-color:var(--amber-bright); color:#150f09; }
   .icon-rail-reorder-controls{
@@ -732,8 +744,7 @@
   .float-panel{
     display:none; flex-direction:column; position:absolute; z-index:130;
     width:280px; max-width:90vw; max-height:80vh; max-height:80dvh;
-    background:var(--bg-panel); border:1px solid var(--amber); border-radius:8px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+    background-color:var(--bg-panel);
   }
   .float-panel.open{ display:flex; }
   .float-panel-header{
@@ -1183,8 +1194,6 @@
   #map-canvas{
     position:relative;
     transform-origin:center center;
-    box-shadow:0 0 60px var(--shadow);
-    border:3px solid var(--amber-bright);
     overflow:hidden;
     display:block;
     width:auto;
@@ -1231,6 +1240,17 @@
     transition:box-shadow .15s;
   }
   .token img{ width:100%; height:100%; object-fit:cover; border-radius:50%; pointer-events:none; -webkit-user-drag:none;}
+  /* Anel decorativo com a textura do preset (metal/madeira/latão), só fora de combate.
+     Em combate a borda do token passa a indicar a vida (ver JS: t.style.borderColor = hpCol),
+     então o anel temático some para não conflitar com essa leitura. */
+  .token.token-character::after{
+    content:''; position:absolute; inset:-3px; border-radius:50%;
+    background:var(--token-theme-texture,none);
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+    mask:radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+    pointer-events:none;
+  }
+  .token.token-character.in-combat::after{ display:none; }
   .token.token-reference{ border-radius:8px; border-color:var(--parchment-dim); --token-outline-shadow:rgba(0,0,0,0); }
   .token.token-reference img{ border-radius:6px; object-fit:contain; background:#0a0704; }
   .token.map-object{
@@ -2824,7 +2844,10 @@
           <button type="button" class="float-panel-close" data-close-panel="float-appearance">✕</button>
         </div>
         <div class="float-panel-body">
-          <div class="theme-custom-title" style="margin-top:0; padding-top:0; border-top:none;">Personalizar tema</div>
+          <div class="theme-custom-title" style="margin-top:0; padding-top:0; border-top:none;">Predefinições temáticas</div>
+          <div id="rpg-preset-grid" class="rpg-preset-grid"></div>
+          <div class="hint" style="margin-top:2px; margin-bottom:4px;">Aplica cores e fontes de uma vez (dá pra ajustar tudo manualmente depois).</div>
+          <div class="theme-custom-title">Personalizar tema</div>
           <div class="theme-row">
             <label for="theme-bg">Fundo</label>
             <input type="color" id="theme-bg">
@@ -6634,7 +6657,31 @@
   }
   function newId(prefix){ return prefix + Date.now() + Math.random().toString(36).slice(2,7); }
 
-  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10', topbarOpacity:100, tokenOutline:'#e2a53f', tokenOutlineEnabled:false, tokenOutlineOpacity:50 };
+  const DEFAULT_THEME = { bg:'#15120d', panel:'#1e1810', text:'#e8dcc0', accent:'#e2a53f', topbar:'#221a10', topbarOpacity:100, tokenOutline:'#e2a53f', tokenOutlineEnabled:false, tokenOutlineOpacity:50, font:"'EB Garamond', serif", headingFont:"'Cinzel', serif", labelFont:"'JetBrains Mono', monospace", texture:'' };
+
+  const THEME_TEXTURES = {
+    metal:'repeating-linear-gradient(128deg, #6d7176 0 3px, #aeb3b8 3px 6px, #4f5357 6px 8px, #969ba0 8px 12px)',
+    brass:'repeating-linear-gradient(128deg, #7a5322 0 3px, #cf9a42 3px 6px, #5c3d18 6px 8px, #b07c30 8px 12px)',
+    wood:'repeating-linear-gradient(97deg, #4a2e18 0 4px, #7a4f28 4px 7px, #3a2412 7px 9px, #6b4423 9px 13px)'
+  };
+  const THEME_RING_TEXTURES = {
+    metal:'repeating-conic-gradient(#6d7176 0deg 9deg, #aeb3b8 9deg 18deg, #4f5357 18deg 27deg, #969ba0 27deg 36deg)',
+    brass:'repeating-conic-gradient(#7a5322 0deg 9deg, #cf9a42 9deg 18deg, #5c3d18 18deg 27deg, #b07c30 27deg 36deg)',
+    wood:'repeating-conic-gradient(#4a2e18 0deg 10deg, #7a4f28 10deg 20deg, #3a2412 20deg 27deg, #6b4423 27deg 36deg)'
+  };
+
+  const RPG_THEME_PRESETS = {
+    scifi: { label:'🚀 Ficção Científica', bg:'#0a0e14', panel:'#0f1620', text:'#c9e8f5', accent:'#3ec8f0', topbar:'#0d1620', tokenOutline:'#3ec8f0', font:"'Share Tech Mono', monospace", headingFont:"'Orbitron', sans-serif", labelFont:"'Share Tech Mono', monospace", texture:'metal' },
+    tecnologico: { label:'🖥️ Cyberpunk / Tecnológico', bg:'#0c0512', panel:'#150a1e', text:'#f0d9f7', accent:'#ff2ec4', topbar:'#170a20', tokenOutline:'#39f0d8', font:"'Share Tech Mono', monospace", headingFont:"'Orbitron', sans-serif", labelFont:"'Share Tech Mono', monospace", texture:'metal' },
+    vampiro: { label:'🩸 Vampiro Gótico', bg:'#120608', panel:'#1c0a0e', text:'#e8d4d0', accent:'#a11d2e', topbar:'#1a080b', tokenOutline:'#a11d2e', font:"'Cormorant Garamond', serif", headingFont:"'Metamorphous', serif", labelFont:"'JetBrains Mono', monospace", texture:'' },
+    dnd: { label:'🐉 D&D Clássico', bg:'#171008', panel:'#241a0f', text:'#ecdcc0', accent:'#c98a2b', topbar:'#1e1409', tokenOutline:'#c98a2b', font:"'EB Garamond', serif", headingFont:"'Cinzel', serif", labelFont:"'JetBrains Mono', monospace", texture:'wood' },
+    fantasia: { label:'🍃 Fantasia Élfica', bg:'#0f1811', panel:'#182619', text:'#e4efe0', accent:'#bfa15a', topbar:'#122016', tokenOutline:'#bfa15a', font:"'Cormorant Garamond', serif", headingFont:"'Uncial Antiqua', serif", labelFont:"'JetBrains Mono', monospace", texture:'' },
+    nautico: { label:'⚓ Náutico / Pirata', bg:'#0a141c', panel:'#10202c', text:'#dce8ec', accent:'#c98a4a', topbar:'#0d1a24', tokenOutline:'#c98a4a', font:"'EB Garamond', serif", headingFont:"'Pirata One', serif", labelFont:"'JetBrains Mono', monospace", texture:'wood' },
+    steampunk: { label:'⚙️ Steampunk', bg:'#140f08', panel:'#211809', text:'#ecd9b8', accent:'#c07830', topbar:'#1c1408', tokenOutline:'#c07830', font:"'EB Garamond', serif", headingFont:"'IM Fell English', serif", labelFont:"'JetBrains Mono', monospace", texture:'brass' },
+    terror: { label:'💀 Terror Cósmico', bg:'#0a0e08', panel:'#131a10', text:'#c9d4c0', accent:'#6f9a4a', topbar:'#0d1409', tokenOutline:'#6f9a4a', font:"'EB Garamond', serif", headingFont:"'Special Elite', monospace", labelFont:"'Special Elite', monospace", texture:'' },
+    nordico: { label:'❄️ Nórdico / Viking', bg:'#0c1216', panel:'#151f24', text:'#dbe6ea', accent:'#7fa8b8', topbar:'#101a1e', tokenOutline:'#7fa8b8', font:"'Cormorant Garamond', serif", headingFont:"'MedievalSharp', serif", labelFont:"'JetBrains Mono', monospace", texture:'metal' },
+    posapoc: { label:'☢️ Pós-Apocalíptico', bg:'#120e08', panel:'#1e160c', text:'#dcd0b8', accent:'#b8562a', topbar:'#160f07', tokenOutline:'#b8562a', font:"'JetBrains Mono', monospace", headingFont:"'Special Elite', monospace", labelFont:"'JetBrains Mono', monospace", texture:'metal' }
+  };
   function darkenHex(hex, amount){
     let h = String(hex||'#000000').replace('#','');
     if(h.length === 3) h = h.split('').map(c => c+c).join('');
@@ -6666,15 +6713,20 @@
     root.setProperty('--line',darkenHex(t.accent,.72));
     root.setProperty('--topbar-bg-1',hexToRgbaTheme(t.topbar,alpha));
     root.setProperty('--topbar-bg-2',hexToRgbaTheme(darkenHex(t.topbar,.35),alpha));
-    root.setProperty('--ui-font',"'EB Garamond',serif");
-    root.setProperty('--ui-heading-font',"'Cinzel',serif");
-    root.setProperty('--ui-label-font',"'JetBrains Mono',monospace");
+    root.setProperty('--ui-font',t.font || "'EB Garamond',serif");
+    root.setProperty('--ui-heading-font',t.headingFont || "'Cinzel',serif");
+    root.setProperty('--ui-label-font',t.labelFont || "'JetBrains Mono',monospace");
     root.setProperty('--ui-radius','6px');
     root.setProperty('--ui-button-radius','5px');
     root.setProperty('--ui-control-radius','3px');
     root.setProperty('--ui-map-radius','0px');
-    root.setProperty('--ui-map-border-width','3px');
+    root.setProperty('--ui-map-border-width', t.texture ? '5px' : '3px');
     root.setProperty('--ui-map-border-color',t.accent);
+    root.setProperty('--ui-panel-border-color',t.accent);
+    root.setProperty('--ui-border-width', t.texture ? '3px' : '1px');
+    root.setProperty('--ui-border-texture', (t.texture && THEME_TEXTURES[t.texture]) || 'none');
+    root.setProperty('--ui-map-border-texture', (t.texture && THEME_TEXTURES[t.texture]) || 'none');
+    root.setProperty('--token-theme-texture', (t.texture && THEME_RING_TEXTURES[t.texture]) || 'none');
     root.setProperty('--ui-panel-pattern','none');
     root.setProperty('--ui-button-pattern','linear-gradient(180deg,rgba(255,255,255,.025),rgba(0,0,0,.10))');
     root.setProperty('--ui-area-pattern','none');
@@ -12512,6 +12564,29 @@
     state.meta.title = v; state.meta.titleFont = el('title-font-input').value; state.meta.titleStyle=collectTitleStyle();
     render(); await safeSet(slotKey('meta'), state.meta);
   });
+
+  (function initRpgPresetGrid(){
+    const grid = el('rpg-preset-grid');
+    if(!grid) return;
+    Object.keys(RPG_THEME_PRESETS).forEach(key => {
+      const p = RPG_THEME_PRESETS[key];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'rpg-preset-btn';
+      btn.style.borderLeftColor = p.accent;
+      btn.textContent = p.label;
+      btn.addEventListener('click', async () => {
+        state.meta.theme = Object.assign({}, DEFAULT_THEME, {
+          bg:p.bg, panel:p.panel, text:p.text, accent:p.accent, topbar:p.topbar,
+          topbarOpacity:100, tokenOutline:p.tokenOutline, tokenOutlineEnabled:false, tokenOutlineOpacity:50,
+          font:p.font, headingFont:p.headingFont, labelFont:p.labelFont, texture:p.texture
+        });
+        render();
+        await safeSet(slotKey('meta'), state.meta);
+      });
+      grid.appendChild(btn);
+    });
+  })();
 
   function themeInputHandler(key){
     return async () => {
