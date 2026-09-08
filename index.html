@@ -1046,7 +1046,7 @@
   /* Session Notes — private master planner */
   #float-session-notes{ width:min(760px,92vw) !important; max-height:60vh; max-height:60dvh; }
   #float-session-notes .float-panel-body{ padding:0; overflow:hidden; }
-  .sn-shell{ display:grid; grid-template-columns:190px minmax(0,1fr); min-height:330px; max-height:calc(60vh - 46px); max-height:calc(60dvh - 46px); height:100%; overflow:hidden; }
+  .sn-shell{ display:grid; grid-template-columns:190px minmax(0,1fr); min-height:330px; height:100%; overflow:hidden; }
   .sn-sidebar{ border-right:1px solid var(--line); padding:10px; display:flex; flex-direction:column; gap:8px; min-height:0; background:#17120c; }
   .sn-sidebar-top{ display:flex; gap:6px; }
   .sn-sidebar-top button{ flex:1; padding:7px 5px; font-size:9px; }
@@ -1080,6 +1080,27 @@
   .sn-footer .spacer{ flex:1; }
   #session-notes-save-status{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
   #session-notes-save-status.saving{ color:var(--amber-bright); }
+  #btn-session-notes-pin{ padding:4px 8px; font-size:12px; margin-left:auto; opacity:.55; }
+  #btn-session-notes-pin.active{ opacity:1; background:var(--amber); border-color:var(--amber-bright); color:#150f09; }
+  #btn-session-notes-readmode{ padding:4px 8px; font-size:12px; opacity:.55; }
+  #btn-session-notes-readmode.active{ opacity:1; background:var(--amber); border-color:var(--amber-bright); color:#150f09; }
+  .sn-shell.reading-mode{ grid-template-columns:1fr; }
+  .sn-shell.reading-mode .sn-sidebar{ display:none; }
+  .sn-shell.reading-mode .sn-toolbar,
+  .sn-shell.reading-mode .sn-footer{ display:none; }
+  .sn-shell.reading-mode .sn-title-row{ grid-template-columns:96px minmax(0,1fr); }
+  .sn-shell.reading-mode #session-notes-number,
+  .sn-shell.reading-mode #session-notes-title{ background:transparent; border-color:transparent; cursor:default; }
+  .sn-shell.reading-mode #session-notes-title{ font-size:18px; }
+  .sn-shell.reading-mode #session-notes-content{ font-size:18px; cursor:default; }
+  #float-session-notes.pinned{ box-shadow:0 0 0 2px var(--amber-bright), 0 10px 30px rgba(0,0,0,.5); }
+  #float-session-notes{ position:absolute; resize:none; }
+  #session-notes-resize-handle{
+    position:absolute; right:2px; bottom:2px; width:18px; height:18px; cursor:nwse-resize;
+    background:linear-gradient(135deg, transparent 0 50%, var(--line) 50% 58%, transparent 58% 65%, var(--line) 65% 73%, transparent 73%);
+    border-radius:0 0 8px 0; touch-action:none;
+  }
+  #session-notes-resize-handle:hover{ background:linear-gradient(135deg, transparent 0 50%, var(--amber) 50% 58%, transparent 58% 65%, var(--amber) 65% 73%, transparent 73%); }
   .sn-footer button{ padding:7px 9px; font-size:9px; }
   @media(max-width:700px){
     .sn-shell{ grid-template-columns:145px minmax(0,1fr); min-height:290px; }
@@ -2054,6 +2075,8 @@
 
   @media (max-width:760px){
     /* On a phone a side drawer feels cramped — slide up from the bottom instead. */
+    #session-notes-resize-handle{ display:none; }
+    #btn-session-notes-pin{ display:none; }
     #dice-panel{
       top:auto; left:0; right:0; bottom:0; width:auto; max-width:none;
       max-height:78vh; max-height:78dvh; border-left:none; border-top:1px solid var(--amber);
@@ -3269,6 +3292,8 @@
       <div class="float-panel" id="float-session-notes" style="left:320px; top:16px;">
         <div class="float-panel-header">
           <span>🗒️ Notas de Sessão <small style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--parchment-dim);margin-left:5px;">PRIVADO DO MESTRE</small></span>
+          <button type="button" id="btn-session-notes-pin" title="Fixar na tela (fica sempre aberta, como uma imagem de referência)">📌</button>
+          <button type="button" id="btn-session-notes-readmode" title="Modo leitura (esconde a lista e a formatação, só título e texto)">👁️</button>
           <button type="button" class="float-panel-close" data-close-panel="float-session-notes">✕</button>
         </div>
         <div class="float-panel-body">
@@ -3297,6 +3322,7 @@
             </section>
           </div>
         </div>
+        <div id="session-notes-resize-handle" title="Arrastar para redimensionar"></div>
       </div>
 
       <div class="float-panel" id="float-oracle" style="left:296px; top:16px; width:300px;">
@@ -5586,7 +5612,7 @@
     panel.addEventListener('pointerdown', () => bringFloatToFront(panel));
     const header = panel.querySelector('.float-panel-header');
     header.addEventListener('pointerdown', (e) => {
-      if(e.target.closest('.float-panel-close')) return;
+      if(e.target.closest('.float-panel-close') || e.target.closest('#btn-session-notes-pin') || e.target.closest('#btn-session-notes-readmode') || e.target.closest('#session-notes-resize-handle')) return;
       const startX = e.clientX, startY = e.clientY;
       const startLeft = panel.offsetLeft, startTop = panel.offsetTop;
       bringFloatToFront(panel);
@@ -5610,6 +5636,97 @@
       header.addEventListener('pointercancel', onUp);
     });
   });
+
+  // Notas de sessão: painel redimensionável e opção de fixar aberto entre sessões
+  // (guardado só no localStorage deste navegador — é uma preferência pessoal do
+  // mestre, não algo que precise sincronizar com os jogadores).
+  const SN_PANEL_STORAGE_KEY = 'rpgmap-session-notes-panel';
+  function loadSessionNotesPanelPrefs(){
+    try{ return JSON.parse(localStorage.getItem(SN_PANEL_STORAGE_KEY) || '{}'); }catch(e){ return {}; }
+  }
+  function saveSessionNotesPanelPrefs(patch){
+    const current = loadSessionNotesPanelPrefs();
+    try{ localStorage.setItem(SN_PANEL_STORAGE_KEY, JSON.stringify(Object.assign(current, patch))); }catch(e){}
+  }
+  (function setupSessionNotesPanelExtras(){
+    const panel = el('float-session-notes');
+    const handle = el('session-notes-resize-handle');
+    const pinBtn = el('btn-session-notes-pin');
+    if(!panel || !handle || !pinBtn) return;
+    const saved = loadSessionNotesPanelPrefs();
+    const contentEl = el('session-notes-content');
+    const listEl = el('session-notes-list');
+    function applyInnerHeights(panelHeight){
+      if(!panelHeight) return;
+      if(contentEl){ const ch = Math.max(120, Math.round(panelHeight * 0.6)); contentEl.style.maxHeight = ch + 'px'; }
+      if(listEl){ const lh = Math.max(150, Math.round(panelHeight * 0.75)); listEl.style.maxHeight = lh + 'px'; }
+    }
+    if(saved.width) panel.style.width = Math.max(360, Math.min(window.innerWidth - 24, saved.width)) + 'px';
+    if(saved.height){
+      const h = Math.max(280, Math.min(window.innerHeight - 24, saved.height));
+      panel.style.height = h + 'px';
+      panel.style.maxHeight = h + 'px';
+      applyInnerHeights(h);
+    }
+    handle.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      bringFloatToFront(panel);
+      const startX = e.clientX, startY = e.clientY;
+      const startW = panel.offsetWidth, startH = panel.offsetHeight;
+      handle.setPointerCapture(e.pointerId);
+      function onMove(ev){
+        let w = startW + (ev.clientX - startX);
+        let h = startH + (ev.clientY - startY);
+        w = Math.max(360, Math.min(window.innerWidth - 24, w));
+        h = Math.max(280, Math.min(window.innerHeight - 24, h));
+        panel.style.width = w + 'px';
+        panel.style.height = h + 'px';
+        panel.style.maxHeight = h + 'px';
+        applyInnerHeights(h);
+      }
+      function onUp(){
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        saveSessionNotesPanelPrefs({ width: panel.offsetWidth, height: panel.offsetHeight });
+      }
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    });
+    function setSessionNotesPinned(on){
+      panel.classList.toggle('pinned', on);
+      pinBtn.classList.toggle('active', on);
+      pinBtn.title = on ? 'Desafixar (deixa de abrir sozinha)' : 'Fixar na tela (fica sempre aberta, como uma imagem de referência)';
+      saveSessionNotesPanelPrefs({ pinned: on, left: panel.offsetLeft, top: panel.offsetTop });
+    }
+    pinBtn.addEventListener('click', () => setSessionNotesPinned(!panel.classList.contains('pinned')));
+    if(saved.pinned) setSessionNotesPinned(true);
+
+    const readBtn = el('btn-session-notes-readmode');
+    const shell = panel.querySelector('.sn-shell');
+    if(readBtn && shell){
+      function setSessionNotesReadMode(on){
+        shell.classList.toggle('reading-mode', on);
+        readBtn.classList.toggle('active', on);
+        readBtn.title = on ? 'Sair do modo leitura' : 'Modo leitura (esconde a lista e a formatação, só título e texto)';
+        const numberInput = el('session-notes-number'), titleInput = el('session-notes-title'), contentEl = el('session-notes-content');
+        if(numberInput) numberInput.readOnly = on;
+        if(titleInput) titleInput.readOnly = on;
+        if(contentEl) contentEl.contentEditable = on ? 'false' : 'true';
+      }
+      readBtn.addEventListener('click', () => setSessionNotesReadMode(!shell.classList.contains('reading-mode')));
+    }
+  })();
+  function restoreSessionNotesPin(){
+    const saved = loadSessionNotesPanelPrefs();
+    if(!saved.pinned) return;
+    const panel = el('float-session-notes');
+    if(!panel) return;
+    if(typeof saved.left === 'number') panel.style.left = Math.max(4, Math.min(window.innerWidth - 40, saved.left)) + 'px';
+    if(typeof saved.top === 'number') panel.style.top = Math.max(4, Math.min(window.innerHeight - 40, saved.top)) + 'px';
+    openFloatPanel('float-session-notes');
+  }
 
   el('tokens-panel-close').addEventListener('click', closeTokensPanel);
   el('context-menu').addEventListener('click',e=>{ const b=e.target.closest('[data-context-action]'); if(b)executeContextAction(b.getAttribute('data-context-action'),b.getBoundingClientRect()); });
@@ -7155,6 +7272,8 @@
     render();
 
     startRealtimeSync();
+
+    if(role === 'master') restoreSessionNotesPin();
 
     try{
       localStorage.setItem('active-session', JSON.stringify({ slot: slotN, role, playerName: state.playerName, playerColor: state.playerColor }));
