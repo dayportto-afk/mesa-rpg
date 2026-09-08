@@ -9168,7 +9168,11 @@
       scope:'master',
       pageId: state.currentPageId,
       map: page ? page.map.image : '',
-      fog: page ? JSON.parse(JSON.stringify(page.fog || {image:''})) : {image:''},
+      // Exclui a memória do Modo Explorador do histórico de desfazer: ela é
+      // progressão automática, não uma edição do mestre, e guardá-la aqui
+      // dobraria o custo (síncrono!) de cada JSON.stringify/parse — travando
+      // a interface a cada ação, não só nesta.
+      fog: page ? (()=>{ const clone=JSON.parse(JSON.stringify(page.fog || {image:''})); delete clone.explored; return clone; })() : {image:''},
       draw: page ? JSON.parse(JSON.stringify(page.draw.strokes || [])) : [],
       texts: page ? JSON.parse(JSON.stringify(page.texts)) : [],
       tokens: JSON.parse(JSON.stringify(state.tokens))
@@ -9230,7 +9234,9 @@
     state.tokens = snap.tokens;
     if(page){
       page.map.image = snap.map;
+      const keepExplored = ensureExploredModel(page); // não fazia parte do snapshot — preserva
       page.fog = typeof snap.fog === 'string' ? {image:snap.fog} : JSON.parse(JSON.stringify(snap.fog || {image:''}));
+      ensureExploredModel(page).image = keepExplored.image;
       if(!page.draw) page.draw = { strokes:[] };
       page.draw.strokes = snap.draw;
       page.texts = snap.texts;
@@ -15940,11 +15946,29 @@
         if(!this.dirty||!this.accum) return;
         const livePage=state.pages.find(item=>item.id===page.id)||page;
         const model=ensureExploredModel(livePage);
-        model.image=this.accum.toDataURL('image/png');
+        model.image=this.exportDataUrl();
         this.seededSrc=model.image;
         this.dirty=false;
         await persistPageFog(livePage);
       }, 1200);
+    },
+
+    // Salva/sincroniza numa resolução reduzida (a memória é um mapa de área
+    // "vista ou não", não precisa de nitidez de pixel) — mantém o payload do
+    // Firebase pequeno mesmo em mapas grandes. O acumulador em tela cheia
+    // continua sendo usado pra desenhar localmente, só o que vai pro banco
+    // é menor.
+    exportDataUrl(){
+      const src=this.accum;
+      const maxSide=1024;
+      const longest=Math.max(src.width,src.height);
+      if(longest<=maxSide) return src.toDataURL('image/png');
+      const scale=maxSide/longest;
+      const small=document.createElement('canvas');
+      small.width=Math.max(1,Math.round(src.width*scale));
+      small.height=Math.max(1,Math.round(src.height*scale));
+      small.getContext('2d').drawImage(src,0,0,small.width,small.height);
+      return small.toDataURL('image/png');
     },
 
     async clear(page){
