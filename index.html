@@ -1486,7 +1486,7 @@
   }
   #dice-backdrop.open{ display:block; }
   #dice-panel{
-    position:fixed; top:0; right:0; bottom:0; width:300px; max-width:88vw; z-index:150;
+    position:fixed; top:0; right:0; bottom:0; width:340px; max-width:92vw; z-index:150;
     background:var(--ui-drawer-bg,var(--bg-panel)); background-image:var(--ui-panel-pattern,none); border-left:var(--ui-panel-border-width,1px) solid var(--ui-drawer-border,var(--amber));
     box-shadow:var(--ui-drawer-shadow,-6px 0 24px rgba(0,0,0,0.5));
     display:flex; flex-direction:column;
@@ -2027,25 +2027,92 @@
     font-size:16px; padding:0;
   }
 
-  .dice-type-row{ display:flex; align-items:center; gap:8px; }
-  .dice-type-row .die-label{
-    font-family:'Cinzel', serif; font-size:14px; color:var(--parchment); width:44px; flex-shrink:0;
+  /* ---------- Rolagem de dados (reskin) ---------- */
+  .dice-tabs{ display:flex; gap:6px; background:#0c0906; border:1px solid var(--line); border-radius:8px; padding:4px; }
+  .dice-tab-btn{ flex:1; border:none; background:transparent; padding:9px 6px; font-size:11px; }
+  .dice-tab-btn.toggle-active{ background:var(--amber); color:#1a1206; border-radius:5px; box-shadow:0 0 10px rgba(226,165,63,.35); }
+  .dice-tab-panel{ display:flex; flex-direction:column; gap:12px; }
+
+  #dice-picker-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+  .dice-pick-btn{
+    display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px 7px;
+    background:#120e08; border:1px solid var(--line); border-radius:8px; transition:border-color .15s, box-shadow .15s, transform .1s;
   }
-  .dice-type-row button{ width:26px; height:26px; padding:0; font-size:13px; line-height:1; flex-shrink:0; }
-  .dice-type-row input[type=number]{
-    width:48px; text-align:center; padding:5px 4px; font-size:13px;
+  .dice-pick-btn:hover{ border-color:var(--die-color,var(--amber)); }
+  .dice-pick-btn:active{ transform:scale(.95); }
+  .dice-pick-btn.dice-pick-active{
+    border-color:var(--die-color,var(--amber-bright)); box-shadow:0 0 0 1px var(--die-color,var(--amber-bright)), 0 0 12px color-mix(in srgb, var(--die-color,var(--amber-bright)) 55%, transparent);
+    background:#1c150a;
   }
-  .dice-modifier-row{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    padding:8px 10px; background:#120e08; border:1px solid var(--line); border-radius:4px;
+  .dice-pick-btn .dice-icon{ width:30px; height:30px; }
+  .dice-pick-btn .dice-pick-label{ font-family:'Cinzel', serif; font-size:11px; color:var(--parchment); letter-spacing:.5px; }
+  .dice-picker-hint{ font-size:10px; color:var(--parchment-dim); text-align:center; line-height:1.5; margin-top:-4px; }
+
+  .dice-qty-mod-row{ display:flex; gap:10px; }
+  .dice-field{ flex:1; display:flex; flex-direction:column; gap:5px; }
+  .dice-field label{ font-family:'Cinzel', serif; font-size:11px; color:var(--parchment-dim); letter-spacing:.4px; }
+  .dice-stepper{ display:flex; align-items:stretch; border:1px solid var(--line); border-radius:6px; overflow:hidden; background:#0c0906; }
+  .dice-stepper button{ width:32px; flex-shrink:0; border:none; border-radius:0; background:#150f09; font-size:14px; padding:0; }
+  .dice-stepper button:hover{ background:#211708; }
+  .dice-stepper input{
+    flex:1; min-width:0; border:none !important; border-radius:0 !important; text-align:center;
+    background:transparent !important; color:var(--amber-bright); font-family:'Cinzel', serif; font-size:15px; padding:6px 2px;
   }
-  .dice-modifier-row label{ font-family:'Cinzel', serif; font-size:12px; color:var(--parchment); }
-  .dice-modifier-row input{
-    width:82px; padding:6px; text-align:center; font-family:'JetBrains Mono', monospace;
-    color:var(--amber-bright); background:#0c0906; border:1px solid var(--line); border-radius:3px;
+  .dice-stepper input:focus{ outline:none; }
+
+  .dice-mode-row{ display:flex; gap:6px; }
+  .dice-mode-row button{ flex:1; font-size:10px; padding:9px 4px; }
+  .dice-mode-row button.toggle-active{ box-shadow:0 0 10px rgba(226,165,63,.35); }
+
+  .dice-roll-btn{
+    width:100%; padding:13px 10px; font-size:13px; letter-spacing:1.5px; font-weight:700;
+    box-shadow:0 2px 14px rgba(226,165,63,.3);
   }
-  .dice-modifier-hint{ margin-top:-8px; font-size:11px; color:var(--parchment-dim); }
+
+  .dice-formula-row{ display:flex; gap:6px; }
+  .dice-formula-row input{ flex:1; font-family:'JetBrains Mono', monospace; }
+  .dice-formula-row button{ flex-shrink:0; width:36px; padding:0; font-size:13px; }
+  .dice-formula-hint{ font-size:10.5px; color:var(--parchment-dim); line-height:1.5; margin-top:-4px; }
+  .dice-formula-hint.error{ color:#e08a8a; }
+
   .dice-visibility-row{ display:flex; gap:6px; }
+  .dice-visibility-row button{ flex:1; font-size:10px; padding:9px 6px; display:flex; flex-direction:column; gap:2px; align-items:center; }
+  .dice-visibility-sub{ font-size:8.5px; text-transform:none; letter-spacing:0; color:var(--parchment-dim); }
+  .dice-visibility-row button.toggle-active .dice-visibility-sub{ color:#3a2a0c; }
+
+  .dice-section-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:6px; border-top:1px solid var(--line); }
+  .dice-section-head h3{ margin:0; font-family:'Cinzel', serif; font-size:12.5px; color:var(--amber-bright); letter-spacing:.6px; }
+  .dice-section-head button{ font-size:9px; padding:5px 8px; }
+
+  #dice-favorites-grid{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .dice-fav-card{
+    display:flex; align-items:center; gap:6px; background:#120e08; border:1px solid var(--line); border-radius:6px;
+    padding:7px 6px; min-width:0;
+  }
+  .dice-fav-main{ display:flex; align-items:center; gap:7px; flex:1; min-width:0; cursor:pointer; }
+  .dice-fav-main:hover .dice-fav-name{ color:var(--amber-bright); }
+  .dice-fav-icon{ font-size:15px; flex-shrink:0; }
+  .dice-fav-text{ min-width:0; display:flex; flex-direction:column; }
+  .dice-fav-name{ font-size:11.5px; color:var(--parchment); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dice-fav-formula{ font-family:'JetBrains Mono', monospace; font-size:9.5px; color:var(--parchment-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dice-fav-menu{ flex-shrink:0; width:20px; height:20px; padding:0; font-size:11px; border:none; background:transparent; }
+
+  #dice-recents-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .dice-recent-chip{ font-family:'JetBrains Mono', monospace; font-size:10px; padding:6px 9px; border-radius:14px; }
+
+  .dice-history-filter-row{ display:flex; gap:6px; margin-top:-4px; }
+  .dice-history-filter-row button{ flex:1; font-size:9.5px; padding:6px 4px; }
+
+  .die-chip{
+    display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:24px; padding:0 5px;
+    margin:0 3px 3px 0; border-radius:6px; border:1.5px solid var(--die-color,var(--amber));
+    background:color-mix(in srgb, var(--die-color,var(--amber)) 16%, #120e08); color:var(--parchment);
+    font-family:'JetBrains Mono', monospace; font-weight:600; font-size:12.5px;
+  }
+  .die-chip.kept{ border-color:#3fae5e; background:color-mix(in srgb, #3fae5e 24%, #120e08); color:#bdf5c9; box-shadow:0 0 0 1px #3fae5e; }
+  .die-chip.dropped{ opacity:.4; text-decoration:line-through; }
+  .die-chip.crit-fail{ border-color:#c94f4f; background:color-mix(in srgb, #c94f4f 24%, #120e08); color:#f0b0b0; }
+  .die-chip.crit-success{ border-color:#e2a53f; background:color-mix(in srgb, #e2a53f 28%, #120e08); color:#ffe6ae; box-shadow:0 0 10px rgba(226,165,63,.5); }
 
   .system-select-row{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
   .system-select-row button{ flex:1 1 40%; font-size:12px; padding:6px 4px; }
@@ -2057,21 +2124,38 @@
   }
   .dice-visibility-row button{ flex:1; }
 
-  #dice-log{ display:flex; flex-direction:column; gap:8px; padding-top:6px; border-top:1px solid var(--line); }
+  #dice-log{ display:flex; flex-direction:column; gap:8px; }
   .dice-log-entry{
-    background:#120e08; border:1px solid var(--line); border-radius:4px; padding:8px 10px;
+    background:#120e08; border:1px solid var(--line); border-radius:6px; padding:9px 10px;
   }
   .dice-log-entry.private{ border-color:var(--wax); }
-  .dice-log-entry .dice-log-meta{
-    display:flex; justify-content:space-between; align-items:baseline;
-    font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--parchment-dim); letter-spacing:0.5px;
-    margin-bottom:5px;
+  .dice-log-entry .dice-log-top{ display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .dice-log-avatar{
+    width:26px; height:26px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Cinzel', serif; font-size:12px; font-weight:700; color:var(--parchment); text-shadow:0 1px 2px rgba(0,0,0,.7);
+    border:1px solid rgba(255,255,255,.15);
   }
-  .dice-log-entry .dice-log-meta .roller{ color:var(--amber-bright); }
-  .dice-log-entry .dice-log-breakdown{ font-family:var(--ui-font,'EB Garamond',serif); font-size:13px; color:var(--parchment); line-height:1.5; }
-  .dice-log-entry .dice-log-total{
-    font-family:'Cinzel', serif; font-size:15px; color:var(--amber-bright); margin-top:4px; text-align:right;
+  .dice-log-who{ min-width:0; flex:1; }
+  .dice-log-entry .roller{ font-family:'Cinzel', serif; font-size:12.5px; color:var(--amber-bright); }
+  .dice-log-entry .roller-private{ font-size:9.5px; color:var(--parchment-dim); margin-left:4px; }
+  .dice-log-entry .dice-log-label{ font-size:11.5px; color:var(--parchment); }
+  .dice-log-entry .dice-log-ts{ font-family:'JetBrains Mono', monospace; font-size:9.5px; color:var(--parchment-dim); flex-shrink:0; }
+  .dice-log-entry .dice-log-formula{ font-family:'JetBrains Mono', monospace; font-size:10.5px; color:var(--parchment-dim); margin-bottom:6px; }
+  .dice-log-roll-row{ display:flex; align-items:center; flex-wrap:wrap; gap:2px; }
+  .dice-log-op{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--parchment-dim); margin:0 3px; }
+  .dice-log-total{
+    font-family:'Cinzel', serif; font-size:17px; font-weight:700; padding:2px 10px; border-radius:6px;
+    background:color-mix(in srgb, #3fae5e 20%, #120e08); border:1px solid #3fae5e; color:#bdf5c9; margin:0 6px 3px 3px;
   }
+  .dice-log-total.crit-fail{ background:color-mix(in srgb, #c94f4f 22%, #120e08); border-color:#c94f4f; color:#f6c2c2; }
+  .dice-log-total.crit-success{ background:color-mix(in srgb, #e2a53f 26%, #120e08); border-color:#e2a53f; color:#ffe6ae; box-shadow:0 0 10px rgba(226,165,63,.5); }
+  .dice-log-crit-tag{ font-family:'Cinzel', serif; font-size:10px; letter-spacing:.5px; font-weight:700; }
+  .dice-log-crit-tag.fail{ color:#e08a8a; }
+  .dice-log-crit-tag.success{ color:var(--amber-bright); }
+  .dice-log-actions{ display:flex; align-items:center; gap:6px; margin-top:7px; }
+  .dice-log-actions button{ font-size:9px; padding:5px 8px; }
+  .dice-log-reroll{ flex:1; }
+  .dice-log-menu-btn{ width:24px; height:24px; padding:0 !important; font-size:12px; flex-shrink:0; }
 
   @media (max-width:760px){
     /* On a phone a side drawer feels cramped — slide up from the bottom instead. */
@@ -3639,23 +3723,84 @@
     <div id="dice-backdrop"></div>
     <div id="dice-panel">
       <div id="dice-panel-header">
-        <h2>Rolagem de Dados</h2>
+        <h2>🎲 Rolagem de Dados</h2>
         <button id="dice-panel-close">✕</button>
       </div>
       <div id="dice-panel-body">
-        <div id="dice-types"></div>
-        <div class="dice-modifier-row">
-          <label for="dice-modifier">Modificador</label>
-          <input type="number" id="dice-modifier" min="-999" max="999" step="1" value="0" inputmode="numeric" aria-label="Valor para somar ou subtrair da rolagem">
+        <div class="dice-tabs">
+          <button type="button" class="dice-tab-btn toggle-active" data-dice-tab="rapido">⚡ Rápido</button>
+          <button type="button" class="dice-tab-btn" data-dice-tab="avancado">Σ Avançado</button>
         </div>
-        <div class="dice-modifier-hint">Use um valor positivo ou negativo. Ex.: 1d4 − 2 ou 1d6 + 10.</div>
+
+        <div id="dice-tab-rapido" class="dice-tab-panel">
+          <div id="dice-picker-grid"></div>
+          <div class="dice-picker-hint">Clique para rolar · Shift+clique para ajustar a quantidade · Clique direito para opções</div>
+
+          <div class="dice-qty-mod-row">
+            <div class="dice-field">
+              <label>Quantidade de dados</label>
+              <div class="dice-stepper">
+                <button type="button" id="dice-qty-minus">−</button>
+                <input type="number" id="dice-qty-display" value="1" readonly aria-label="Quantidade do dado selecionado">
+                <button type="button" id="dice-qty-plus">+</button>
+              </div>
+            </div>
+            <div class="dice-field">
+              <label>Modificador</label>
+              <div class="dice-stepper">
+                <button type="button" id="dice-mod-minus">−</button>
+                <input type="number" id="dice-modifier" min="-999" max="999" step="1" value="0" inputmode="numeric" aria-label="Valor para somar ou subtrair da rolagem">
+                <button type="button" id="dice-mod-plus">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="dice-mode-row">
+            <button type="button" data-dice-mode="normal" class="toggle-active">★ Normal</button>
+            <button type="button" data-dice-mode="advantage">⇈ Vantagem</button>
+            <button type="button" data-dice-mode="disadvantage">⇊ Desvantagem</button>
+          </div>
+          <div class="dice-formula-hint" id="dice-mode-hint" style="margin-top:-6px;"></div>
+
+          <button type="button" id="btn-roll-dice" class="primary dice-roll-btn">🎲 ROLAR DADOS</button>
+        </div>
+
+        <div id="dice-tab-avancado" class="dice-tab-panel" style="display:none;">
+          <div class="dice-field">
+            <label for="dice-formula-input">Fórmula rápida</label>
+            <div class="dice-formula-row">
+              <input type="text" id="dice-formula-input" placeholder="ex.: 2d20kh1 + 7" autocomplete="off" inputmode="text">
+              <button type="button" id="dice-formula-clear" title="Limpar">✕</button>
+            </div>
+          </div>
+          <div class="dice-formula-hint" id="dice-formula-hint">Use NdM (ex.: 4d6), kh/kl para manter os maiores/menores (ex.: 4d6kh3) e + ou − para o modificador.</div>
+          <button type="button" id="btn-roll-formula" class="primary dice-roll-btn">🎲 ROLAR FÓRMULA</button>
+        </div>
+
         <div class="dice-visibility-row">
-          <button type="button" id="dice-public" class="toggle-active">Pública</button>
-          <button type="button" id="dice-private">Privada</button>
+          <button type="button" id="dice-public" class="toggle-active">👁 Pública<span class="dice-visibility-sub">(todos veem)</span></button>
+          <button type="button" id="dice-private">🙈 Privada<span class="dice-visibility-sub">(só você)</span></button>
         </div>
-        <button id="btn-roll-dice" class="primary" style="width:100%;">Rolar</button>
-        <button type="button" id="btn-dice-history-clear" class="danger" style="width:100%; display:none;">Limpar histórico de rolagens</button>
-        <div id="dice-log"></div>
+
+        <div id="dice-favorites-wrap">
+          <div class="dice-section-head"><h3>★ Favoritos</h3><button type="button" id="btn-dice-fav-add">+ Adicionar</button></div>
+          <div id="dice-favorites-grid"></div>
+        </div>
+
+        <div id="dice-recents-wrap">
+          <div class="dice-section-head"><h3>🕐 Recentes</h3><button type="button" id="btn-dice-recents-clear">🗑 Limpar</button></div>
+          <div id="dice-recents-row"></div>
+        </div>
+
+        <div id="dice-history-wrap">
+          <div class="dice-section-head"><h3>Histórico</h3><button type="button" id="btn-dice-history-clear" class="danger" style="display:none;">Limpar tudo</button></div>
+          <div class="dice-history-filter-row">
+            <button type="button" data-dice-filter="all" class="toggle-active">Todos</button>
+            <button type="button" data-dice-filter="mine">Minhas</button>
+            <button type="button" data-dice-filter="private">Privadas</button>
+          </div>
+          <div id="dice-log"></div>
+        </div>
       </div>
     </div>
 
@@ -4003,10 +4148,15 @@
     selectedTokenId:null,
     selectedTextId:null,
     previewAsPlayer:false,
-    diceQty:{4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0},
+    diceQtyMap:{4:1, 6:1, 8:1, 10:1, 12:1, 20:1, 100:1},
+    diceActiveSides:20,
     diceModifier:0,
+    diceMode:'normal',
     diceVisibility:'public',
     diceRolls:[],
+    diceFavorites:[],
+    diceRecents:[],
+    diceHistoryFilter:'all',
     pingArmed:false,
     measureArmed:false,
     measureDrag:null,
@@ -4178,6 +4328,8 @@
 
   // ---------- dice roller (available to master and players alike) ----------
   const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
+  const DICE_COLORS = {4:'#a97c3f', 6:'#c0464f', 8:'#3f9d64', 10:'#4a90d9', 12:'#9b6fe0', 20:'#e2a53f', 100:'#3fb8b0'};
+  const DICE_SHAPE_SIDES = {4:3, 6:4, 8:5, 10:6, 12:7, 20:8, 100:0};
   let lastDiceLogSnapshot = '';
   let lastInitiativeSnapshot = '';
   let lastCombatHistorySnapshot = '';
@@ -4523,11 +4675,7 @@
   const diceNotificationQueuedIds = new Set();
 
   function diceBreakdownCompact(entry){
-    const dice = (entry.breakdown || []).map(b => {
-      const vals = Array.isArray(b.results) ? b.results.join(', ') : '';
-      return (b.results && b.results.length > 1 ? b.results.length : 1) + 'd' + b.sides + (vals ? ' [' + vals + ']' : '');
-    }).join(' + ');
-    return dice + signedDiceModifier(entry.modifier);
+    return entry.formula || '';
   }
 
   function enqueueDiceNotification(entry){
@@ -5775,65 +5923,101 @@
     if(thread) beginThreadView(thread);
   });
 
-  function renderDiceTypes(){
-    const $wrap = el('dice-types');
-    $wrap.innerHTML = DICE_TYPES.map(sides =>
-      '<div class="dice-type-row">' +
-        '<span class="die-label">d'+sides+'</span>' +
-        '<button type="button" data-dice-minus="'+sides+'">−</button>' +
-        '<input type="number" min="0" max="20" value="'+(state.diceQty[sides]||0)+'" data-dice-qty="'+sides+'">' +
-        '<button type="button" data-dice-plus="'+sides+'">+</button>' +
-      '</div>'
-    ).join('');
-    $wrap.querySelectorAll('[data-dice-minus]').forEach(btn=>{
-      btn.addEventListener('click', () => adjustDiceQty(Number(btn.getAttribute('data-dice-minus')), -1));
-    });
-    $wrap.querySelectorAll('[data-dice-plus]').forEach(btn=>{
-      btn.addEventListener('click', () => adjustDiceQty(Number(btn.getAttribute('data-dice-plus')), 1));
-    });
-    $wrap.querySelectorAll('[data-dice-qty]').forEach(inp=>{
-      inp.addEventListener('change', () => {
-        const sides = Number(inp.getAttribute('data-dice-qty'));
-        let v = parseInt(inp.value, 10);
-        if(isNaN(v) || v < 0) v = 0;
-        if(v > 20) v = 20;
-        state.diceQty[sides] = v;
-        inp.value = v;
-      });
-    });
-    const modifierInput = el('dice-modifier');
-    if(modifierInput) modifierInput.value = normalizedDiceModifier(state.diceModifier);
+  // ===== dice icon rendering =====
+  function regularPolygonPoints(sides, cx, cy, r, rotationDeg){
+    const pts = [];
+    for(let i = 0; i < sides; i++){
+      const angle = (Math.PI * 2 * i / sides) - Math.PI / 2 + (rotationDeg || 0) * Math.PI / 180;
+      pts.push((cx + r * Math.cos(angle)).toFixed(1) + ',' + (cy + r * Math.sin(angle)).toFixed(1));
+    }
+    return pts.join(' ');
   }
-  function adjustDiceQty(sides, delta){
-    const current = state.diceQty[sides] || 0;
-    state.diceQty[sides] = Math.max(0, Math.min(20, current + delta));
-    renderDiceTypes();
+  function diceIconSvg(sides){
+    const n = DICE_SHAPE_SIDES[sides];
+    if(n === 0){
+      return '<svg viewBox="0 0 36 36" class="dice-icon" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="var(--die-color)" fill-opacity="0.22" stroke="var(--die-color)" stroke-width="2.2"/></svg>';
+    }
+    if(sides === 6){
+      return '<svg viewBox="0 0 36 36" class="dice-icon" aria-hidden="true"><rect x="4.5" y="4.5" width="27" height="27" fill="var(--die-color)" fill-opacity="0.22" stroke="var(--die-color)" stroke-width="2.2"/></svg>';
+    }
+    const pts = regularPolygonPoints(n || 6, 18, 18, 15, 0);
+    return '<svg viewBox="0 0 36 36" class="dice-icon" aria-hidden="true"><polygon points="' + pts + '" fill="var(--die-color)" fill-opacity="0.22" stroke="var(--die-color)" stroke-width="2.2"/></svg>';
   }
 
+  // ===== roll spec engine =====
   function rollOneDie(sides){ return 1 + Math.floor(Math.random() * sides); }
 
-  async function performDiceRoll(){
-    const breakdown = [];
-    let total = 0;
-    DICE_TYPES.forEach(sides => {
-      const qty = state.diceQty[sides] || 0;
-      if(qty > 0){
-        const results = [];
-        for(let i = 0; i < qty; i++){ const r = rollOneDie(sides); results.push(r); total += r; }
-        breakdown.push({ sides, results });
+  function normalizedDiceQty(value){
+    const qty = parseInt(value, 10);
+    return isNaN(qty) ? 1 : Math.max(1, Math.min(20, qty));
+  }
+
+  function simpleFormulaText(sides, qty, modifier, keepSuffix){
+    let text = qty + 'd' + sides + (keepSuffix || '');
+    const mod = modifier || 0;
+    if(mod > 0) text += ' + ' + mod;
+    else if(mod < 0) text += ' − ' + Math.abs(mod);
+    return text;
+  }
+
+  // spec: { sides, qty, modifier, mode:'normal'|'advantage'|'disadvantage', keep:{type:'kh'|'kl', count}|null }
+  function executeDiceSpec(spec){
+    const sides = spec.sides, qty = Math.max(1, spec.qty || 1);
+    const modifier = normalizedDiceModifier(spec.modifier || 0);
+    let breakdown, total = 0;
+    if(sides === 20 && spec.mode && spec.mode !== 'normal' && !spec.keep){
+      const keepHigh = spec.mode === 'advantage';
+      const pairs = [];
+      for(let i = 0; i < qty; i++){
+        const r1 = rollOneDie(20), r2 = rollOneDie(20);
+        const keptIdx = keepHigh ? (r1 >= r2 ? 0 : 1) : (r1 <= r2 ? 0 : 1);
+        total += keptIdx === 0 ? r1 : r2;
+        pairs.push({ values:[r1, r2], kept: keptIdx });
       }
-    });
-    if(breakdown.length === 0) return;
-    const modifier = normalizedDiceModifier(state.diceModifier);
+      breakdown = [{ sides, pairs, keepType: keepHigh ? 'kh' : 'kl' }];
+    } else if(spec.keep && spec.keep.count < qty){
+      const all = []; for(let i = 0; i < qty; i++) all.push(rollOneDie(sides));
+      const order = all.map((v,i)=>({v,i})).sort((a,b)=> spec.keep.type === 'kh' ? b.v - a.v : a.v - b.v);
+      const keptIndices = order.slice(0, spec.keep.count).map(x=>x.i).sort((a,b)=>a-b);
+      total += keptIndices.reduce((s,i)=>s+all[i], 0);
+      breakdown = [{ sides, results: all, keptIndices, keepType: spec.keep.type }];
+    } else {
+      const results = []; for(let i = 0; i < qty; i++){ const r = rollOneDie(sides); results.push(r); total += r; }
+      breakdown = [{ sides, results }];
+    }
     total += modifier;
+    let critType = null;
+    if(sides === 20 && qty === 1 && (!spec.keep || spec.keep.count === 1)){
+      const b = breakdown[0];
+      const val = b.pairs ? b.pairs[0].values[b.pairs[0].kept] : b.results[0];
+      if(val === 20) critType = 'success';
+      else if(val === 1) critType = 'fail';
+    }
+    const keepSuffix = spec.keep ? (spec.keep.type + spec.keep.count) : (breakdown[0].pairs ? breakdown[0].keepType + '1' : '');
+    const formula = simpleFormulaText(sides, qty, modifier, keepSuffix);
+    return { breakdown, total, modifier, critType, formula };
+  }
+
+  async function logDiceRoll(spec, opts){
+    opts = opts || {};
+    const result = executeDiceSpec(spec);
     const entry = {
       id: newId('r'), ts: Date.now(),
       roller: state.isMaster ? 'Mestre' : (state.playerName || 'Jogador'),
       color: state.isMaster ? '#e2a53f' : (state.playerColor || '#e2a53f'),
-      breakdown, modifier, total,
-      private: state.diceVisibility === 'private'
+      label: opts.label || null,
+      sides: spec.sides, qty: Math.max(1, spec.qty || 1), mode: spec.mode || 'normal', keep: spec.keep || null,
+      formula: result.formula, breakdown: result.breakdown, modifier: result.modifier, total: result.total,
+      critType: result.critType,
+      private: opts.private != null ? opts.private : (state.diceVisibility === 'private')
     };
     await pushRoll(entry);
+    pushRecentRoll(entry);
+    return entry;
+  }
+
+  function rollDiceQuick(sides, qty, modeOverride){
+    logDiceRoll({ sides, qty: qty || 1, modifier: state.diceModifier, mode: modeOverride || state.diceMode }, { private: state.diceVisibility === 'private' });
   }
 
   async function pushRoll(entry){
@@ -5851,37 +6035,246 @@
     await safeSet(slotKey('dice-log'), { list });
   }
 
+  async function deleteDiceEntry(id){
+    state.diceRolls = state.diceRolls.filter(r => r.id !== id);
+    lastDiceLogSnapshot = JSON.stringify({ list: state.diceRolls });
+    renderDiceLog();
+    await safeSet(slotKey('dice-log'), { list: state.diceRolls });
+  }
+
   function formatDiceTime(ts){
     const d = new Date(ts);
     return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
   }
 
+  // ===== dice picker (Rápido tab) =====
+  function renderDicePickerGrid(){
+    const $wrap = el('dice-picker-grid');
+    if(!$wrap) return;
+    $wrap.innerHTML = DICE_TYPES.map(sides =>
+      '<button type="button" class="dice-pick-btn'+(state.diceActiveSides===sides?' dice-pick-active':'')+'" data-dice-pick="'+sides+'" style="--die-color:'+DICE_COLORS[sides]+';">' +
+        diceIconSvg(sides) +
+        '<span class="dice-pick-label">d'+sides+'</span>' +
+      '</button>'
+    ).join('');
+    $wrap.querySelectorAll('[data-dice-pick]').forEach(btn => {
+      const sides = Number(btn.getAttribute('data-dice-pick'));
+      btn.addEventListener('click', (e) => {
+        if(e.shiftKey){
+          state.diceActiveSides = sides;
+          state.diceQtyMap[sides] = normalizedDiceQty((state.diceQtyMap[sides]||1) + 1);
+          renderDiceActiveDisplay();
+          return;
+        }
+        state.diceActiveSides = sides;
+        if(!state.diceQtyMap[sides]) state.diceQtyMap[sides] = 1;
+        renderDiceActiveDisplay();
+        rollDiceQuick(sides, state.diceQtyMap[sides]);
+      });
+      btn.addEventListener('contextmenu', (e) => openContextMenu(e, 'dicepicker', sides));
+    });
+  }
+  function renderDiceActiveDisplay(){
+    const qtyInput = el('dice-qty-display');
+    if(qtyInput) qtyInput.value = state.diceQtyMap[state.diceActiveSides] || 1;
+    const modifierInput = el('dice-modifier');
+    if(modifierInput) modifierInput.value = normalizedDiceModifier(state.diceModifier);
+    document.querySelectorAll('.dice-pick-btn').forEach(btn => {
+      btn.classList.toggle('dice-pick-active', Number(btn.getAttribute('data-dice-pick')) === state.diceActiveSides);
+    });
+    const modeHint = el('dice-mode-hint');
+    if(modeHint) modeHint.textContent = (state.diceMode !== 'normal' && state.diceActiveSides !== 20) ? 'Vantagem/Desvantagem só afetam o d20.' : '';
+  }
+
+  // ===== quick formula parser (Avançado tab) =====
+  function parseDiceFormula(text){
+    if(!text) return null;
+    const t = text.replace(/\s+/g, '').replace(/−/g, '-');
+    const m = /^(\d{0,2})d(4|6|8|10|12|20|100)((?:kh|kl)\d{1,2})?([+-]\d+)?$/i.exec(t);
+    if(!m) return null;
+    const qty = m[1] ? parseInt(m[1],10) : 1;
+    const sides = parseInt(m[2],10);
+    if(qty < 1 || qty > 20) return null;
+    let keep = null;
+    if(m[3]){
+      const kt = m[3].slice(0,2).toLowerCase();
+      const kc = parseInt(m[3].slice(2),10);
+      if(kc >= 1 && kc < qty) keep = { type: kt, count: kc };
+    }
+    const modifier = m[4] ? parseInt(m[4],10) : 0;
+    return { sides, qty, modifier, keep, mode:'normal' };
+  }
+  function describeDiceFormula(spec){
+    let d = spec.qty + 'd' + spec.sides;
+    if(spec.keep) d += ' mantendo o' + (spec.keep.type==='kh' ? ' maior' : ' menor') + (spec.keep.count>1 ? ' ('+spec.keep.count+')' : '');
+    if(spec.modifier > 0) d += ' + ' + spec.modifier;
+    else if(spec.modifier < 0) d += ' − ' + Math.abs(spec.modifier);
+    return d;
+  }
+  function updateFormulaHint(){
+    const input = el('dice-formula-input'), hint = el('dice-formula-hint');
+    if(!input || !hint) return;
+    const text = input.value.trim();
+    if(!text){ hint.classList.remove('error'); hint.textContent = 'Use NdM (ex.: 4d6), kh/kl para manter os maiores/menores (ex.: 4d6kh3) e + ou − para o modificador.'; return; }
+    const spec = parseDiceFormula(text);
+    if(!spec){ hint.classList.add('error'); hint.textContent = 'Fórmula inválida — ex.: 1d20 + 5, 4d6kh3, 2d20kl1 − 1.'; return; }
+    hint.classList.remove('error');
+    hint.textContent = describeDiceFormula(spec);
+  }
+  function submitDiceFormula(){
+    const input = el('dice-formula-input');
+    const spec = parseDiceFormula((input.value||'').trim());
+    if(!spec){ updateFormulaHint(); showToast('Fórmula inválida — ex.: 1d20 + 5 ou 4d6kh3.'); return; }
+    logDiceRoll(spec, { private: state.diceVisibility === 'private' });
+  }
+
+  // ===== favorites (saved per device) =====
+  function diceFavKey(){ return 'dice-favorites-' + state.currentSlot; }
+  function loadDiceFavorites(){ try{ state.diceFavorites = JSON.parse(localStorage.getItem(diceFavKey())||'[]'); }catch(e){ state.diceFavorites = []; } }
+  function saveDiceFavorites(){ try{ localStorage.setItem(diceFavKey(), JSON.stringify(state.diceFavorites)); }catch(e){} }
+  function addDiceFavoriteFromCurrent(){
+    const sides = state.diceActiveSides, qty = state.diceQtyMap[sides] || 1;
+    const name = prompt('Nome do favorito (ex.: Ataque +7):');
+    if(!name || !name.trim()) return;
+    state.diceFavorites.unshift({ id:newId('fav'), name:name.trim().slice(0,40), sides, qty, modifier: normalizedDiceModifier(state.diceModifier) });
+    if(state.diceFavorites.length > 14) state.diceFavorites = state.diceFavorites.slice(0,14);
+    saveDiceFavorites(); renderDiceFavorites();
+    showToast('Favorito salvo.');
+  }
+  function addDiceFavoriteFromEntry(entry){
+    const name = prompt('Nome do favorito:', entry.label || '');
+    if(!name || !name.trim()) return;
+    state.diceFavorites.unshift({ id:newId('fav'), name:name.trim().slice(0,40), sides: entry.sides, qty: entry.qty||1, modifier: entry.modifier||0 });
+    if(state.diceFavorites.length > 14) state.diceFavorites = state.diceFavorites.slice(0,14);
+    saveDiceFavorites(); renderDiceFavorites();
+    showToast('Favorito salvo.');
+  }
+  function rollDiceFavorite(fav){
+    logDiceRoll({ sides: fav.sides, qty: fav.qty, modifier: fav.modifier, mode:'normal' }, { label: fav.name, private: state.diceVisibility === 'private' });
+  }
+  function deleteDiceFavorite(id){ state.diceFavorites = state.diceFavorites.filter(f=>f.id!==id); saveDiceFavorites(); renderDiceFavorites(); }
+  function renameDiceFavorite(id){
+    const fav = state.diceFavorites.find(f=>f.id===id); if(!fav) return;
+    const name = prompt('Novo nome:', fav.name); if(!name || !name.trim()) return;
+    fav.name = name.trim().slice(0,40); saveDiceFavorites(); renderDiceFavorites();
+  }
+  function renderDiceFavorites(){
+    const $wrap = el('dice-favorites-grid'); if(!$wrap) return;
+    if(!state.diceFavorites.length){ $wrap.innerHTML = '<div class="hint">Nenhum favorito salvo ainda.</div>'; return; }
+    $wrap.innerHTML = state.diceFavorites.map(fav =>
+      '<div class="dice-fav-card">' +
+        '<div class="dice-fav-main" data-fav-roll="'+fav.id+'">' +
+          '<span class="dice-fav-icon">🎲</span>' +
+          '<span class="dice-fav-text"><span class="dice-fav-name">'+escapeHtml(fav.name)+'</span>' +
+          '<span class="dice-fav-formula">'+escapeHtml(simpleFormulaText(fav.sides, fav.qty, fav.modifier))+'</span></span>' +
+        '</div>' +
+        '<button type="button" class="dice-fav-menu" data-fav-menu="'+fav.id+'">⋮</button>' +
+      '</div>'
+    ).join('');
+    $wrap.querySelectorAll('[data-fav-roll]').forEach(elm => elm.addEventListener('click', () => {
+      const fav = state.diceFavorites.find(f=>f.id===elm.getAttribute('data-fav-roll')); if(fav) rollDiceFavorite(fav);
+    }));
+    $wrap.querySelectorAll('[data-fav-menu]').forEach(btn => btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openContextMenu(e, 'dicefav', btn.getAttribute('data-fav-menu'));
+    }));
+  }
+
+  // ===== recents (derived automatically, saved per device) =====
+  function diceRecentsKey(){ return 'dice-recents-' + state.currentSlot; }
+  function loadDiceRecents(){ try{ state.diceRecents = JSON.parse(localStorage.getItem(diceRecentsKey())||'[]'); }catch(e){ state.diceRecents = []; } }
+  function saveDiceRecents(){ try{ localStorage.setItem(diceRecentsKey(), JSON.stringify(state.diceRecents)); }catch(e){} }
+  function pushRecentRoll(entry){
+    if(!entry.formula) return;
+    const item = { formula: entry.formula, sides: entry.sides, qty: entry.qty, modifier: entry.modifier, mode: entry.mode, keep: entry.keep };
+    state.diceRecents = [item, ...state.diceRecents.filter(r => r.formula !== item.formula)].slice(0, 6);
+    saveDiceRecents(); renderDiceRecents();
+  }
+  function clearDiceRecents(){ state.diceRecents = []; saveDiceRecents(); renderDiceRecents(); }
+  function renderDiceRecents(){
+    const $wrap = el('dice-recents-row'); if(!$wrap) return;
+    if(!state.diceRecents.length){ $wrap.innerHTML = '<div class="hint">Nenhuma rolagem recente.</div>'; return; }
+    $wrap.innerHTML = state.diceRecents.map((r,i) => '<button type="button" class="dice-recent-chip" data-recent-idx="'+i+'">'+escapeHtml(r.formula)+'</button>').join('');
+    $wrap.querySelectorAll('[data-recent-idx]').forEach(btn => btn.addEventListener('click', () => {
+      const r = state.diceRecents[Number(btn.getAttribute('data-recent-idx'))]; if(!r) return;
+      logDiceRoll({ sides:r.sides, qty:r.qty, modifier:r.modifier, mode:r.mode, keep:r.keep }, { private: state.diceVisibility === 'private' });
+    }));
+  }
+
+  // ===== history rendering =====
+  function diceBreakdownChipsHtml(breakdown){
+    return breakdown.map(b => {
+      const color = DICE_COLORS[b.sides] || '#c8892e';
+      if(b.pairs){
+        return b.pairs.map(p =>
+          p.values.map((v,i) => '<span class="die-chip'+(i===p.kept?' kept':' dropped')+'" style="--die-color:'+color+';">'+v+'</span>').join('')
+        ).join('');
+      }
+      const kept = b.keptIndices;
+      return b.results.map((v,i) => {
+        let cls = 'die-chip';
+        if(kept) cls += kept.includes(i) ? ' kept' : ' dropped';
+        return '<span class="'+cls+'" style="--die-color:'+color+';">'+v+'</span>';
+      }).join('');
+    }).join('');
+  }
+  function diceAvatarInitial(name){ return (name||'?').trim().charAt(0).toUpperCase() || '?'; }
+
   function renderDiceLog(){
     const myName = state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
-    const visible = state.diceRolls
-      .filter(entry => !entry.private || effectiveMaster() || entry.roller === myName)
-      .sort((a,b) => b.ts - a.ts)
-      .slice(0, 25);
+    const filter = state.diceHistoryFilter || 'all';
+    let visible = state.diceRolls.filter(entry => !entry.private || effectiveMaster() || entry.roller === myName);
+    if(filter === 'mine') visible = visible.filter(entry => entry.roller === myName);
+    else if(filter === 'private') visible = visible.filter(entry => entry.private);
+    visible = visible.sort((a,b) => b.ts - a.ts).slice(0, 25);
     const $log = el('dice-log');
+    if(!$log) return;
     const clearBtn = el('btn-dice-history-clear');
     if(clearBtn) clearBtn.style.display = effectiveMaster() && state.diceRolls.length ? 'block' : 'none';
+    document.querySelectorAll('[data-dice-filter]').forEach(btn => btn.classList.toggle('toggle-active', btn.getAttribute('data-dice-filter') === filter));
     if(visible.length === 0){
       $log.innerHTML = '<div class="hint">Nenhuma rolagem ainda.</div>';
       return;
     }
+    const myEffName = state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
     $log.innerHTML = visible.map(entry => {
-      const breakdownText = entry.breakdown.map(b => (b.results.length > 1 ? b.results.length : 1)+'d'+b.sides+' ('+b.results.join(', ')+')').join(' + ') + signedDiceModifier(entry.modifier);
+      const totalCls = entry.critType === 'fail' ? ' crit-fail' : entry.critType === 'success' ? ' crit-success' : '';
+      const critTag = entry.critType === 'fail' ? '<span class="dice-log-crit-tag fail">FALHA NATURAL</span>'
+        : entry.critType === 'success' ? '<span class="dice-log-crit-tag success">✨ CRÍTICO NATURAL!</span>' : '';
+      const canManage = effectiveMaster() || entry.roller === myEffName;
       return (
-        '<div class="dice-log-entry'+(entry.private ? ' private' : '')+'">' +
-          '<div class="dice-log-meta">' +
-            '<span class="roller" style="color:'+(entry.color||'var(--amber-bright)')+';">'+escapeHtml(entry.roller)+(entry.private ? ' 🔒 privado' : '')+'</span>' +
-            '<span>'+formatDiceTime(entry.ts)+'</span>' +
+        '<div class="dice-log-entry'+(entry.private ? ' private' : '')+'" data-dice-entry="'+entry.id+'">' +
+          '<div class="dice-log-top">' +
+            '<div class="dice-log-avatar" style="background:color-mix(in srgb, '+(entry.color||'#e2a53f')+' 55%, #120e08);">'+diceAvatarInitial(entry.roller)+'</div>' +
+            '<div class="dice-log-who">' +
+              '<div><span class="roller">'+escapeHtml(entry.roller)+'</span>'+(entry.private ? '<span class="roller-private">🙈 privada'+(entry.roller!==myEffName?' (mestre vê)':'')+'</span>' : '')+'</div>' +
+              (entry.label ? '<div class="dice-log-label">'+escapeHtml(entry.label)+'</div>' : '') +
+            '</div>' +
+            '<div class="dice-log-ts">'+formatDiceTime(entry.ts)+'</div>' +
           '</div>' +
-          '<div class="dice-log-breakdown">'+escapeHtml(breakdownText)+'</div>' +
-          '<div class="dice-log-total">Total: '+entry.total+'</div>' +
+          '<div class="dice-log-formula">'+escapeHtml(entry.formula)+'</div>' +
+          '<div class="dice-log-roll-row">' +
+            diceBreakdownChipsHtml(entry.breakdown) +
+            (entry.modifier ? '<span class="dice-log-op">'+(entry.modifier>0?'+':'−')+' '+Math.abs(entry.modifier)+'</span>' : '') +
+            '<span class="dice-log-op">=</span>' +
+            '<span class="dice-log-total'+totalCls+'">'+entry.total+'</span>' +
+            critTag +
+          '</div>' +
+          '<div class="dice-log-actions">' +
+            '<button type="button" class="dice-log-reroll" data-dice-reroll="'+entry.id+'">🔄 Rolar novamente</button>' +
+            (canManage ? '<button type="button" class="dice-log-menu-btn" data-dice-entry-menu="'+entry.id+'">⋮</button>' : '') +
+          '</div>' +
         '</div>'
       );
     }).join('');
+    $log.querySelectorAll('[data-dice-reroll]').forEach(btn => btn.addEventListener('click', () => {
+      const entry = state.diceRolls.find(r=>r.id===btn.getAttribute('data-dice-reroll')); if(!entry) return;
+      logDiceRoll({ sides:entry.sides, qty:entry.qty, modifier:entry.modifier, mode:entry.mode, keep:entry.keep }, { label:entry.label, private: entry.private });
+    }));
+    $log.querySelectorAll('[data-dice-entry-menu]').forEach(btn => btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openContextMenu(e, 'diceentry', btn.getAttribute('data-dice-entry-menu'));
+    }));
   }
 
   async function clearDiceHistory(){
@@ -7184,10 +7577,15 @@
     state.barrierDraftStart = null;
     state.selectedTokenId = null;
     state.previewAsPlayer = false;
-    state.diceQty = {4:0, 6:0, 8:0, 10:0, 12:0, 20:1, 100:0};
+    state.diceQtyMap = {4:1, 6:1, 8:1, 10:1, 12:1, 20:1, 100:1};
+    state.diceActiveSides = 20;
     state.diceModifier = 0;
+    state.diceMode = 'normal';
     state.diceVisibility = 'public';
     state.diceRolls = [];
+    state.diceFavorites = [];
+    state.diceRecents = [];
+    state.diceHistoryFilter = 'all';
     state.pingArmed = false;
     state.measureArmed = false;
     state.measureDrag = null;
@@ -7343,6 +7741,8 @@
   el('btn-multi-clear').addEventListener('click', () => { multiSelectedTokenIds = new Set(); render(); });
 
   function openDicePanel(){
+    loadDiceFavorites(); loadDiceRecents();
+    renderDicePickerGrid(); renderDiceActiveDisplay(); renderDiceFavorites(); renderDiceRecents(); renderDiceLog();
     el('dice-panel').classList.add('open');
     el('dice-backdrop').classList.add('open');
   }
@@ -7364,6 +7764,16 @@
   });
   el('dice-panel-close').addEventListener('click', closeDicePanel);
   el('dice-backdrop').addEventListener('click', closeDicePanel);
+
+  document.querySelectorAll('[data-dice-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-dice-tab');
+      document.querySelectorAll('[data-dice-tab]').forEach(b => b.classList.toggle('toggle-active', b===btn));
+      el('dice-tab-rapido').style.display = tab === 'rapido' ? 'flex' : 'none';
+      el('dice-tab-avancado').style.display = tab === 'avancado' ? 'flex' : 'none';
+    });
+  });
+
   el('dice-public').addEventListener('click', () => {
     state.diceVisibility = 'public';
     el('dice-public').classList.add('toggle-active');
@@ -7374,6 +7784,23 @@
     el('dice-private').classList.add('toggle-active');
     el('dice-public').classList.remove('toggle-active');
   });
+
+  el('dice-qty-minus').addEventListener('click', () => {
+    state.diceQtyMap[state.diceActiveSides] = normalizedDiceQty((state.diceQtyMap[state.diceActiveSides]||1) - 1);
+    renderDiceActiveDisplay();
+  });
+  el('dice-qty-plus').addEventListener('click', () => {
+    state.diceQtyMap[state.diceActiveSides] = normalizedDiceQty((state.diceQtyMap[state.diceActiveSides]||1) + 1);
+    renderDiceActiveDisplay();
+  });
+  el('dice-mod-minus').addEventListener('click', () => {
+    state.diceModifier = normalizedDiceModifier((state.diceModifier||0) - 1);
+    el('dice-modifier').value = state.diceModifier;
+  });
+  el('dice-mod-plus').addEventListener('click', () => {
+    state.diceModifier = normalizedDiceModifier((state.diceModifier||0) + 1);
+    el('dice-modifier').value = state.diceModifier;
+  });
   el('dice-modifier').addEventListener('input', () => {
     state.diceModifier = normalizedDiceModifier(el('dice-modifier').value);
   });
@@ -7381,10 +7808,31 @@
     el('dice-modifier').value = normalizedDiceModifier(el('dice-modifier').value);
   });
   el('dice-modifier').addEventListener('keydown', e => {
-    if(e.key === 'Enter'){ e.preventDefault(); performDiceRoll(); }
+    if(e.key === 'Enter'){ e.preventDefault(); rollDiceQuick(state.diceActiveSides, state.diceQtyMap[state.diceActiveSides]||1); }
   });
-  el('btn-roll-dice').addEventListener('click', performDiceRoll);
+
+  document.querySelectorAll('[data-dice-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.diceMode = btn.getAttribute('data-dice-mode');
+      document.querySelectorAll('[data-dice-mode]').forEach(b => b.classList.toggle('toggle-active', b===btn));
+      renderDiceActiveDisplay();
+    });
+  });
+
+  el('btn-roll-dice').addEventListener('click', () => rollDiceQuick(state.diceActiveSides, state.diceQtyMap[state.diceActiveSides]||1));
   el('btn-dice-history-clear').addEventListener('click', clearDiceHistory);
+
+  el('dice-formula-input').addEventListener('input', updateFormulaHint);
+  el('dice-formula-input').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); submitDiceFormula(); } });
+  el('dice-formula-clear').addEventListener('click', () => { el('dice-formula-input').value=''; updateFormulaHint(); });
+  el('btn-roll-formula').addEventListener('click', submitDiceFormula);
+
+  el('btn-dice-fav-add').addEventListener('click', addDiceFavoriteFromCurrent);
+  el('btn-dice-recents-clear').addEventListener('click', clearDiceRecents);
+
+  document.querySelectorAll('[data-dice-filter]').forEach(btn => {
+    btn.addEventListener('click', () => { state.diceHistoryFilter = btn.getAttribute('data-dice-filter'); renderDiceLog(); });
+  });
 
   el('btn-export-campaign').addEventListener('click', exportCampaignBackup);
   el('campaign-backup-input').addEventListener('change', async (e) => {
@@ -8141,7 +8589,6 @@
     el('grid-type-square').classList.toggle('toggle-active', gridSettings.type !== 'hex');
     el('grid-type-hex').classList.toggle('toggle-active', gridSettings.type === 'hex');
 
-    renderDiceTypes();
     renderDiceLog();
     renderInitiativeList();
     renderInitiativeHud();
@@ -8825,6 +9272,29 @@
   function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
   function openContextMenu(e,type,id){
     closeConditionsPicker();
+    if(type==='dicepicker'||type==='dicefav'||type==='diceentry'){
+      e.preventDefault(); e.stopPropagation();
+      const menu=el('context-menu'); contextTarget={type,id}; let diceActions=[];
+      if(type==='dicepicker'){
+        const sides=Number(id);
+        diceActions=[['Rolar 1','roll1'],['Rolar 2','roll2'],['Rolar 3','roll3'],['Rolar 4','roll4'],['+ Adicionar à seleção','addpool']];
+        if(sides===20) diceActions.push(['⇈ Rolar com vantagem','rolladv'],['⇊ Rolar com desvantagem','rolldis']);
+      } else if(type==='dicefav'){
+        diceActions=[['✏️ Renomear','rename'],['🗑 Excluir favorito','delete','context-danger']];
+      } else if(type==='diceentry'){
+        const entry=state.diceRolls.find(r=>r.id===id);
+        const myName=state.isMaster?'Mestre':(state.playerName||'Jogador');
+        diceActions=[['🔖 Salvar como favorito','savefav']];
+        if(entry&&(effectiveMaster()||entry.roller===myName)) diceActions.push(['🗑 Excluir rolagem','deleteentry','context-danger']);
+      }
+      menu.innerHTML=diceActions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
+      menu.style.left='8px'; menu.style.top='8px'; menu.classList.add('open');
+      const menuWidth=Math.min(menu.offsetWidth||190,window.innerWidth-16);
+      const menuHeight=Math.min(menu.scrollHeight||150,window.innerHeight-16);
+      menu.style.left=Math.max(8,Math.min(e.clientX,window.innerWidth-menuWidth-8))+'px';
+      menu.style.top=Math.max(8,Math.min(e.clientY,window.innerHeight-menuHeight-8))+'px';
+      return;
+    }
     const tokForLantern=type==='token'?state.tokens.find(t=>t.id===id):null;
     if(!effectiveMaster()&&!canToggleTokenLantern(tokForLantern)&&!(type==='token'&&canResizeToken(tokForLantern))) return;
     e.preventDefault(); e.stopPropagation();
@@ -9069,6 +9539,32 @@
   }
   async function executeContextAction(action,anchorRect){
     const c=contextTarget; closeContextMenu(); if(!c)return;
+    if(c.type==='dicepicker'){
+      const sides=Number(c.id);
+      if(action==='roll1') rollDiceQuick(sides,1);
+      else if(action==='roll2') rollDiceQuick(sides,2);
+      else if(action==='roll3') rollDiceQuick(sides,3);
+      else if(action==='roll4') rollDiceQuick(sides,4);
+      else if(action==='addpool'){ state.diceActiveSides=sides; state.diceQtyMap[sides]=normalizedDiceQty((state.diceQtyMap[sides]||1)+1); renderDiceActiveDisplay(); }
+      else if(action==='rolladv') rollDiceQuick(sides,1,'advantage');
+      else if(action==='rolldis') rollDiceQuick(sides,1,'disadvantage');
+      return;
+    }
+    if(c.type==='dicefav'){
+      const fav=state.diceFavorites.find(f=>f.id===c.id); if(!fav)return;
+      if(action==='rename') renameDiceFavorite(fav.id);
+      else if(action==='delete'){ if(confirm('Excluir o favorito "'+fav.name+'"?')) deleteDiceFavorite(fav.id); }
+      return;
+    }
+    if(c.type==='diceentry'){
+      const entry=state.diceRolls.find(r=>r.id===c.id); if(!entry)return;
+      const myName=state.isMaster?'Mestre':(state.playerName||'Jogador');
+      if(action==='savefav') addDiceFavoriteFromEntry(entry);
+      else if(action==='deleteentry'&&(effectiveMaster()||entry.roller===myName)){
+        if(confirm('Excluir esta rolagem do histórico?')) await deleteDiceEntry(entry.id);
+      }
+      return;
+    }
     if(c.type==='text'){
       const page=currentPage(),txt=page&&page.texts.find(t=>t.id===c.id); if(!txt)return;
       if(action==='edit'){ const node=document.querySelector('.map-text[data-id="'+c.id+'"]'); if(node)beginInlineTextEdit(node,c.id); return; }
