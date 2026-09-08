@@ -1798,8 +1798,49 @@
   #music-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
   #music-panel-close{ padding:4px 9px; font-size:12px; }
   #music-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
-  #music-track-list{ display:flex; flex-direction:column; gap:6px; overflow:visible; }
+  #music-label-toolbar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  #music-create-label{ flex:0 0 auto; }
+  #music-label-create-form{ display:none; grid-template-columns:minmax(0,1fr) 48px auto auto; gap:6px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:6px; background:rgba(0,0,0,.12); }
+  #music-label-create-form.open{ display:grid; }
+  #music-label-name{ min-width:0; }
+  #music-label-color{ width:48px; height:34px; padding:2px; border:1px solid var(--line); border-radius:4px; background:#120e08; cursor:pointer; }
+  #music-label-picker{ display:none; position:fixed; z-index:10050; min-width:190px; max-width:min(280px,calc(100vw - 16px)); max-height:300px; overflow-y:auto; padding:6px; border:1px solid var(--amber); border-radius:7px; background:var(--bg-panel); box-shadow:0 10px 26px rgba(0,0,0,.55); }
+  #music-label-picker.open{ display:flex; flex-direction:column; gap:4px; }
+  .music-label-picker-title{ padding:5px 7px; color:var(--parchment-dim); font-family:'JetBrains Mono',monospace; font-size:8px; text-transform:uppercase; letter-spacing:.6px; }
+  .music-label-choice{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; text-transform:none; letter-spacing:0; }
+  .music-label-swatch{ width:11px; height:11px; border-radius:50%; flex:0 0 auto; border:1px solid rgba(255,255,255,.25); background:var(--label-color,var(--parchment-dim)); }
+  #music-track-list{ display:flex; flex-direction:column; gap:8px; overflow:visible; scroll-behavior:smooth; }
   #music-track-list.music-list-scroll{ max-height:520px; overflow-y:auto; padding-right:3px; }
+  .music-category-guide{
+    position:sticky; top:0; z-index:4; display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+    padding:7px 6px; margin:-1px 0 2px; background:color-mix(in srgb,var(--bg-panel) 96%,transparent);
+    border:1px solid var(--line); border-radius:6px; backdrop-filter:blur(5px);
+  }
+  .music-category-guide-label{ font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--parchment-dim); text-transform:uppercase; letter-spacing:.6px; margin-right:2px; }
+  .music-category-jump{
+    padding:3px 7px; border-radius:999px; border:1px solid var(--music-cat-color,var(--line));
+    color:var(--music-cat-color,var(--parchment)); background:var(--music-cat-bg,rgba(255,255,255,.03));
+    font-size:8px; text-transform:none; letter-spacing:0; line-height:1.25;
+  }
+  .music-category-jump:hover{ border-color:var(--music-cat-color,var(--amber)); color:var(--music-cat-color,var(--amber-bright)); filter:brightness(1.15); }
+  .music-category-group{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .music-category-header{
+    display:flex; align-items:center; gap:7px; min-height:25px; padding:4px 8px; margin-top:2px;
+    border-left:4px solid var(--music-cat-color,var(--line)); border-bottom:1px solid var(--line);
+    background:linear-gradient(90deg,var(--music-cat-bg,rgba(255,255,255,.025)),transparent 78%);
+    font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--music-cat-color,var(--parchment-dim));
+    letter-spacing:.45px; text-transform:uppercase; scroll-margin-top:48px;
+  }
+  .music-category-count{ margin-left:auto; color:var(--parchment-dim); font-size:8px; opacity:.8; }
+  .music-track-item.music-categorized{
+    border-left:3px solid var(--music-cat-color,var(--line));
+    background:linear-gradient(90deg,var(--music-cat-bg,rgba(255,255,255,.025)),#120e08 42%);
+  }
+  .music-track-item.music-categorized.active, .music-track-item.music-categorized.map-active{
+    border-left-color:var(--music-cat-color,var(--amber-bright));
+    box-shadow:inset 3px 0 0 var(--music-cat-color,var(--amber-bright));
+  }
+  .music-track-chip.category{ color:var(--music-cat-color,var(--parchment-dim)); border-color:var(--music-cat-color,var(--line)); background:var(--music-cat-bg,transparent); }
   .music-track-item.map-active{ border-color:var(--amber-bright); background:linear-gradient(90deg,#2a1d09,#171008); box-shadow:inset 3px 0 0 var(--amber-bright); }
   .music-track-badge{ flex-shrink:0; padding:2px 6px; border:1px solid var(--amber); border-radius:999px; color:var(--amber-bright); font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:.3px; text-transform:uppercase; }
   #music-library-warning{ display:none; padding:8px 10px; border:1px solid var(--amber); border-radius:6px; background:rgba(200,137,46,.10); color:var(--amber-bright); font-family:'JetBrains Mono',monospace; font-size:9px; line-height:1.45; }
@@ -3684,6 +3725,15 @@
       <div id="music-panel-body">
         <label class="file-btn" for="music-upload">Enviar faixas (MP3, WAV, OGG...)</label>
         <input type="file" id="music-upload" accept="audio/*" multiple>
+        <div id="music-label-toolbar">
+          <button type="button" id="music-create-label">＋ Criar etiqueta</button>
+        </div>
+        <div id="music-label-create-form">
+          <input type="text" id="music-label-name" maxlength="30" placeholder="Nome da etiqueta">
+          <input type="color" id="music-label-color" value="#c8892e" aria-label="Cor da etiqueta">
+          <button type="button" id="music-label-save" class="primary">Criar</button>
+          <button type="button" id="music-label-cancel">Cancelar</button>
+        </div>
         <div id="music-library-warning"></div>
         <div id="music-track-list"></div>
         <div id="music-transport" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
@@ -3738,6 +3788,7 @@
     </div>
 
     <div id="context-menu" role="menu"></div>
+    <div id="music-label-picker" role="menu" aria-label="Selecionar etiqueta"></div>
     <div id="conditions-picker" role="menu"></div>
     <div id="map-text-inline-toolbar" class="rich-toolbar map-text-inline-toolbar" data-toolbar-for="map-text-inline-target"></div>
     <div id="emoji-picker" aria-label="Catálogo de emojis">
@@ -4140,6 +4191,7 @@
     musicPlayingIds:[],
     musicPlayingByPage:{},
     musicPausedByPage:{},
+    musicLabels:[],
     sendImage:null,
     handoutGallery:[],
     handoutIndex:0,
@@ -4695,47 +4747,202 @@
     warning.textContent = show ? ('⚠ Biblioteca grande: ' + count + ' faixas nesta campanha. Você pode continuar adicionando, mas acima de 30 faixas o carregamento pode ficar mais pesado, especialmente no mobile.') : '';
   }
 
+  function musicCategoryKey(track){
+    const c = String(track && track.category || '').trim();
+    return c || '__uncategorized__';
+  }
+
+  function musicCategoryLabel(key){ return key === '__uncategorized__' ? 'Sem etiqueta' : key; }
+
+  function generatedLegacyLabelColor(name){
+    let hash = 0;
+    for(let i=0;i<name.length;i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    const hue = Math.abs(hash) % 360;
+    return 'hsl('+hue+' 68% 62%)';
+  }
+
+  function normalizeMusicLabelColor(value){
+    const v=String(value||'').trim();
+    if(/^#[0-9a-f]{6}$/i.test(v)) return v;
+    return '#c8892e';
+  }
+
+  function musicLabelByName(name){
+    const target=String(name||'').trim().toLocaleLowerCase('pt-BR');
+    return (state.musicLabels||[]).find(l=>String(l.name||'').trim().toLocaleLowerCase('pt-BR')===target) || null;
+  }
+
+  function colorToAlpha(color, alpha){
+    const c=String(color||'');
+    const m=/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c);
+    if(!m) return 'color-mix(in srgb,'+c+' '+Math.round(alpha*100)+'%,transparent)';
+    return 'rgba('+parseInt(m[1],16)+','+parseInt(m[2],16)+','+parseInt(m[3],16)+','+alpha+')';
+  }
+
+  function musicCategoryVisual(key){
+    if(key === '__uncategorized__') return { color:'var(--parchment-dim)', bg:'rgba(168,154,124,.07)' };
+    const label=musicLabelByName(key);
+    const color=label ? normalizeMusicLabelColor(label.color) : generatedLegacyLabelColor(key);
+    return { color, bg:colorToAlpha(color,.11) };
+  }
+
+  function musicCategoryStyle(key){
+    const v = musicCategoryVisual(key);
+    return '--music-cat-color:'+v.color+';--music-cat-bg:'+v.bg+';';
+  }
+
+  async function persistMusicLabels(){
+    const payload={ list:(state.musicLabels||[]).map(l=>({ id:l.id||newId('ml'), name:String(l.name||'').trim().slice(0,30), color:normalizeMusicLabelColor(l.color) })).filter(l=>l.name) };
+    state.musicLabels=payload.list;
+    return await safeSet(slotKey('music-labels'),payload);
+  }
+
+  async function migrateLegacyMusicLabels(){
+    if(!Array.isArray(state.musicLabels)) state.musicLabels=[];
+    let changed=false;
+    const existing=new Set(state.musicLabels.map(l=>String(l.name||'').trim().toLocaleLowerCase('pt-BR')));
+    state.musicTracks.forEach(t=>{
+      const name=String(t.category||'').trim(); if(!name) return;
+      const key=name.toLocaleLowerCase('pt-BR');
+      if(existing.has(key)) return;
+      state.musicLabels.push({id:newId('ml'),name,color:generatedLegacyLabelColor(name)}); existing.add(key); changed=true;
+    });
+    if(changed && effectiveMaster()) await persistMusicLabels();
+  }
+
+  function renderMusicLabelCreator(reset){
+    const form=el('music-label-create-form'); if(!form)return;
+    if(reset){ el('music-label-name').value=''; el('music-label-color').value='#c8892e'; }
+  }
+
+  function closeMusicLabelPicker(){ const p=el('music-label-picker'); if(p)p.classList.remove('open'); }
+
+  function openMusicLabelPicker(trackId, anchorRect){
+    const track=state.musicTracks.find(t=>t.id===trackId); if(!track)return;
+    const picker=el('music-label-picker'); if(!picker)return;
+    const labels=(state.musicLabels||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR',{sensitivity:'base'}));
+    picker.innerHTML='<div class="music-label-picker-title">Escolher etiqueta</div>'+
+      '<button type="button" class="music-label-choice" data-music-label-choice=""><span class="music-label-swatch" style="--label-color:var(--parchment-dim)"></span>Sem etiqueta</button>'+
+      (labels.length ? labels.map(l=>'<button type="button" class="music-label-choice" data-music-label-choice="'+escapeHtml(l.name)+'"><span class="music-label-swatch" style="--label-color:'+escapeHtml(normalizeMusicLabelColor(l.color))+'"></span>'+escapeHtml(l.name)+(String(track.category||'').trim()===String(l.name||'').trim()?' ✓':'')+'</button>').join('') : '<div class="hint" style="padding:6px 8px">Crie uma etiqueta primeiro.</div>');
+    picker.querySelectorAll('[data-music-label-choice]').forEach(btn=>btn.addEventListener('click',async()=>{
+      if(track.locked){ showToast('Desbloqueie a faixa antes de alterar a etiqueta.'); closeMusicLabelPicker(); return; }
+      track.category=btn.getAttribute('data-music-label-choice')||'';
+      closeMusicLabelPicker(); renderMusicTrackList(); await persistMusicTracks();
+    }));
+    const r=anchorRect||{left:window.innerWidth/2,top:window.innerHeight/2,bottom:window.innerHeight/2,right:window.innerWidth/2};
+    picker.style.left='8px'; picker.style.top='8px'; picker.classList.add('open');
+    const w=Math.min(picker.offsetWidth||220,window.innerWidth-16), h=Math.min(picker.scrollHeight||260,window.innerHeight-16);
+    picker.style.left=Math.max(8,Math.min(r.left,window.innerWidth-w-8))+'px';
+    picker.style.top=Math.max(8,Math.min(r.bottom+4,window.innerHeight-h-8))+'px';
+  }
+
+  async function setMusicCategory(id, anchorRect){ openMusicLabelPicker(id,anchorRect); }
+
+  el('music-create-label').addEventListener('click',()=>{
+    const form=el('music-label-create-form'); form.classList.toggle('open');
+    if(form.classList.contains('open')){ renderMusicLabelCreator(true); setTimeout(()=>el('music-label-name').focus(),0); }
+  });
+  el('music-label-cancel').addEventListener('click',()=>el('music-label-create-form').classList.remove('open'));
+  el('music-label-save').addEventListener('click',async()=>{
+    const name=el('music-label-name').value.trim().slice(0,30);
+    const color=normalizeMusicLabelColor(el('music-label-color').value);
+    if(!name){ showToast('Digite um nome para a etiqueta.'); el('music-label-name').focus(); return; }
+    if(musicLabelByName(name)){ showToast('Já existe uma etiqueta com esse nome.'); return; }
+    state.musicLabels.push({id:newId('ml'),name,color});
+    await persistMusicLabels();
+    el('music-label-create-form').classList.remove('open');
+    renderMusicTrackList();
+    showToast('Etiqueta "'+name+'" criada.');
+  });
+  el('music-label-name').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); el('music-label-save').click(); } });
+  document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#music-label-picker')&&!e.target.closest('[data-context-action="musiccategory"]')) closeMusicLabelPicker(); });
+
   function renderMusicTrackList(){
     const $list = el('music-track-list');
     if(!$list) return;
     updateMusicLibraryWarning();
     updateMusicTransportControls();
     const playingIds = currentMusicPlayingIds();
-    const orderedTracks = state.musicTracks.slice().sort((a,b) => Number(!!b.favorite)-Number(!!a.favorite));
     $list.classList.toggle('music-list-scroll', state.musicTracks.length > 7);
     if(state.musicTracks.length === 0){
       $list.innerHTML = '<div class="hint">Nenhuma faixa enviada ainda.</div>';
     } else {
-      $list.innerHTML = orderedTracks.map(t => {
-        const isPlaying = playingIds.includes(t.id);
-        const associated = musicTrackAssociatedWithCurrentPage(t);
-        const vol = typeof t.volume === 'number' ? t.volume : 0.5;
-        const loaded = !!t.dataUrl;
-        const category = (t.category || '').trim();
-        return (
-          '<div class="music-track-item'+(isPlaying?' active map-active':'')+(associated?' music-associated':'')+(t.favorite?' music-favorite':'')+(t.locked?' music-locked':'')+(!loaded?' audio-missing':'')+'">' +
-            '<div class="music-track-row" data-music-toggle="'+t.id+'">' +
-              '<button type="button" class="music-track-playicon" data-music-toggle-btn="'+t.id+'" title="'+(isPlaying?'Pausar':'Tocar')+'">'+(isPlaying?'⏸️':'▶️')+'</button>' +
-              '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
-              (isPlaying ? '<span class="music-track-badge">Tocando</span>' : '') +
-              '<button type="button" class="music-track-loop '+(t.loop !== false ? 'loop-on' : 'loop-off')+'" data-music-loop="'+t.id+'" '+(t.locked?'disabled':'')+' title="'+(t.loop !== false ? 'Loop ligado — clique para tocar apenas uma vez' : 'Loop desligado — clique para repetir continuamente')+'">🔁 '+(t.loop !== false ? 'Loop' : '1×')+'</button>' +
-              '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'" '+(t.locked?'disabled':'')+'>Excluir</button>' +
-            '</div>' +
-            '<div class="music-track-meta">' +
-              (t.favorite ? '<span class="music-track-chip favorite">★ Favorita</span>' : '') +
-              (associated ? '<span class="music-track-chip associated">📌 Neste mapa</span>' : '') +
-              (category ? '<span class="music-track-chip">📂 '+escapeHtml(category)+'</span>' : '') +
-              (t.randomStart ? '<span class="music-track-chip">🔀 início aleatório</span>' : ((Number(t.startOffset)||0)>0 ? '<span class="music-track-chip">⏱ '+Number(t.startOffset).toFixed(1)+'s</span>' : '')) +
-              ((Number(t.fadeSeconds)||0)>0 ? '<span class="music-track-chip">🌫 '+Number(t.fadeSeconds).toFixed(1)+'s</span>' : '') +
-              (t.locked ? '<span class="music-track-chip locked">🔒 bloqueada</span>' : '') +
-            '</div>' +
-            '<div class="music-track-volume-row">' +
-              '<span class="music-track-volume-icon">🔉</span>' +
-              '<input type="range" min="0" max="100" value="'+Math.round(vol*100)+'" data-music-volume="'+t.id+'" '+(t.locked?'disabled':'')+'>' +
-            '</div>' +
-          '</div>'
-        );
+      const groups = new Map();
+      state.musicTracks.forEach(t => {
+        const key = musicCategoryKey(t);
+        if(!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(t);
+      });
+      const categoryKeys = [...groups.keys()].sort((a,b) => {
+        if(a === '__uncategorized__') return 1;
+        if(b === '__uncategorized__') return -1;
+        return musicCategoryLabel(a).localeCompare(musicCategoryLabel(b), 'pt-BR', { sensitivity:'base' });
+      });
+      categoryKeys.forEach(key => groups.get(key).sort((a,b) => {
+        const fav = Number(!!b.favorite)-Number(!!a.favorite);
+        return fav || String(a.name||'').localeCompare(String(b.name||''), 'pt-BR', { sensitivity:'base' });
+      }));
+
+      const guide = '<div class="music-category-guide">' +
+        '<span class="music-category-guide-label">Ir para</span>' +
+        categoryKeys.map(key => '<button type="button" class="music-category-jump" data-music-category-jump="'+escapeHtml(key)+'" style="'+musicCategoryStyle(key)+'">'+escapeHtml(musicCategoryLabel(key))+' <span aria-hidden="true">· '+groups.get(key).length+'</span></button>').join('') +
+      '</div>';
+
+      const groupHtml = categoryKeys.map((key, groupIndex) => {
+        const tracks = groups.get(key);
+        const style = musicCategoryStyle(key);
+        const items = tracks.map(t => {
+          const isPlaying = playingIds.includes(t.id);
+          const associated = musicTrackAssociatedWithCurrentPage(t);
+          const vol = typeof t.volume === 'number' ? t.volume : 0.5;
+          const loaded = !!t.dataUrl;
+          const category = (t.category || '').trim();
+          return (
+            '<div class="music-track-item music-categorized'+(isPlaying?' active map-active':'')+(associated?' music-associated':'')+(t.favorite?' music-favorite':'')+(t.locked?' music-locked':'')+(!loaded?' audio-missing':'')+'" style="'+style+'">' +
+              '<div class="music-track-row" data-music-toggle="'+t.id+'">' +
+                '<button type="button" class="music-track-playicon" data-music-toggle-btn="'+t.id+'" title="'+(isPlaying?'Pausar':'Tocar')+'">'+(isPlaying?'⏸️':'▶️')+'</button>' +
+                '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
+                (isPlaying ? '<span class="music-track-badge">Tocando</span>' : '') +
+                '<button type="button" class="music-track-loop '+(t.loop !== false ? 'loop-on' : 'loop-off')+'" data-music-loop="'+t.id+'" '+(t.locked?'disabled':'')+' title="'+(t.loop !== false ? 'Loop ligado — clique para tocar apenas uma vez' : 'Loop desligado — clique para repetir continuamente')+'">🔁 '+(t.loop !== false ? 'Loop' : '1×')+'</button>' +
+                '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'" '+(t.locked?'disabled':'')+'>Excluir</button>' +
+              '</div>' +
+              '<div class="music-track-meta">' +
+                (t.favorite ? '<span class="music-track-chip favorite">★ Favorita</span>' : '') +
+                (associated ? '<span class="music-track-chip associated">📌 Neste mapa</span>' : '') +
+                (category ? '<span class="music-track-chip category" style="'+style+'">📂 '+escapeHtml(category)+'</span>' : '') +
+                (t.randomStart ? '<span class="music-track-chip">🔀 início aleatório</span>' : ((Number(t.startOffset)||0)>0 ? '<span class="music-track-chip">⏱ '+Number(t.startOffset).toFixed(1)+'s</span>' : '')) +
+                ((Number(t.fadeSeconds)||0)>0 ? '<span class="music-track-chip">🌫 '+Number(t.fadeSeconds).toFixed(1)+'s</span>' : '') +
+                (t.locked ? '<span class="music-track-chip locked">🔒 bloqueada</span>' : '') +
+              '</div>' +
+              '<div class="music-track-volume-row">' +
+                '<span class="music-track-volume-icon">🔉</span>' +
+                '<input type="range" min="0" max="100" value="'+Math.round(vol*100)+'" data-music-volume="'+t.id+'" '+(t.locked?'disabled':'')+'>' +
+              '</div>' +
+            '</div>'
+          );
+        }).join('');
+        return '<div class="music-category-group" data-music-category-group="'+escapeHtml(key)+'" style="'+style+'">' +
+          '<div class="music-category-header" data-music-category-anchor="'+escapeHtml(key)+'" style="'+style+'">' +
+            '<span>'+escapeHtml(musicCategoryLabel(key))+'</span><span class="music-category-count">'+tracks.length+' '+(tracks.length===1?'faixa':'faixas')+'</span>' +
+          '</div>' + items + '</div>';
       }).join('');
+
+      $list.innerHTML = guide + groupHtml;
+      $list.querySelectorAll('[data-music-category-jump]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = btn.getAttribute('data-music-category-jump');
+          const anchor = [...$list.querySelectorAll('[data-music-category-anchor]')].find(node => node.getAttribute('data-music-category-anchor') === key);
+          if(!anchor) return;
+          if($list.classList.contains('music-list-scroll')){
+            const guideEl = $list.querySelector('.music-category-guide');
+            const targetTop = Math.max(0, anchor.offsetTop - (guideEl ? guideEl.offsetHeight + 6 : 0));
+            $list.scrollTo({ top:targetTop, behavior:'smooth' });
+          } else {
+            anchor.scrollIntoView({ behavior:'smooth', block:'nearest' });
+          }
+        });
+      });
       $list.querySelectorAll('[data-music-toggle]').forEach(row => {
         row.addEventListener('click', (e) => {
           if(e.target.closest('[data-music-delete], [data-music-loop], [data-music-volume]')) return;
@@ -4753,214 +4960,10 @@
       });
       $list.querySelectorAll('[data-music-toggle]').forEach(row => {
         row.addEventListener('contextmenu', (e) => {
-          if(!effectiveMaster()) return;
-          e.preventDefault(); e.stopPropagation();
           openContextMenu(e, 'musictrack', row.getAttribute('data-music-toggle'));
         });
       });
     }
-  }
-
-  async function renameMusicTrack(id){
-    if(!effectiveMaster()) return;
-    const track = state.musicTracks.find(t => t.id === id);
-    if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    const entered = prompt('Novo nome da faixa:', track.name || '');
-    if(entered === null) return;
-    const clean = entered.trim();
-    if(!clean || clean === track.name) return;
-    track.name = clean.slice(0, 120);
-    renderMusicTrackList();
-    updateMusicIndicator();
-    await persistMusicTracks();
-  }
-
-  function stopSoloMusicPreview(){
-    if(musicSoloPreviewAudio){
-      try{ musicSoloPreviewAudio.pause(); musicSoloPreviewAudio.currentTime = 0; }catch(e){}
-      musicSoloPreviewAudio.removeAttribute('src');
-    }
-    musicSoloPreviewAudio = null;
-    musicSoloPreviewTrackId = null;
-  }
-
-  async function previewMusicTrackSolo(id){
-    if(!effectiveMaster()) return;
-    if(musicSoloPreviewTrackId === id && musicSoloPreviewAudio && !musicSoloPreviewAudio.paused){
-      stopSoloMusicPreview();
-      showToast('Prévia privada interrompida.');
-      return;
-    }
-    const track = state.musicTracks.find(t => t.id === id);
-    if(!track) return;
-    if(!track.dataUrl){
-      const loaded = await loadMusicTrackAudio(track);
-      if(!loaded){ showToast('Não foi possível carregar o áudio desta faixa.'); return; }
-    }
-    stopSoloMusicPreview();
-    const audio = new Audio();
-    audio.preload = 'auto';
-    audio.setAttribute('playsinline','');
-    audio.src = track.dataUrl;
-    audio.loop = false;
-    audio.addEventListener('loadedmetadata', () => setMusicAudioStart(audio, track), {once:true});
-    audio.addEventListener('timeupdate', () => refreshMusicAudioVolume(audio, track));
-    audio.addEventListener('ended', async () => {
-      if(musicSoloPreviewAudio !== audio) return;
-      if(track.loop !== false){
-        setMusicAudioStart(audio, track);
-        try{ await audio.play(); }catch(e){ stopSoloMusicPreview(); }
-      }else stopSoloMusicPreview();
-    });
-    musicSoloPreviewAudio = audio;
-    musicSoloPreviewTrackId = id;
-    try{
-      setMusicAudioStart(audio, track);
-      await audio.play();
-      showToast('Prévia privada: só o mestre está ouvindo "' + track.name + '".');
-    }catch(err){
-      console.warn('Falha na prévia privada da faixa:', err);
-      stopSoloMusicPreview();
-      showToast('O navegador bloqueou a prévia. Clique novamente após interagir com a página.');
-    }
-  }
-
-  async function toggleMusicFavorite(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    track.favorite = !track.favorite;
-    renderMusicTrackList();
-    await persistMusicTracks();
-  }
-
-  async function toggleMusicPinCurrentMap(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    const pages = musicTrackPages(track), pid = musicPageId(), idx = pages.indexOf(pid);
-    if(idx === -1) pages.push(pid); else pages.splice(idx,1);
-    renderMusicTrackList();
-    await persistMusicTracks();
-  }
-
-  async function copyMusicTrackToAnotherMap(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    const choices = state.pages.filter(p=>p.id!==state.currentPageId);
-    if(!choices.length){ showToast('Não há outro mapa disponível.'); return; }
-    const text = choices.map((p,i)=>(i+1)+'. '+p.name).join('\n');
-    const entered = prompt('Copiar/associar esta faixa a qual mapa?\n\n'+text+'\n\nDigite o número do mapa:');
-    if(entered===null) return;
-    const n = parseInt(entered,10);
-    if(!Number.isFinite(n) || n<1 || n>choices.length){ showToast('Mapa inválido.'); return; }
-    const target = choices[n-1];
-    const pages = musicTrackPages(track);
-    if(!pages.includes(target.id)) pages.push(target.id);
-    renderMusicTrackList();
-    await persistMusicTracks();
-    showToast('Faixa associada a "'+target.name+'".');
-  }
-
-  async function playMusicOnlyOnCurrentMap(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    const pages = musicTrackPages(track);
-    if(!pages.includes(musicPageId())) pages.push(musicPageId());
-    const ids = currentMusicPlayingIds();
-    if(!ids.includes(id)) ids.push(id);
-    currentMusicPausedIds().splice(0);
-    renderMusicTrackList(); updateAmbientAudio(true); updateMusicIndicator();
-    await Promise.all([persistMusicTracks(), persistMusicState()]);
-  }
-
-  async function setMusicStartOffset(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    const entered = prompt('Ponto inicial em segundos (0 a 14,5):', String(Number(track.startOffset)||0));
-    if(entered===null) return;
-    const value = Number(String(entered).replace(',','.'));
-    if(!Number.isFinite(value) || value<0 || value>14.5){ showToast('Use um valor entre 0 e 14,5 segundos.'); return; }
-    track.startOffset = Math.round(value*10)/10;
-    renderMusicTrackList(); await persistMusicTracks();
-  }
-
-  async function toggleMusicRandomStart(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    track.randomStart = !track.randomStart;
-    renderMusicTrackList(); await persistMusicTracks();
-  }
-
-  async function setMusicFade(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    const entered = prompt('Fade in/out em segundos (0 desativa; máximo 3):', String(Number(track.fadeSeconds)||0));
-    if(entered===null) return;
-    const value = Number(String(entered).replace(',','.'));
-    if(!Number.isFinite(value) || value<0 || value>3){ showToast('Use um valor entre 0 e 3 segundos.'); return; }
-    track.fadeSeconds = Math.round(value*10)/10;
-    const audio = musicAudioElements.get(id); if(audio) refreshMusicAudioVolume(audio,track);
-    renderMusicTrackList(); await persistMusicTracks();
-  }
-
-  async function toggleMusicLock(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    track.locked = !track.locked;
-    renderMusicTrackList(); await persistMusicTracks();
-  }
-
-  async function setMusicCategory(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    const entered = prompt('Categoria da faixa (ex.: Combate, Ambiente, Cidade, Terror, Efeitos). Deixe vazio para remover:', track.category || '');
-    if(entered===null) return;
-    track.category = entered.trim().slice(0,40);
-    renderMusicTrackList(); await persistMusicTracks();
-  }
-
-  async function duplicateMusicTrack(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(!track.dataUrl){ const ok=await loadMusicTrackAudio(track); if(!ok){ showToast('Não foi possível carregar o áudio para duplicar.'); return; } }
-    const copy = {
-      id:newId('m'), name:(track.name+' — cópia').slice(0,120), dataUrl:track.dataUrl, volume:track.volume, loop:track.loop!==false,
-      trimmed:!!track.trimmed, mimeType:track.mimeType||'', favorite:false, pageIds:musicTrackPages(track).slice(), category:track.category||'', locked:false,
-      startOffset:Number(track.startOffset)||0, randomStart:!!track.randomStart, fadeSeconds:Number(track.fadeSeconds)||0
-    };
-    const ok=await persistMusicTrackAudio(copy);
-    if(!ok){ showToast('Não foi possível salvar a cópia do áudio.'); return; }
-    state.musicTracks.push(copy); renderMusicTrackList(); await persistMusicTracks();
-    showToast('Faixa duplicada.');
-  }
-
-  async function replaceMusicTrackAudio(id){
-    const track = state.musicTracks.find(t=>t.id===id); if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    const picker=document.createElement('input');
-    picker.type='file'; picker.accept='audio/*'; picker.style.display='none'; document.body.appendChild(picker);
-    picker.addEventListener('change', async()=>{
-      const file=picker.files&&picker.files[0]; picker.remove(); if(!file) return;
-      try{
-        const fitted=await fitMusicFileToLimit(file);
-        track.dataUrl=await blobToDataUrl(fitted.blob);
-        track.trimmed=!!fitted.trimmed; track.mimeType=fitted.blob.type||file.type||'';
-        const audio=musicAudioElements.get(id); if(audio){ audio.pause(); audio.removeAttribute('src'); musicAudioElements.delete(id); }
-        if(musicSoloPreviewTrackId===id) stopSoloMusicPreview();
-        const ok=await persistMusicTrackAudio(track); if(!ok) throw new Error('Falha ao salvar áudio');
-        renderMusicTrackList(); updateAmbientAudio(true); await persistMusicTracks();
-        showToast('Áudio da faixa substituído.');
-      }catch(err){ console.error(err); showToast('Não foi possível substituir o áudio.'); }
-    },{once:true});
-    picker.click();
-  }
-
-  async function setTrackLoop(id){
-    const track = state.musicTracks.find(t => t.id === id);
-    if(!track) return;
-    if(track.locked){ showToast('Esta faixa está bloqueada para edição.'); return; }
-    track.loop = track.loop === false;
-    const audio = musicAudioElements.get(id);
-    if(audio) audio.loop = track.loop !== false;
-    renderMusicTrackList();
-    await persistMusicTracks();
   }
 
   async function setTrackVolume(id, value){
@@ -8597,7 +8600,8 @@
       safeDelete('c'+id+'-pages-index'),
       safeDelete('c'+id+'-dice-log'),
       safeDelete('c'+id+'-music-tracks'),
-      safeDelete('c'+id+'-music-state')
+      safeDelete('c'+id+'-music-state'),
+      safeDelete('c'+id+'-music-labels')
     ];
     pageIds.forEach(pid => {
       jobs.push(safeDelete('c'+id+'-page-'+pid+'-map'));
@@ -8613,8 +8617,8 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, combatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw, sessionNotesRaw] = await Promise.all([
-      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state')), effectiveMaster() ? safeGet(slotKey('session-notes')) : Promise.resolve(null)
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, combatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw, musicLabelsRaw, sessionNotesRaw] = await Promise.all([
+      safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state')), safeGet(slotKey('music-labels')), effectiveMaster() ? safeGet(slotKey('session-notes')) : Promise.resolve(null)
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
     // Migração: os antigos presets visuais foram removidos. Campanhas que ainda
@@ -8637,6 +8641,7 @@
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
     if(effectiveMaster() && sessionNotesRaw){ try{ state.sessionNotes = JSON.parse(sessionNotesRaw).list || []; normalizeAllSessionNotes(); lastSessionNotesSnapshot = sessionNotesRaw; }catch(e){} } else if(!effectiveMaster()){ state.sessionNotes = []; }
     if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
+    if(musicLabelsRaw){ try{ state.musicLabels=(JSON.parse(musicLabelsRaw).list||[]).map(l=>({id:l.id||newId('ml'),name:String(l.name||'').trim().slice(0,30),color:normalizeMusicLabelColor(l.color)})).filter(l=>l.name); }catch(e){ state.musicLabels=[]; } } else state.musicLabels=[];
     if(musicTracksRaw){
       try{
         state.musicTracks = JSON.parse(musicTracksRaw).list || [];
@@ -8648,6 +8653,7 @@
         hydrateMusicTracks(state.musicTracks);
       }catch(e){}
     }
+    await migrateLegacyMusicLabels();
     if(musicStateRaw){
       try{
         const ms = JSON.parse(musicStateRaw);
@@ -9968,7 +9974,7 @@
         ['⏱ Definir ponto inicial','musicstart'],
         [track.randomStart?'🔀 Desativar início aleatório':'🔀 Início aleatório','musicrandom'],
         ['🌫 Fade in / fade out','musicfade'],
-        ['📂 Mover para categoria','musiccategory'],
+        ['🏷 Colocar em etiqueta','musiccategory'],
         ['📄 Duplicar faixa','musicduplicate'],
         ['♻️ Substituir áudio','musicreplace'],
         ['✏️ Renomear','musicrename'],
@@ -10264,7 +10270,7 @@
       else if(action==='musicstart') await setMusicStartOffset(c.id);
       else if(action==='musicrandom') await toggleMusicRandomStart(c.id);
       else if(action==='musicfade') await setMusicFade(c.id);
-      else if(action==='musiccategory') await setMusicCategory(c.id);
+      else if(action==='musiccategory') await setMusicCategory(c.id,anchorRect);
       else if(action==='musicduplicate') await duplicateMusicTrack(c.id);
       else if(action==='musicreplace') await replaceMusicTrackAudio(c.id);
       else if(action==='musiclock') await toggleMusicLock(c.id);
@@ -16584,6 +16590,11 @@
         hydrateMusicTracks(state.musicTracks);
         render();
       }catch(e){}
+    });
+
+    watchKey(slotKey('music-labels'), (raw) => {
+      if(!raw) return;
+      try{ state.musicLabels=(JSON.parse(raw).list||[]).map(l=>({id:l.id||newId('ml'),name:String(l.name||'').trim().slice(0,30),color:normalizeMusicLabelColor(l.color)})).filter(l=>l.name); renderMusicTrackList(); }catch(e){}
     });
 
     watchKey(slotKey('music-state'), (raw) => {
