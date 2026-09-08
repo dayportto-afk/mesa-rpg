@@ -2100,8 +2100,8 @@
   #dice-recents-row{ display:flex; flex-wrap:wrap; gap:6px; }
   .dice-recent-chip{ font-family:'JetBrains Mono', monospace; font-size:10px; padding:6px 9px; border-radius:14px; }
 
-  .dice-history-filter-row{ display:flex; gap:6px; margin-top:-4px; }
-  .dice-history-filter-row button{ flex:1; font-size:9.5px; padding:6px 4px; }
+  .dice-history-filter-row{ display:flex; gap:7px; margin-top:10px; margin-bottom:8px; }
+  .dice-history-filter-row button{ flex:1; font-size:9.5px; padding:8px 6px; }
 
   .die-chip{
     display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:24px; padding:0 5px;
@@ -3769,11 +3769,11 @@
           <div class="dice-field">
             <label for="dice-formula-input">Fórmula rápida</label>
             <div class="dice-formula-row">
-              <input type="text" id="dice-formula-input" placeholder="ex.: 2d20kh1 + 7" autocomplete="off" inputmode="text">
+              <input type="text" id="dice-formula-input" placeholder="ex.: 1d6 + 2d20 + 4d4" autocomplete="off" inputmode="text">
               <button type="button" id="dice-formula-clear" title="Limpar">✕</button>
             </div>
           </div>
-          <div class="dice-formula-hint" id="dice-formula-hint">Use NdM (ex.: 4d6), kh/kl para manter os maiores/menores (ex.: 4d6kh3) e + ou − para o modificador.</div>
+          <div class="dice-formula-hint" id="dice-formula-hint">Combine dados diferentes (ex.: 1d6 + 2d20 + 4d4). Também aceita kh/kl e modificadores numéricos.</div>
           <button type="button" id="btn-roll-formula" class="primary dice-roll-btn">🎲 ROLAR FÓRMULA</button>
         </div>
 
@@ -5962,6 +5962,28 @@
 
   // spec: { sides, qty, modifier, mode:'normal'|'advantage'|'disadvantage', keep:{type:'kh'|'kl', count}|null }
   function executeDiceSpec(spec){
+    if(spec && Array.isArray(spec.terms)){
+      let total = 0;
+      const breakdown = [];
+      const modifier = normalizedDiceModifier(spec.modifier || 0);
+      let critType = null;
+      spec.terms.forEach(term => {
+        const sign = term.sign < 0 ? -1 : 1;
+        const sub = executeDiceSpec({ sides:term.sides, qty:term.qty, modifier:0, mode:term.mode || 'normal', keep:term.keep || null });
+        total += sign * sub.total;
+        sub.breakdown.forEach(b => breakdown.push(Object.assign({}, b, { sign })));
+      });
+      total += modifier;
+      if(spec.terms.length === 1 && spec.terms[0].sign >= 0){
+        // Crítico é inferido do breakdown já obtido, sem fazer uma segunda rolagem.
+        const b = breakdown[0], term = spec.terms[0];
+        if(term.sides === 20 && term.qty === 1 && (!term.keep || term.keep.count === 1)){
+          const val = b.pairs ? b.pairs[0].values[b.pairs[0].kept] : b.results[0];
+          if(val === 20) critType = 'success'; else if(val === 1) critType = 'fail';
+        }
+      }
+      return { breakdown, total, modifier, critType, formula: describeDiceFormula(spec) };
+    }
     const sides = spec.sides, qty = Math.max(1, spec.qty || 1);
     const modifier = normalizedDiceModifier(spec.modifier || 0);
     let breakdown, total = 0;
@@ -6006,7 +6028,9 @@
       roller: state.isMaster ? 'Mestre' : (state.playerName || 'Jogador'),
       color: state.isMaster ? '#e2a53f' : (state.playerColor || '#e2a53f'),
       label: opts.label || null,
-      sides: spec.sides, qty: Math.max(1, spec.qty || 1), mode: spec.mode || 'normal', keep: spec.keep || null,
+      sides: spec.sides || (spec.terms && spec.terms.length===1 ? spec.terms[0].sides : null),
+      qty: spec.qty ? Math.max(1, spec.qty) : (spec.terms && spec.terms.length===1 ? spec.terms[0].qty : null),
+      mode: spec.mode || 'normal', keep: spec.keep || null, rollSpec: JSON.parse(JSON.stringify(spec)),
       formula: result.formula, breakdown: result.breakdown, modifier: result.modifier, total: result.total,
       critType: result.critType,
       private: opts.private != null ? opts.private : (state.diceVisibility === 'private')
@@ -6059,19 +6083,11 @@
     ).join('');
     $wrap.querySelectorAll('[data-dice-pick]').forEach(btn => {
       const sides = Number(btn.getAttribute('data-dice-pick'));
-      btn.addEventListener('click', (e) => {
-        if(e.shiftKey){
-          state.diceActiveSides = sides;
-          state.diceQtyMap[sides] = normalizedDiceQty((state.diceQtyMap[sides]||1) + 1);
-          renderDiceActiveDisplay();
-          return;
-        }
+      btn.addEventListener('click', () => {
         state.diceActiveSides = sides;
         if(!state.diceQtyMap[sides]) state.diceQtyMap[sides] = 1;
         renderDiceActiveDisplay();
-        rollDiceQuick(sides, state.diceQtyMap[sides]);
       });
-      btn.addEventListener('contextmenu', (e) => openContextMenu(e, 'dicepicker', sides));
     });
   }
   function renderDiceActiveDisplay(){
@@ -6087,24 +6103,58 @@
   }
 
   // ===== quick formula parser (Avançado tab) =====
+  // Aceita vários grupos de dados na mesma expressão, por exemplo:
+  // 1d6 + 2d20 + 4d4, 2d20kh1 + 1d8 + 5, 3d6 - 1d4 - 2.
   function parseDiceFormula(text){
     if(!text) return null;
-    const t = text.replace(/\s+/g, '').replace(/−/g, '-');
-    const m = /^(\d{0,2})d(4|6|8|10|12|20|100)((?:kh|kl)\d{1,2})?([+-]\d+)?$/i.exec(t);
-    if(!m) return null;
-    const qty = m[1] ? parseInt(m[1],10) : 1;
-    const sides = parseInt(m[2],10);
-    if(qty < 1 || qty > 20) return null;
-    let keep = null;
-    if(m[3]){
-      const kt = m[3].slice(0,2).toLowerCase();
-      const kc = parseInt(m[3].slice(2),10);
-      if(kc >= 1 && kc < qty) keep = { type: kt, count: kc };
+    const t = text.replace(/\s+/g, '').replace(/−/g, '-').toLowerCase();
+    if(!t) return null;
+
+    const tokenRe = /([+-]?)(?:(\d{0,2})d(4|6|8|10|12|20|100)((?:kh|kl)\d{1,2})?|(\d+))/g;
+    const terms = [];
+    let modifier = 0, matched = '', match;
+
+    while((match = tokenRe.exec(t)) !== null){
+      const token = match[0];
+      if(!token) break;
+      matched += token;
+      const sign = match[1] === '-' ? -1 : 1;
+
+      if(match[3]){
+        const qty = match[2] ? parseInt(match[2],10) : 1;
+        const sides = parseInt(match[3],10);
+        if(qty < 1 || qty > 20) return null;
+        let keep = null;
+        if(match[4]){
+          const kt = match[4].slice(0,2);
+          const kc = parseInt(match[4].slice(2),10);
+          if(kc < 1 || kc > qty) return null;
+          if(kc < qty) keep = { type:kt, count:kc };
+        }
+        terms.push({ sign, sides, qty, keep, mode:'normal' });
+      } else {
+        const value = parseInt(match[5],10);
+        if(!Number.isFinite(value)) return null;
+        modifier += sign * value;
+      }
     }
-    const modifier = m[4] ? parseInt(m[4],10) : 0;
-    return { sides, qty, modifier, keep, mode:'normal' };
+
+    if(matched !== t || terms.length === 0 || terms.length > 20) return null;
+    return { terms, modifier: normalizedDiceModifier(modifier), mode:'normal' };
   }
   function describeDiceFormula(spec){
+    if(spec.terms){
+      let out = '';
+      spec.terms.forEach((term, i) => {
+        let part = term.qty + 'd' + term.sides;
+        if(term.keep) part += term.keep.type + term.keep.count;
+        if(i === 0) out += (term.sign < 0 ? '− ' : '') + part;
+        else out += (term.sign < 0 ? ' − ' : ' + ') + part;
+      });
+      if(spec.modifier > 0) out += ' + ' + spec.modifier;
+      else if(spec.modifier < 0) out += ' − ' + Math.abs(spec.modifier);
+      return out;
+    }
     let d = spec.qty + 'd' + spec.sides;
     if(spec.keep) d += ' mantendo o' + (spec.keep.type==='kh' ? ' maior' : ' menor') + (spec.keep.count>1 ? ' ('+spec.keep.count+')' : '');
     if(spec.modifier > 0) d += ' + ' + spec.modifier;
@@ -6115,16 +6165,16 @@
     const input = el('dice-formula-input'), hint = el('dice-formula-hint');
     if(!input || !hint) return;
     const text = input.value.trim();
-    if(!text){ hint.classList.remove('error'); hint.textContent = 'Use NdM (ex.: 4d6), kh/kl para manter os maiores/menores (ex.: 4d6kh3) e + ou − para o modificador.'; return; }
+    if(!text){ hint.classList.remove('error'); hint.textContent = 'Combine dados diferentes (ex.: 1d6 + 2d20 + 4d4). Também aceita kh/kl e modificadores numéricos.'; return; }
     const spec = parseDiceFormula(text);
-    if(!spec){ hint.classList.add('error'); hint.textContent = 'Fórmula inválida — ex.: 1d20 + 5, 4d6kh3, 2d20kl1 − 1.'; return; }
+    if(!spec){ hint.classList.add('error'); hint.textContent = 'Fórmula inválida — ex.: 1d6 + 2d20 + 4d4, 4d6kh3 + 2, 2d20kl1 − 1d4.'; return; }
     hint.classList.remove('error');
     hint.textContent = describeDiceFormula(spec);
   }
   function submitDiceFormula(){
     const input = el('dice-formula-input');
     const spec = parseDiceFormula((input.value||'').trim());
-    if(!spec){ updateFormulaHint(); showToast('Fórmula inválida — ex.: 1d20 + 5 ou 4d6kh3.'); return; }
+    if(!spec){ updateFormulaHint(); showToast('Fórmula inválida — ex.: 1d6 + 2d20 + 4d4.'); return; }
     logDiceRoll(spec, { private: state.diceVisibility === 'private' });
   }
 
@@ -6144,13 +6194,13 @@
   function addDiceFavoriteFromEntry(entry){
     const name = prompt('Nome do favorito:', entry.label || '');
     if(!name || !name.trim()) return;
-    state.diceFavorites.unshift({ id:newId('fav'), name:name.trim().slice(0,40), sides: entry.sides, qty: entry.qty||1, modifier: entry.modifier||0 });
+    state.diceFavorites.unshift({ id:newId('fav'), name:name.trim().slice(0,40), sides: entry.sides, qty: entry.qty||1, modifier: entry.modifier||0, rollSpec: entry.rollSpec || null, formula: entry.formula || null });
     if(state.diceFavorites.length > 14) state.diceFavorites = state.diceFavorites.slice(0,14);
     saveDiceFavorites(); renderDiceFavorites();
     showToast('Favorito salvo.');
   }
   function rollDiceFavorite(fav){
-    logDiceRoll({ sides: fav.sides, qty: fav.qty, modifier: fav.modifier, mode:'normal' }, { label: fav.name, private: state.diceVisibility === 'private' });
+    logDiceRoll(fav.rollSpec || { sides: fav.sides, qty: fav.qty, modifier: fav.modifier, mode:'normal' }, { label: fav.name, private: state.diceVisibility === 'private' });
   }
   function deleteDiceFavorite(id){ state.diceFavorites = state.diceFavorites.filter(f=>f.id!==id); saveDiceFavorites(); renderDiceFavorites(); }
   function renameDiceFavorite(id){
@@ -6166,7 +6216,7 @@
         '<div class="dice-fav-main" data-fav-roll="'+fav.id+'">' +
           '<span class="dice-fav-icon">🎲</span>' +
           '<span class="dice-fav-text"><span class="dice-fav-name">'+escapeHtml(fav.name)+'</span>' +
-          '<span class="dice-fav-formula">'+escapeHtml(simpleFormulaText(fav.sides, fav.qty, fav.modifier))+'</span></span>' +
+          '<span class="dice-fav-formula">'+escapeHtml(fav.formula || simpleFormulaText(fav.sides, fav.qty, fav.modifier))+'</span></span>' +
         '</div>' +
         '<button type="button" class="dice-fav-menu" data-fav-menu="'+fav.id+'">⋮</button>' +
       '</div>'
@@ -6186,7 +6236,7 @@
   function saveDiceRecents(){ try{ localStorage.setItem(diceRecentsKey(), JSON.stringify(state.diceRecents)); }catch(e){} }
   function pushRecentRoll(entry){
     if(!entry.formula) return;
-    const item = { formula: entry.formula, sides: entry.sides, qty: entry.qty, modifier: entry.modifier, mode: entry.mode, keep: entry.keep };
+    const item = { formula: entry.formula, sides: entry.sides, qty: entry.qty, modifier: entry.modifier, mode: entry.mode, keep: entry.keep, rollSpec: entry.rollSpec || null };
     state.diceRecents = [item, ...state.diceRecents.filter(r => r.formula !== item.formula)].slice(0, 6);
     saveDiceRecents(); renderDiceRecents();
   }
@@ -6197,21 +6247,22 @@
     $wrap.innerHTML = state.diceRecents.map((r,i) => '<button type="button" class="dice-recent-chip" data-recent-idx="'+i+'">'+escapeHtml(r.formula)+'</button>').join('');
     $wrap.querySelectorAll('[data-recent-idx]').forEach(btn => btn.addEventListener('click', () => {
       const r = state.diceRecents[Number(btn.getAttribute('data-recent-idx'))]; if(!r) return;
-      logDiceRoll({ sides:r.sides, qty:r.qty, modifier:r.modifier, mode:r.mode, keep:r.keep }, { private: state.diceVisibility === 'private' });
+      logDiceRoll(r.rollSpec || { sides:r.sides, qty:r.qty, modifier:r.modifier, mode:r.mode, keep:r.keep }, { private: state.diceVisibility === 'private' });
     }));
   }
 
   // ===== history rendering =====
   function diceBreakdownChipsHtml(breakdown){
-    return breakdown.map(b => {
+    return breakdown.map((b, groupIndex) => {
       const color = DICE_COLORS[b.sides] || '#c8892e';
+      const signHtml = b.sign < 0 ? '<span class="dice-log-op">−</span>' : (groupIndex > 0 ? '<span class="dice-log-op">+</span>' : '');
       if(b.pairs){
-        return b.pairs.map(p =>
+        return signHtml + b.pairs.map(p =>
           p.values.map((v,i) => '<span class="die-chip'+(i===p.kept?' kept':' dropped')+'" style="--die-color:'+color+';">'+v+'</span>').join('')
         ).join('');
       }
       const kept = b.keptIndices;
-      return b.results.map((v,i) => {
+      return signHtml + b.results.map((v,i) => {
         let cls = 'die-chip';
         if(kept) cls += kept.includes(i) ? ' kept' : ' dropped';
         return '<span class="'+cls+'" style="--die-color:'+color+';">'+v+'</span>';
@@ -6269,7 +6320,7 @@
     }).join('');
     $log.querySelectorAll('[data-dice-reroll]').forEach(btn => btn.addEventListener('click', () => {
       const entry = state.diceRolls.find(r=>r.id===btn.getAttribute('data-dice-reroll')); if(!entry) return;
-      logDiceRoll({ sides:entry.sides, qty:entry.qty, modifier:entry.modifier, mode:entry.mode, keep:entry.keep }, { label:entry.label, private: entry.private });
+      logDiceRoll(entry.rollSpec || { sides:entry.sides, qty:entry.qty, modifier:entry.modifier, mode:entry.mode, keep:entry.keep }, { label:entry.label, private: entry.private });
     }));
     $log.querySelectorAll('[data-dice-entry-menu]').forEach(btn => btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -7807,9 +7858,6 @@
   el('dice-modifier').addEventListener('change', () => {
     el('dice-modifier').value = normalizedDiceModifier(el('dice-modifier').value);
   });
-  el('dice-modifier').addEventListener('keydown', e => {
-    if(e.key === 'Enter'){ e.preventDefault(); rollDiceQuick(state.diceActiveSides, state.diceQtyMap[state.diceActiveSides]||1); }
-  });
 
   document.querySelectorAll('[data-dice-mode]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -7823,7 +7871,6 @@
   el('btn-dice-history-clear').addEventListener('click', clearDiceHistory);
 
   el('dice-formula-input').addEventListener('input', updateFormulaHint);
-  el('dice-formula-input').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); submitDiceFormula(); } });
   el('dice-formula-clear').addEventListener('click', () => { el('dice-formula-input').value=''; updateFormulaHint(); });
   el('btn-roll-formula').addEventListener('click', submitDiceFormula);
 
