@@ -1109,7 +1109,8 @@
   }
 
   /* Page history panel */
-  #page-history-list{ display:flex; flex-direction:column; gap:6px; margin-top:10px; max-height:220px; overflow-y:auto; }
+  #float-maps{ width:360px; max-width:94vw; }
+  #page-history-list{ display:flex; flex-direction:column; gap:7px; margin-top:10px; max-height:320px; overflow-y:auto; padding-right:2px; }
   .page-row{
     display:flex; align-items:center; gap:8px; padding:8px; border-radius:3px;
     border:1px solid var(--line); background:#120e08; cursor:pointer;
@@ -1664,7 +1665,7 @@
   .token-conditions .token-condition.custom-condition + .token-condition.custom-condition{
     margin-top:calc(var(--token-custom-status-size,9px) * -.08);
   }
-  .page-thumb{ width:54px; height:36px; object-fit:cover; border-radius:3px; border:1px solid var(--line); flex-shrink:0; background:#0c0906; }
+  .page-thumb{ width:68px; height:44px; object-fit:cover; border-radius:4px; border:1px solid var(--line); flex-shrink:0; background:#0c0906; }
   .page-row .page-thumb + input[type=text]{ flex-basis:45%; }
   .page-scale-box{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:7px 8px; background:#120e08; border:1px solid var(--line); border-top:none; }
   .page-scale-box label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
@@ -1797,7 +1798,14 @@
   #music-panel-header h2{ font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); margin:0; letter-spacing:1px; }
   #music-panel-close{ padding:4px 9px; font-size:12px; }
   #music-panel-body{ flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
-  #music-track-list{ display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; }
+  #music-track-list{ display:flex; flex-direction:column; gap:6px; overflow:visible; }
+  #music-track-list.music-list-scroll{ max-height:520px; overflow-y:auto; padding-right:3px; }
+  .music-track-item.map-active{ border-color:var(--amber-bright); background:linear-gradient(90deg,#2a1d09,#171008); box-shadow:inset 3px 0 0 var(--amber-bright); }
+  .music-track-badge{ flex-shrink:0; padding:2px 6px; border:1px solid var(--amber); border-radius:999px; color:var(--amber-bright); font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:.3px; text-transform:uppercase; }
+  #music-library-warning{ display:none; padding:8px 10px; border:1px solid var(--amber); border-radius:6px; background:rgba(200,137,46,.10); color:var(--amber-bright); font-family:'JetBrains Mono',monospace; font-size:9px; line-height:1.45; }
+  #music-library-warning.show{ display:block; }
+  .music-track-item.audio-missing{ opacity:.68; }
+  .music-track-item.audio-missing .music-track-name::after{ content:' · carregando áudio'; color:var(--parchment-dim); font-size:10px; }
   .music-track-item{
     display:flex; flex-direction:column; gap:6px; padding:8px 10px;
     background:#120e08; border:1px solid var(--line); border-radius:5px;
@@ -1816,8 +1824,9 @@
   #music-indicator{
     display:none; align-items:center; gap:6px; padding:6px 8px; background:var(--bg-panel);
     border:1px solid var(--amber); border-radius:16px; font-size:12px; color:var(--parchment-dim);
-    cursor:default;
+    cursor:pointer;
   }
+  #music-indicator:hover{ border-color:var(--amber-bright); background:#251b0d; }
   #music-indicator-name{ line-height:1; }
   #music-mute-toggle{ padding:2px 6px; font-size:11px; flex-shrink:0; }
 
@@ -3663,6 +3672,7 @@
       <div id="music-panel-body">
         <label class="file-btn" for="music-upload">Enviar faixas (MP3, WAV, OGG...)</label>
         <input type="file" id="music-upload" accept="audio/*" multiple>
+        <div id="music-library-warning"></div>
         <div id="music-track-list"></div>
         <div id="music-transport">
           <button type="button" id="music-stop" class="danger" style="width:100%;" title="Parar todas as faixas">⏹ Parar tudo</button>
@@ -4115,6 +4125,7 @@
     sends:[],
     musicTracks:[],
     musicPlayingIds:[],
+    musicPlayingByPage:{},
     sendImage:null,
     handoutGallery:[],
     handoutIndex:0,
@@ -4401,72 +4412,190 @@
   let lastMusicTracksSnapshot = '';
   let lastMusicStateSnapshot = '';
   const musicAudioElements = new Map(); // trackId -> HTMLAudioElement
+  let musicAudioUnlockInstalled = false;
 
-  function updateAmbientAudio(){
-    const playingIds = new Set(state.musicPlayingIds || []);
-    // Start/update every track that should be playing
+  function musicPageId(){ return state.currentPageId || '__global__'; }
+  function currentMusicPlayingIds(){
+    const pid = musicPageId();
+    if(!state.musicPlayingByPage || typeof state.musicPlayingByPage !== 'object') state.musicPlayingByPage = {};
+    if(!Array.isArray(state.musicPlayingByPage[pid])) state.musicPlayingByPage[pid] = [];
+    state.musicPlayingIds = state.musicPlayingByPage[pid]; // compatibilidade com dados antigos e outras rotinas
+    return state.musicPlayingByPage[pid];
+  }
+
+  function installMusicAudioUnlock(){
+    if(musicAudioUnlockInstalled) return;
+    musicAudioUnlockInstalled = true;
+    const retry = () => {
+      updateAmbientAudio(true);
+      document.removeEventListener('pointerdown', retry, true);
+      document.removeEventListener('keydown', retry, true);
+      musicAudioUnlockInstalled = false;
+    };
+    document.addEventListener('pointerdown', retry, true);
+    document.addEventListener('keydown', retry, true);
+  }
+
+  async function safeGetMusicAudio(key){
+    if(!db) return null;
+    try{
+      const snap = await withTimeout(db.ref(key).once('value'), 30000);
+      const val = snap.val();
+      return (val === null || val === undefined) ? null : val;
+    }catch(e){ console.error('music audio get failed', key, e); return null; }
+  }
+  async function safeSetMusicAudio(key, value){
+    if(!db) return false;
+    try{
+      await withTimeout(db.ref(key).set(JSON.stringify(value)), 30000);
+      return true;
+    }catch(e){ console.error('music audio set failed', key, e); return false; }
+  }
+
+  async function loadMusicTrackAudio(track){
+    if(!track || track.dataUrl) return !!(track && track.dataUrl);
+    if(track._audioLoading) return track._audioLoading;
+    track._audioLoading = (async () => {
+      const raw = await safeGetMusicAudio(slotKey('music-audio-' + track.id));
+      if(!raw) return false;
+      try{
+        const payload = JSON.parse(raw);
+        track.dataUrl = typeof payload === 'string' ? payload : payload.dataUrl;
+      }catch(e){
+        track.dataUrl = raw;
+      }
+      return !!track.dataUrl;
+    })().finally(() => { delete track._audioLoading; });
+    return track._audioLoading;
+  }
+
+  async function hydrateMusicTracks(tracks){
+    const list = Array.isArray(tracks) ? tracks : [];
+    // Carrega em pequenos lotes para não sobrecarregar celular/Firebase.
+    for(let i=0;i<list.length;i+=3){
+      await Promise.all(list.slice(i,i+3).map(loadMusicTrackAudio));
+      renderMusicTrackList();
+      updateAmbientAudio();
+    }
+  }
+
+  function updateAmbientAudio(fromUserGesture){
+    const playingIds = new Set(currentMusicPlayingIds());
     playingIds.forEach(id => {
       const track = state.musicTracks.find(t => t.id === id);
       if(!track) return;
+      if(!track.dataUrl){
+        loadMusicTrackAudio(track).then(ok => { if(ok) updateAmbientAudio(fromUserGesture); });
+        return;
+      }
       let audio = musicAudioElements.get(id);
       if(!audio){
         audio = new Audio();
         audio.loop = true;
+        audio.preload = 'auto';
+        audio.setAttribute('playsinline','');
+        audio.addEventListener('error', () => console.warn('Falha ao reproduzir faixa:', track.name, audio.error));
         musicAudioElements.set(id, audio);
       }
       if(audio.getAttribute('data-src') !== track.dataUrl){
         audio.setAttribute('data-src', track.dataUrl);
         audio.src = track.dataUrl;
+        try{ audio.load(); }catch(e){}
       }
       audio.volume = musicMuted ? 0 : (typeof track.volume === 'number' ? track.volume : 0.5);
-      if(audio.paused) audio.play().catch(() => {});
+      if(audio.paused){
+        const playPromise = audio.play();
+        if(playPromise && typeof playPromise.catch === 'function'){
+          playPromise.catch(err => {
+            console.warn('Reprodução aguardando interação do usuário:', err);
+            installMusicAudioUnlock();
+          });
+        }
+      }
     });
-    // Pause anything that's no longer supposed to be playing
     musicAudioElements.forEach((audio, id) => {
       if(!playingIds.has(id) && !audio.paused) audio.pause();
     });
   }
 
   function updateMusicIndicator(){
-    const show = (state.musicPlayingIds || []).length > 0;
+    const ids = currentMusicPlayingIds();
+    const show = ids.length > 0;
     el('music-indicator').style.display = show ? 'flex' : 'none';
-    if(show) el('music-indicator-name').textContent = '🎵';
-    el('music-indicator').removeAttribute('title');
+    if(show){
+      const names = ids.map(id => state.musicTracks.find(t=>t.id===id)).filter(Boolean).map(t=>t.name);
+      el('music-indicator-name').textContent = names.length > 1 ? '🎵 ' + names.length : '🎵';
+      el('music-indicator').title = 'Abrir Música Ambiente' + (names.length ? ' — ' + names.join(', ') : '');
+    }
     el('music-mute-toggle').textContent = musicMuted ? '🔇' : '🔊';
   }
 
-  el('music-mute-toggle').addEventListener('click', () => {
+  el('music-indicator').addEventListener('click', (e) => {
+    if(e.target.closest('#music-mute-toggle')) return;
+    if(typeof openMusicPanel === 'function') openMusicPanel();
+    else el('music-toggle').click();
+  });
+  el('music-mute-toggle').addEventListener('click', (e) => {
+    e.stopPropagation();
     musicMuted = !musicMuted;
     try{ localStorage.setItem('music-muted', musicMuted ? '1' : '0'); }catch(e){}
-    updateAmbientAudio();
+    updateAmbientAudio(true);
     updateMusicIndicator();
   });
 
+  function musicTrackMetadata(){
+    return state.musicTracks.map(t => ({
+      id:t.id, name:t.name, volume:typeof t.volume === 'number' ? t.volume : 0.5,
+      trimmed:!!t.trimmed, mimeType:t.mimeType || '', hasAudio:!!t.dataUrl
+    }));
+  }
+
+  async function persistMusicTrackAudio(track){
+    if(!track || !track.id || !track.dataUrl) return false;
+    return await safeSetMusicAudio(slotKey('music-audio-' + track.id), { dataUrl:track.dataUrl });
+  }
+
   async function persistMusicTracks(){
-    const raw = JSON.stringify({ list: state.musicTracks });
+    const payload = { list: musicTrackMetadata() };
+    const raw = JSON.stringify(payload);
     lastMusicTracksSnapshot = raw;
-    return await safeSet(slotKey('music-tracks'), { list: state.musicTracks });
+    return await safeSet(slotKey('music-tracks'), payload);
   }
   async function persistMusicState(){
-    const payload = { playingIds: state.musicPlayingIds };
+    currentMusicPlayingIds();
+    const payload = { byPage: state.musicPlayingByPage || {} };
     lastMusicStateSnapshot = JSON.stringify(payload);
     await safeSet(slotKey('music-state'), payload);
   }
 
+  function updateMusicLibraryWarning(){
+    const warning = el('music-library-warning');
+    if(!warning) return;
+    const count = state.musicTracks.length;
+    const show = count > 30;
+    warning.classList.toggle('show', show);
+    warning.textContent = show ? ('⚠ Biblioteca grande: ' + count + ' faixas nesta campanha. Você pode continuar adicionando, mas acima de 30 faixas o carregamento pode ficar mais pesado, especialmente no mobile.') : '';
+  }
+
   function renderMusicTrackList(){
     const $list = el('music-track-list');
-    const playingIds = state.musicPlayingIds || [];
+    if(!$list) return;
+    updateMusicLibraryWarning();
+    const playingIds = currentMusicPlayingIds();
+    $list.classList.toggle('music-list-scroll', state.musicTracks.length > 7);
     if(state.musicTracks.length === 0){
       $list.innerHTML = '<div class="hint">Nenhuma faixa enviada ainda.</div>';
     } else {
       $list.innerHTML = state.musicTracks.map(t => {
         const isPlaying = playingIds.includes(t.id);
         const vol = typeof t.volume === 'number' ? t.volume : 0.5;
+        const loaded = !!t.dataUrl;
         return (
-          '<div class="music-track-item'+(isPlaying?' active':'')+'">' +
+          '<div class="music-track-item'+(isPlaying?' active map-active':'')+(!loaded?' audio-missing':'')+'">' +
             '<div class="music-track-row" data-music-toggle="'+t.id+'">' +
               '<button type="button" class="music-track-playicon" data-music-toggle-btn="'+t.id+'" title="'+(isPlaying?'Pausar':'Tocar')+'">'+(isPlaying?'⏸️':'▶️')+'</button>' +
               '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
+              (isPlaying ? '<span class="music-track-badge">Neste mapa</span>' : '') +
               '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'">Excluir</button>' +
             '</div>' +
             '<div class="music-track-volume-row">' +
@@ -4495,17 +4624,17 @@
     const track = state.musicTracks.find(t => t.id === id);
     if(!track) return;
     track.volume = parseInt(value, 10) / 100;
-    updateAmbientAudio();
+    updateAmbientAudio(true);
     await persistMusicTracks();
   }
 
   async function toggleMusicTrack(id){
-    if(!state.musicPlayingIds) state.musicPlayingIds = [];
-    const idx = state.musicPlayingIds.indexOf(id);
-    if(idx === -1) state.musicPlayingIds.push(id);
-    else state.musicPlayingIds.splice(idx, 1);
+    const ids = currentMusicPlayingIds();
+    const idx = ids.indexOf(id);
+    if(idx === -1) ids.push(id);
+    else ids.splice(idx, 1);
     renderMusicTrackList();
-    updateAmbientAudio();
+    updateAmbientAudio(true);
     updateMusicIndicator();
     await persistMusicState();
   }
@@ -4513,16 +4642,22 @@
   async function deleteMusicTrack(id){
     if(!confirm('Excluir esta faixa? Isso remove ela pra todo mundo na campanha.')) return;
     state.musicTracks = state.musicTracks.filter(t => t.id !== id);
-    state.musicPlayingIds = (state.musicPlayingIds || []).filter(pid => pid !== id);
+    if(state.musicPlayingByPage && typeof state.musicPlayingByPage === 'object'){
+      Object.keys(state.musicPlayingByPage).forEach(pid => {
+        state.musicPlayingByPage[pid] = (state.musicPlayingByPage[pid] || []).filter(pid2 => pid2 !== id);
+      });
+    }
+    state.musicPlayingIds = currentMusicPlayingIds();
     const audio = musicAudioElements.get(id);
-    if(audio){ audio.pause(); musicAudioElements.delete(id); }
+    if(audio){ audio.pause(); audio.removeAttribute('src'); musicAudioElements.delete(id); }
     renderMusicTrackList();
     updateAmbientAudio();
     updateMusicIndicator();
-    await Promise.all([ persistMusicTracks(), persistMusicState() ]);
+    await Promise.all([ persistMusicTracks(), persistMusicState(), safeDelete(slotKey('music-audio-' + id)) ]);
   }
 
-  const MUSIC_MAX_FILE_BYTES = 7 * 1024 * 1024; // deixa margem para a expansão Base64 no Firebase
+  const MUSIC_MAX_FILE_BYTES = 7 * 1024 * 1024; // margem para a expansão Base64 no Firebase
+  const MUSIC_MAX_SECONDS = 15;
 
   function blobToDataUrl(blob){
     return new Promise((resolve, reject) => {
@@ -4543,11 +4678,12 @@
     view.setUint16(34, 16, true); writeText(36, 'data'); view.setUint32(40, dataBytes, true);
   }
 
-  function audioBufferPrefixToWav(buffer, maxBytes){
+  function audioBufferPrefixToWav(buffer, maxBytes, maxSeconds){
     const channels = Math.max(1, Math.min(2, buffer.numberOfChannels || 1));
     const bytesPerFrame = channels * 2;
-    const maxFrames = Math.max(1, Math.floor((maxBytes - 44) / bytesPerFrame));
-    const frameCount = Math.min(buffer.length, maxFrames);
+    const maxFramesByBytes = Math.max(1, Math.floor((maxBytes - 44) / bytesPerFrame));
+    const maxFramesByTime = Math.max(1, Math.floor(buffer.sampleRate * Math.max(0.1, maxSeconds || MUSIC_MAX_SECONDS)));
+    const frameCount = Math.min(buffer.length, maxFramesByBytes, maxFramesByTime);
     const out = new ArrayBuffer(44 + frameCount * bytesPerFrame);
     const view = new DataView(out);
     writeWavHeader(view, buffer.sampleRate, channels, frameCount);
@@ -4565,7 +4701,7 @@
   }
 
   async function fitMusicFileToLimit(file){
-    if(file.size <= MUSIC_MAX_FILE_BYTES) return { blob:file, trimmed:false, seconds:null, originalSeconds:null };
+    // Toda faixa é inspecionada: acima de 15 s, preserva somente o começo e gera um WAV válido.
     try{
       const bytes = await file.arrayBuffer();
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -4574,11 +4710,17 @@
       let buffer;
       try{ buffer = await ctx.decodeAudioData(bytes.slice(0)); }
       finally{ try{ await ctx.close(); }catch(e){} }
-      const result = audioBufferPrefixToWav(buffer, MUSIC_MAX_FILE_BYTES);
+      const originalSeconds = buffer.duration || 0;
+      const needsTimeTrim = originalSeconds > MUSIC_MAX_SECONDS + 0.02;
+      const needsSizeTrim = file.size > MUSIC_MAX_FILE_BYTES;
+      if(!needsTimeTrim && !needsSizeTrim){
+        return { blob:file, trimmed:false, seconds:originalSeconds, originalSeconds };
+      }
+      const result = audioBufferPrefixToWav(buffer, MUSIC_MAX_FILE_BYTES, MUSIC_MAX_SECONDS);
       return { blob:result.blob, trimmed:true, seconds:result.seconds, originalSeconds:result.originalSeconds };
     }catch(err){
-      console.warn('Não foi possível recodificar a faixa; usando corte compatível por tamanho.', err);
-      return { blob:file.slice(0, MUSIC_MAX_FILE_BYTES, file.type || 'audio/mpeg'), trimmed:true, seconds:null, originalSeconds:null };
+      console.warn('Não foi possível decodificar a faixa para aplicar o limite de 15 segundos.', err);
+      throw new Error('Formato de áudio não pôde ser processado para o limite de 15 segundos.');
     }
   }
 
@@ -4594,7 +4736,10 @@
         const fitted = await fitMusicFileToLimit(file);
         const dataUrl = await blobToDataUrl(fitted.blob);
         const name = file.name.replace(/\.[^.]+$/, '');
-        state.musicTracks.push({ id:newId('m'), name, dataUrl, volume:0.5, trimmed:!!fitted.trimmed });
+        const track = { id:newId('m'), name, dataUrl, volume:0.5, trimmed:!!fitted.trimmed, mimeType:fitted.blob.type || file.type || '' };
+        const audioSaved = await persistMusicTrackAudio(track);
+        if(!audioSaved) throw new Error('Falha ao salvar o áudio da faixa');
+        state.musicTracks.push(track);
         added++;
         if(fitted.trimmed) trimmed++;
         renderMusicTrackList();
@@ -4610,13 +4755,16 @@
       noteDailyUpload('music', '⚠️ Você já enviou 10 músicas hoje nessa campanha. Pode continuar, mas evite adicionar muitas músicas novas nas próximas sessões ou ficar trocando as que já estão aqui — reaproveitar as faixas já enviadas gasta bem menos da cota gratuita do Firebase do que subir novas toda hora.');
     }
     let msg = added === 1 ? '1 faixa adicionada.' : added + ' faixas adicionadas.';
-    if(trimmed) msg += ' ' + trimmed + (trimmed === 1 ? ' foi cortada automaticamente para caber.' : ' foram cortadas automaticamente para caber.');
+    if(trimmed) msg += ' ' + trimmed + (trimmed === 1 ? ' foi limitada automaticamente aos primeiros 15 segundos.' : ' foram limitadas automaticamente aos primeiros 15 segundos.');
+    if(state.musicTracks.length > 30) msg += ' ⚠ A campanha agora tem ' + state.musicTracks.length + ' faixas; acima de 30 o carregamento pode ficar mais pesado.';
     if(failed) msg += ' ' + failed + (failed === 1 ? ' arquivo não pôde ser importado.' : ' arquivos não puderam ser importados.');
     showToast(msg);
   });
 
   el('music-stop').addEventListener('click', async () => {
-    state.musicPlayingIds = [];
+    const ids = currentMusicPlayingIds();
+    ids.splice(0, ids.length);
+    state.musicPlayingIds = ids;
     renderMusicTrackList();
     updateAmbientAudio();
     updateMusicIndicator();
@@ -7730,6 +7878,7 @@
     handoutUserPositioned = false;
     state.musicTracks = [];
     state.musicPlayingIds = [];
+    state.musicPlayingByPage = {};
     lastMusicTracksSnapshot = '';
     lastMusicStateSnapshot = '';
     musicAudioElements.forEach(audio => { audio.pause(); audio.removeAttribute('data-src'); audio.src = ''; });
@@ -8116,11 +8265,23 @@
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
     if(effectiveMaster() && sessionNotesRaw){ try{ state.sessionNotes = JSON.parse(sessionNotesRaw).list || []; normalizeAllSessionNotes(); lastSessionNotesSnapshot = sessionNotesRaw; }catch(e){} } else if(!effectiveMaster()){ state.sessionNotes = []; }
     if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
-    if(musicTracksRaw){ try{ state.musicTracks = JSON.parse(musicTracksRaw).list || []; lastMusicTracksSnapshot = musicTracksRaw; }catch(e){} }
+    if(musicTracksRaw){
+      try{
+        state.musicTracks = JSON.parse(musicTracksRaw).list || [];
+        lastMusicTracksSnapshot = musicTracksRaw;
+        // Migração: versões antigas guardavam o dataUrl junto dos metadados.
+        const legacyWithAudio = state.musicTracks.filter(t => t && t.dataUrl);
+        if(legacyWithAudio.length && effectiveMaster()) Promise.all(legacyWithAudio.map(persistMusicTrackAudio)).then(() => persistMusicTracks());
+        hydrateMusicTracks(state.musicTracks);
+      }catch(e){}
+    }
     if(musicStateRaw){
       try{
         const ms = JSON.parse(musicStateRaw);
-        state.musicPlayingIds = Array.isArray(ms.playingIds) ? ms.playingIds : [];
+        if(ms.byPage && typeof ms.byPage === 'object') state.musicPlayingByPage = ms.byPage;
+        else if(Array.isArray(ms.playingIds)){ state.musicPlayingByPage = {}; state.musicPlayingByPage[musicPageId()] = ms.playingIds; }
+        else state.musicPlayingByPage = {};
+        state.musicPlayingIds = currentMusicPlayingIds();
         lastMusicStateSnapshot = musicStateRaw;
       }catch(e){}
     }
@@ -8980,7 +9141,10 @@
     state.currentPageId = id;
     state.selectedTokenId = null;
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
+    state.musicPlayingIds = currentMusicPlayingIds();
     render();
+    updateAmbientAudio();
+    updateMusicIndicator();
     await persistPagesIndex();
   }
 
@@ -15992,7 +16156,13 @@
     watchKey(slotKey('music-tracks'), (raw) => {
       if(!raw || raw === lastMusicTracksSnapshot) return;
       lastMusicTracksSnapshot = raw;
-      try{ state.musicTracks = JSON.parse(raw).list || []; render(); }catch(e){}
+      try{
+        const next = JSON.parse(raw).list || [];
+        const existing = new Map(state.musicTracks.map(t => [t.id,t]));
+        state.musicTracks = next.map(t => Object.assign({}, t, existing.get(t.id) && existing.get(t.id).dataUrl ? {dataUrl:existing.get(t.id).dataUrl} : {}));
+        hydrateMusicTracks(state.musicTracks);
+        render();
+      }catch(e){}
     });
 
     watchKey(slotKey('music-state'), (raw) => {
@@ -16000,8 +16170,12 @@
       lastMusicStateSnapshot = raw;
       try{
         const ms = JSON.parse(raw);
-        state.musicPlayingIds = Array.isArray(ms.playingIds) ? ms.playingIds : [];
+        if(ms.byPage && typeof ms.byPage === 'object') state.musicPlayingByPage = ms.byPage;
+        else if(Array.isArray(ms.playingIds)){ state.musicPlayingByPage = {}; state.musicPlayingByPage[musicPageId()] = ms.playingIds; }
+        state.musicPlayingIds = currentMusicPlayingIds();
         render();
+        updateAmbientAudio();
+        updateMusicIndicator();
       }catch(e){}
     });
 
