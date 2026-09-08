@@ -1816,6 +1816,9 @@
   .music-track-row .music-track-playicon{ flex-shrink:0; padding:4px 8px; font-size:12px; }
   .music-track-row .music-track-name{ flex:1; font-size:13px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .music-track-row .music-track-delete{ flex-shrink:0; padding:3px 8px; font-size:9px; }
+  .music-track-loop{ flex-shrink:0; padding:3px 7px; font-size:9px; text-transform:none; letter-spacing:0; }
+  .music-track-loop.loop-on{ border-color:var(--amber); color:var(--amber-bright); background:rgba(200,137,46,.12); }
+  .music-track-loop.loop-off{ opacity:.62; }
   .music-track-volume-row{ display:flex; align-items:center; gap:6px; padding-left:38px; }
   .music-track-volume-row .music-track-volume-icon{ font-size:11px; flex-shrink:0; opacity:0.7; }
   .music-track-volume-row input[type=range]{ flex:1; accent-color:var(--amber); cursor:pointer; }
@@ -3674,8 +3677,9 @@
         <input type="file" id="music-upload" accept="audio/*" multiple>
         <div id="music-library-warning"></div>
         <div id="music-track-list"></div>
-        <div id="music-transport">
-          <button type="button" id="music-stop" class="danger" style="width:100%;" title="Parar todas as faixas">⏹ Parar tudo</button>
+        <div id="music-transport" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button type="button" id="music-pause-all" class="danger" style="width:100%;" title="Pausar todas as faixas deste mapa sem esquecer quais estavam tocando">⏸ Pausar tudo</button>
+          <button type="button" id="music-resume-all" style="width:100%;" title="Retomar as faixas pausadas deste mapa">▶ Retomar</button>
         </div>
         <div class="hint">Clique em uma faixa pra tocar ou pausar — dá pra ter várias tocando ao mesmo tempo, em camadas (chuva + taverna + tensão, por exemplo). Cada faixa tem seu próprio volume, então dá pra equilibrar o mix. Jogadores podem silenciar a música pra si mesmos, mas não ajustam volume.</div>
       </div>
@@ -4126,6 +4130,7 @@
     musicTracks:[],
     musicPlayingIds:[],
     musicPlayingByPage:{},
+    musicPausedByPage:{},
     sendImage:null,
     handoutGallery:[],
     handoutIndex:0,
@@ -4423,6 +4428,20 @@
     return state.musicPlayingByPage[pid];
   }
 
+  function currentMusicPausedIds(){
+    const pid = musicPageId();
+    if(!state.musicPausedByPage || typeof state.musicPausedByPage !== 'object') state.musicPausedByPage = {};
+    if(!Array.isArray(state.musicPausedByPage[pid])) state.musicPausedByPage[pid] = [];
+    return state.musicPausedByPage[pid];
+  }
+
+  function updateMusicTransportControls(){
+    const pauseBtn = el('music-pause-all');
+    const resumeBtn = el('music-resume-all');
+    if(pauseBtn) pauseBtn.disabled = currentMusicPlayingIds().length === 0;
+    if(resumeBtn) resumeBtn.disabled = currentMusicPausedIds().length === 0;
+  }
+
   function installMusicAudioUnlock(){
     if(musicAudioUnlockInstalled) return;
     musicAudioUnlockInstalled = true;
@@ -4479,6 +4498,20 @@
     }
   }
 
+  function handleMusicTrackEnded(id){
+    const track = state.musicTracks.find(t => t.id === id);
+    if(!track || track.loop !== false) return;
+    const ids = currentMusicPlayingIds();
+    const idx = ids.indexOf(id);
+    if(idx !== -1) ids.splice(idx, 1);
+    const audio = musicAudioElements.get(id);
+    if(audio){ try{ audio.currentTime = 0; }catch(e){} }
+    renderMusicTrackList();
+    updateMusicIndicator();
+    updateMusicTransportControls();
+    if(effectiveMaster()) persistMusicState();
+  }
+
   function updateAmbientAudio(fromUserGesture){
     const playingIds = new Set(currentMusicPlayingIds());
     playingIds.forEach(id => {
@@ -4491,12 +4524,13 @@
       let audio = musicAudioElements.get(id);
       if(!audio){
         audio = new Audio();
-        audio.loop = true;
         audio.preload = 'auto';
         audio.setAttribute('playsinline','');
         audio.addEventListener('error', () => console.warn('Falha ao reproduzir faixa:', track.name, audio.error));
+        audio.addEventListener('ended', () => handleMusicTrackEnded(id));
         musicAudioElements.set(id, audio);
       }
+      audio.loop = track.loop !== false;
       if(audio.getAttribute('data-src') !== track.dataUrl){
         audio.setAttribute('data-src', track.dataUrl);
         audio.src = track.dataUrl;
@@ -4546,7 +4580,7 @@
   function musicTrackMetadata(){
     return state.musicTracks.map(t => ({
       id:t.id, name:t.name, volume:typeof t.volume === 'number' ? t.volume : 0.5,
-      trimmed:!!t.trimmed, mimeType:t.mimeType || '', hasAudio:!!t.dataUrl
+      loop:t.loop !== false, trimmed:!!t.trimmed, mimeType:t.mimeType || '', hasAudio:!!t.dataUrl
     }));
   }
 
@@ -4563,7 +4597,7 @@
   }
   async function persistMusicState(){
     currentMusicPlayingIds();
-    const payload = { byPage: state.musicPlayingByPage || {} };
+    const payload = { byPage: state.musicPlayingByPage || {}, pausedByPage: state.musicPausedByPage || {} };
     lastMusicStateSnapshot = JSON.stringify(payload);
     await safeSet(slotKey('music-state'), payload);
   }
@@ -4581,6 +4615,7 @@
     const $list = el('music-track-list');
     if(!$list) return;
     updateMusicLibraryWarning();
+    updateMusicTransportControls();
     const playingIds = currentMusicPlayingIds();
     $list.classList.toggle('music-list-scroll', state.musicTracks.length > 7);
     if(state.musicTracks.length === 0){
@@ -4596,6 +4631,7 @@
               '<button type="button" class="music-track-playicon" data-music-toggle-btn="'+t.id+'" title="'+(isPlaying?'Pausar':'Tocar')+'">'+(isPlaying?'⏸️':'▶️')+'</button>' +
               '<span class="music-track-name">'+escapeHtml(t.name)+'</span>' +
               (isPlaying ? '<span class="music-track-badge">Neste mapa</span>' : '') +
+              '<button type="button" class="music-track-loop '+(t.loop !== false ? 'loop-on' : 'loop-off')+'" data-music-loop="'+t.id+'" title="'+(t.loop !== false ? 'Loop ligado — clique para tocar apenas uma vez' : 'Loop desligado — clique para repetir continuamente')+'">🔁 '+(t.loop !== false ? 'Loop' : '1×')+'</button>' +
               '<button type="button" class="danger music-track-delete" data-music-delete="'+t.id+'">Excluir</button>' +
             '</div>' +
             '<div class="music-track-volume-row">' +
@@ -4607,17 +4643,30 @@
       }).join('');
       $list.querySelectorAll('[data-music-toggle]').forEach(row => {
         row.addEventListener('click', (e) => {
-          if(e.target.closest('[data-music-delete]')) return;
+          if(e.target.closest('[data-music-delete], [data-music-loop]')) return;
           toggleMusicTrack(row.getAttribute('data-music-toggle'));
         });
       });
       $list.querySelectorAll('[data-music-delete]').forEach(btn => {
         btn.addEventListener('click', (e) => { e.stopPropagation(); deleteMusicTrack(btn.getAttribute('data-music-delete')); });
       });
+      $list.querySelectorAll('[data-music-loop]').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); setTrackLoop(btn.getAttribute('data-music-loop')); });
+      });
       $list.querySelectorAll('[data-music-volume]').forEach(slider => {
         slider.addEventListener('input', () => setTrackVolume(slider.getAttribute('data-music-volume'), slider.value));
       });
     }
+  }
+
+  async function setTrackLoop(id){
+    const track = state.musicTracks.find(t => t.id === id);
+    if(!track) return;
+    track.loop = track.loop === false;
+    const audio = musicAudioElements.get(id);
+    if(audio) audio.loop = track.loop !== false;
+    renderMusicTrackList();
+    await persistMusicTracks();
   }
 
   async function setTrackVolume(id, value){
@@ -4630,6 +4679,8 @@
 
   async function toggleMusicTrack(id){
     const ids = currentMusicPlayingIds();
+    const pausedIds = currentMusicPausedIds();
+    pausedIds.splice(0, pausedIds.length);
     const idx = ids.indexOf(id);
     if(idx === -1) ids.push(id);
     else ids.splice(idx, 1);
@@ -4645,6 +4696,11 @@
     if(state.musicPlayingByPage && typeof state.musicPlayingByPage === 'object'){
       Object.keys(state.musicPlayingByPage).forEach(pid => {
         state.musicPlayingByPage[pid] = (state.musicPlayingByPage[pid] || []).filter(pid2 => pid2 !== id);
+      });
+    }
+    if(state.musicPausedByPage && typeof state.musicPausedByPage === 'object'){
+      Object.keys(state.musicPausedByPage).forEach(pid => {
+        state.musicPausedByPage[pid] = (state.musicPausedByPage[pid] || []).filter(pid2 => pid2 !== id);
       });
     }
     state.musicPlayingIds = currentMusicPlayingIds();
@@ -4736,7 +4792,7 @@
         const fitted = await fitMusicFileToLimit(file);
         const dataUrl = await blobToDataUrl(fitted.blob);
         const name = file.name.replace(/\.[^.]+$/, '');
-        const track = { id:newId('m'), name, dataUrl, volume:0.5, trimmed:!!fitted.trimmed, mimeType:fitted.blob.type || file.type || '' };
+        const track = { id:newId('m'), name, dataUrl, volume:0.5, loop:true, trimmed:!!fitted.trimmed, mimeType:fitted.blob.type || file.type || '' };
         const audioSaved = await persistMusicTrackAudio(track);
         if(!audioSaved) throw new Error('Falha ao salvar o áudio da faixa');
         state.musicTracks.push(track);
@@ -4761,13 +4817,31 @@
     showToast(msg);
   });
 
-  el('music-stop').addEventListener('click', async () => {
+  el('music-pause-all').addEventListener('click', async () => {
     const ids = currentMusicPlayingIds();
+    if(!ids.length) return;
+    const pausedIds = currentMusicPausedIds();
+    pausedIds.splice(0, pausedIds.length, ...ids);
     ids.splice(0, ids.length);
     state.musicPlayingIds = ids;
     renderMusicTrackList();
     updateAmbientAudio();
     updateMusicIndicator();
+    updateMusicTransportControls();
+    await persistMusicState();
+  });
+
+  el('music-resume-all').addEventListener('click', async () => {
+    const ids = currentMusicPlayingIds();
+    const pausedIds = currentMusicPausedIds();
+    if(!pausedIds.length) return;
+    ids.splice(0, ids.length, ...pausedIds.filter(id => state.musicTracks.some(t => t.id === id)));
+    pausedIds.splice(0, pausedIds.length);
+    state.musicPlayingIds = ids;
+    renderMusicTrackList();
+    updateAmbientAudio(true);
+    updateMusicIndicator();
+    updateMusicTransportControls();
     await persistMusicState();
   });
 
@@ -8268,6 +8342,7 @@
     if(musicTracksRaw){
       try{
         state.musicTracks = JSON.parse(musicTracksRaw).list || [];
+        state.musicTracks.forEach(t => { if(typeof t.loop !== 'boolean') t.loop = true; });
         lastMusicTracksSnapshot = musicTracksRaw;
         // Migração: versões antigas guardavam o dataUrl junto dos metadados.
         const legacyWithAudio = state.musicTracks.filter(t => t && t.dataUrl);
@@ -8281,6 +8356,7 @@
         if(ms.byPage && typeof ms.byPage === 'object') state.musicPlayingByPage = ms.byPage;
         else if(Array.isArray(ms.playingIds)){ state.musicPlayingByPage = {}; state.musicPlayingByPage[musicPageId()] = ms.playingIds; }
         else state.musicPlayingByPage = {};
+        state.musicPausedByPage = (ms.pausedByPage && typeof ms.pausedByPage === 'object') ? ms.pausedByPage : {};
         state.musicPlayingIds = currentMusicPlayingIds();
         lastMusicStateSnapshot = musicStateRaw;
       }catch(e){}
@@ -16158,6 +16234,7 @@
       lastMusicTracksSnapshot = raw;
       try{
         const next = JSON.parse(raw).list || [];
+        next.forEach(t => { if(typeof t.loop !== 'boolean') t.loop = true; });
         const existing = new Map(state.musicTracks.map(t => [t.id,t]));
         state.musicTracks = next.map(t => Object.assign({}, t, existing.get(t.id) && existing.get(t.id).dataUrl ? {dataUrl:existing.get(t.id).dataUrl} : {}));
         hydrateMusicTracks(state.musicTracks);
