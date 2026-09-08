@@ -1823,6 +1823,7 @@
     font-size:8px; text-transform:none; letter-spacing:0; line-height:1.25;
   }
   .music-category-jump:hover{ border-color:var(--music-cat-color,var(--amber)); color:var(--music-cat-color,var(--amber-bright)); filter:brightness(1.15); }
+  .music-category-jump[data-music-label-context], .music-category-header[data-music-label-context]{ cursor:context-menu; }
   .music-category-group{ display:flex; flex-direction:column; gap:6px; min-width:0; }
   .music-category-header{
     display:flex; align-items:center; gap:7px; min-height:25px; padding:4px 8px; margin-top:2px;
@@ -4810,9 +4811,44 @@
     if(changed && effectiveMaster()) await persistMusicLabels();
   }
 
+  let editingMusicLabelId = null;
+
   function renderMusicLabelCreator(reset){
     const form=el('music-label-create-form'); if(!form)return;
-    if(reset){ el('music-label-name').value=''; el('music-label-color').value='#c8892e'; }
+    const saveBtn=el('music-label-save');
+    if(reset){
+      editingMusicLabelId=null;
+      el('music-label-name').value='';
+      el('music-label-color').value='#c8892e';
+      if(saveBtn) saveBtn.textContent='Criar';
+    }
+  }
+
+  function openMusicLabelEditor(labelId){
+    if(!effectiveMaster()) return;
+    const label=(state.musicLabels||[]).find(l=>l.id===labelId); if(!label)return;
+    editingMusicLabelId=label.id;
+    const form=el('music-label-create-form');
+    el('music-label-name').value=String(label.name||'');
+    el('music-label-color').value=normalizeMusicLabelColor(label.color);
+    el('music-label-save').textContent='Salvar';
+    form.classList.add('open');
+    setTimeout(()=>{ el('music-label-name').focus(); el('music-label-name').select(); },0);
+  }
+
+  async function deleteMusicLabel(labelId){
+    if(!effectiveMaster()) return;
+    const label=(state.musicLabels||[]).find(l=>l.id===labelId); if(!label)return;
+    const oldName=String(label.name||'').trim();
+    const affected=state.musicTracks.filter(t=>String(t.category||'').trim().toLocaleLowerCase('pt-BR')===oldName.toLocaleLowerCase('pt-BR')).length;
+    const msg='Excluir a etiqueta "'+oldName+'"?'+(affected?' As '+affected+' '+(affected===1?'faixa associada':'faixas associadas')+' irão para Sem etiqueta.':'');
+    if(!confirm(msg)) return;
+    state.musicTracks.forEach(t=>{ if(String(t.category||'').trim().toLocaleLowerCase('pt-BR')===oldName.toLocaleLowerCase('pt-BR')) t.category=''; });
+    state.musicLabels=state.musicLabels.filter(l=>l.id!==labelId);
+    if(editingMusicLabelId===labelId){ editingMusicLabelId=null; el('music-label-create-form').classList.remove('open'); }
+    await Promise.all([persistMusicLabels(),persistMusicTracks()]);
+    renderMusicTrackList();
+    showToast('Etiqueta "'+oldName+'" excluída.');
   }
 
   function closeMusicLabelPicker(){ const p=el('music-label-picker'); if(p)p.classList.remove('open'); }
@@ -4839,20 +4875,36 @@
   async function setMusicCategory(id, anchorRect){ openMusicLabelPicker(id,anchorRect); }
 
   el('music-create-label').addEventListener('click',()=>{
-    const form=el('music-label-create-form'); form.classList.toggle('open');
-    if(form.classList.contains('open')){ renderMusicLabelCreator(true); setTimeout(()=>el('music-label-name').focus(),0); }
+    const form=el('music-label-create-form');
+    const opening=!form.classList.contains('open') || editingMusicLabelId!==null;
+    if(opening){ renderMusicLabelCreator(true); form.classList.add('open'); setTimeout(()=>el('music-label-name').focus(),0); }
+    else form.classList.remove('open');
   });
-  el('music-label-cancel').addEventListener('click',()=>el('music-label-create-form').classList.remove('open'));
+  el('music-label-cancel').addEventListener('click',()=>{ editingMusicLabelId=null; el('music-label-save').textContent='Criar'; el('music-label-create-form').classList.remove('open'); });
   el('music-label-save').addEventListener('click',async()=>{
     const name=el('music-label-name').value.trim().slice(0,30);
     const color=normalizeMusicLabelColor(el('music-label-color').value);
     if(!name){ showToast('Digite um nome para a etiqueta.'); el('music-label-name').focus(); return; }
-    if(musicLabelByName(name)){ showToast('Já existe uma etiqueta com esse nome.'); return; }
-    state.musicLabels.push({id:newId('ml'),name,color});
-    await persistMusicLabels();
-    el('music-label-create-form').classList.remove('open');
-    renderMusicTrackList();
-    showToast('Etiqueta "'+name+'" criada.');
+    const duplicate=(state.musicLabels||[]).find(l=>l.id!==editingMusicLabelId && String(l.name||'').trim().toLocaleLowerCase('pt-BR')===name.toLocaleLowerCase('pt-BR'));
+    if(duplicate){ showToast('Já existe uma etiqueta com esse nome.'); return; }
+    if(editingMusicLabelId){
+      const label=(state.musicLabels||[]).find(l=>l.id===editingMusicLabelId); if(!label)return;
+      const oldName=String(label.name||'').trim();
+      label.name=name; label.color=color;
+      state.musicTracks.forEach(t=>{ if(String(t.category||'').trim().toLocaleLowerCase('pt-BR')===oldName.toLocaleLowerCase('pt-BR')) t.category=name; });
+      await Promise.all([persistMusicLabels(),persistMusicTracks()]);
+      editingMusicLabelId=null;
+      el('music-label-save').textContent='Criar';
+      el('music-label-create-form').classList.remove('open');
+      renderMusicTrackList();
+      showToast('Etiqueta atualizada.');
+    }else{
+      state.musicLabels.push({id:newId('ml'),name,color});
+      await persistMusicLabels();
+      el('music-label-create-form').classList.remove('open');
+      renderMusicTrackList();
+      showToast('Etiqueta "'+name+'" criada.');
+    }
   });
   el('music-label-name').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); el('music-label-save').click(); } });
   document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#music-label-picker')&&!e.target.closest('[data-context-action="musiccategory"]')) closeMusicLabelPicker(); });
@@ -4885,7 +4937,7 @@
 
       const guide = '<div class="music-category-guide">' +
         '<span class="music-category-guide-label">Ir para</span>' +
-        categoryKeys.map(key => '<button type="button" class="music-category-jump" data-music-category-jump="'+escapeHtml(key)+'" style="'+musicCategoryStyle(key)+'">'+escapeHtml(musicCategoryLabel(key))+' <span aria-hidden="true">· '+groups.get(key).length+'</span></button>').join('') +
+        categoryKeys.map(key => { const lbl=key==='__uncategorized__'?null:musicLabelByName(key); return '<button type="button" class="music-category-jump" data-music-category-jump="'+escapeHtml(key)+'"'+(lbl?' data-music-label-context="'+escapeHtml(lbl.id)+'"':'')+' style="'+musicCategoryStyle(key)+'">'+escapeHtml(musicCategoryLabel(key))+' <span aria-hidden="true">· '+groups.get(key).length+'</span></button>'; }).join('') +
       '</div>';
 
       const groupHtml = categoryKeys.map((key, groupIndex) => {
@@ -4922,7 +4974,7 @@
           );
         }).join('');
         return '<div class="music-category-group" data-music-category-group="'+escapeHtml(key)+'" style="'+style+'">' +
-          '<div class="music-category-header" data-music-category-anchor="'+escapeHtml(key)+'" style="'+style+'">' +
+          '<div class="music-category-header" data-music-category-anchor="'+escapeHtml(key)+'"'+(key!=='__uncategorized__' && musicLabelByName(key)?' data-music-label-context="'+escapeHtml(musicLabelByName(key).id)+'"':'')+' style="'+style+'">' +
             '<span>'+escapeHtml(musicCategoryLabel(key))+'</span><span class="music-category-count">'+tracks.length+' '+(tracks.length===1?'faixa':'faixas')+'</span>' +
           '</div>' + items + '</div>';
       }).join('');
@@ -4941,6 +4993,11 @@
           } else {
             anchor.scrollIntoView({ behavior:'smooth', block:'nearest' });
           }
+        });
+      });
+      $list.querySelectorAll('[data-music-label-context]').forEach(node => {
+        node.addEventListener('contextmenu', (e) => {
+          openContextMenu(e, 'musiclabel', node.getAttribute('data-music-label-context'));
         });
       });
       $list.querySelectorAll('[data-music-toggle]').forEach(row => {
@@ -9962,6 +10019,20 @@
       menu.style.top=Math.max(8,Math.min(e.clientY,window.innerHeight-menuHeight-8))+'px';
       return;
     }
+    if(type==='musiclabel'){
+      if(!effectiveMaster()) return;
+      const label=(state.musicLabels||[]).find(l=>l.id===id); if(!label)return;
+      e.preventDefault(); e.stopPropagation();
+      const menu=el('context-menu'); contextTarget={type,id};
+      const actions=[['✏️ Editar etiqueta','musiclabeledit'],['🗑 Excluir etiqueta','musiclabeldelete','context-danger']];
+      menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
+      menu.style.left='8px'; menu.style.top='8px'; menu.classList.add('open');
+      const menuWidth=Math.min(menu.offsetWidth||190,window.innerWidth-16);
+      const menuHeight=Math.min(menu.scrollHeight||120,window.innerHeight-16);
+      menu.style.left=Math.max(8,Math.min(e.clientX,window.innerWidth-menuWidth-8))+'px';
+      menu.style.top=Math.max(8,Math.min(e.clientY,window.innerHeight-menuHeight-8))+'px';
+      return;
+    }
     if(type==='musictrack'){
       if(!effectiveMaster()) return;
       const track=state.musicTracks.find(t=>t.id===id); if(!track)return;
@@ -10257,6 +10328,12 @@
       else if(action==='deleteentry'&&(effectiveMaster()||entry.roller===myName)){
         if(confirm('Excluir esta rolagem do histórico?')) await deleteDiceEntry(entry.id);
       }
+      return;
+    }
+    if(c.type==='musiclabel'){
+      if(!effectiveMaster()) return;
+      if(action==='musiclabeledit') openMusicLabelEditor(c.id);
+      else if(action==='musiclabeldelete') await deleteMusicLabel(c.id);
       return;
     }
     if(c.type==='musictrack'){
