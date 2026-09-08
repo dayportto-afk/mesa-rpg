@@ -4988,10 +4988,14 @@
           if(!anchor) return;
           if($list.classList.contains('music-list-scroll')){
             const guideEl = $list.querySelector('.music-category-guide');
-            const targetTop = Math.max(0, anchor.offsetTop - (guideEl ? guideEl.offsetHeight + 6 : 0));
+            const listRect = $list.getBoundingClientRect();
+            const anchorRect = anchor.getBoundingClientRect();
+            const guideHeight = guideEl ? guideEl.getBoundingClientRect().height + 6 : 0;
+            // Leva o topo do título da seção exatamente para baixo do guia fixo.
+            const targetTop = Math.max(0, $list.scrollTop + (anchorRect.top - listRect.top) - guideHeight);
             $list.scrollTo({ top:targetTop, behavior:'smooth' });
           } else {
-            anchor.scrollIntoView({ behavior:'smooth', block:'nearest' });
+            anchor.scrollIntoView({ behavior:'smooth', block:'start' });
           }
         });
       });
