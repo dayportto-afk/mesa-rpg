@@ -3234,6 +3234,15 @@
               <label for="darkness-color-input">Cor da escuridão</label>
               <input type="color" id="darkness-color-input" value="#000000" title="Escolher cor da escuridão">
             </div>
+            <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:8px;">
+              <button type="button" id="btn-explorer-toggle" style="width:100%;">🗺️ Modo Explorador</button>
+              <div class="theme-row" style="margin-top:8px;">
+                <label for="explorer-opacity-input">Memória <span id="explorer-opacity-value">55%</span></label>
+                <input type="range" id="explorer-opacity-input" min="0" max="100" step="5" value="55" style="flex:1; accent-color:var(--amber);">
+              </div>
+              <div class="hint">Com o modo ativo, áreas já reveladas por alguma luz continuam visíveis num cinza mais escuro depois que a luz se afasta dali — como memória do que já foi explorado. Deslize "Memória" pra ajustar o quão claras essas áreas ficam.</div>
+              <button type="button" id="btn-explorer-clear" class="danger" style="width:100%; margin-top:8px;">Apagar histórico explorado desta página</button>
+            </div>
             <button type="button" id="btn-lanterns-toggle" style="width:100%; margin-top:6px;">🔦 Lanternas permitidas</button>
             <div class="theme-row" style="margin-top:8px;">
               <label for="lantern-shape-input">Formato da luz</label>
@@ -9472,6 +9481,11 @@
     el('darkness-opacity-value').textContent=lightingSettings.opacity+'%';
     el('darkness-color-input').value=lightingSettings.color;
     el('darkness-color-input').disabled=!effectiveMaster();
+    el('btn-explorer-toggle').textContent=lightingSettings.explorerMode?'🗺️ Modo Explorador ativado':'🗺️ Modo Explorador';
+    el('btn-explorer-toggle').classList.toggle('toggle-active',!!lightingSettings.explorerMode);
+    el('explorer-opacity-input').value=lightingSettings.exploredOpacity;
+    el('explorer-opacity-input').disabled=!effectiveMaster();
+    el('explorer-opacity-value').textContent=lightingSettings.exploredOpacity+'%';
     el('btn-lanterns-toggle').textContent=lightingSettings.allowed?'🔦 Lanternas permitidas':'🔦 Lanternas bloqueadas';
     el('btn-lanterns-toggle').classList.toggle('toggle-active',!!lightingSettings.allowed);
     el('lantern-shape-input').value=lightingSettings.shape;
@@ -14897,6 +14911,45 @@
   el('darkness-color-input').addEventListener('change',()=>{
     const page=currentPage(); if(page&&effectiveMaster())void persistPageFog(page);
   });
+  let explorerToggleBusy=false;
+  el('btn-explorer-toggle').addEventListener('click',async()=>{
+    if(!effectiveMaster()||explorerToggleBusy)return;
+    const page=currentPage(); if(!page)return;
+    const targetEnabled=!ensureLightingModel(page).explorerMode;
+    pushUndo(); explorerToggleBusy=true;
+    ensureLightingModel(page).explorerMode=targetEnabled;
+    render(); setupDarknessOverlay();
+    const button=el('btn-explorer-toggle'); button.disabled=true;
+    try{
+      await persistPageFog(page);
+      const livePage=state.pages.find(item=>item.id===page.id);
+      if(livePage){ ensureLightingModel(livePage).explorerMode=targetEnabled; await persistPageFog(livePage); }
+    }finally{
+      explorerToggleBusy=false;
+      const livePage=state.pages.find(item=>item.id===page.id);
+      if(livePage)ensureLightingModel(livePage).explorerMode=targetEnabled;
+      render();
+      el('btn-explorer-toggle').disabled=false;
+    }
+  });
+  el('explorer-opacity-input').addEventListener('input',e=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    const opacity=Math.max(0,Math.min(100,Number(e.target.value)||0));
+    ensureLightingModel(page).exploredOpacity=opacity;
+    el('explorer-opacity-value').textContent=opacity+'%';
+    setupDarknessOverlay();
+  });
+  el('explorer-opacity-input').addEventListener('change',()=>{
+    const page=currentPage(); if(page&&effectiveMaster())void persistPageFog(page);
+  });
+  el('btn-explorer-clear').addEventListener('click',async()=>{
+    const page=currentPage(); if(!page||!effectiveMaster())return;
+    if(!confirm('Apagar todo o histórico de áreas exploradas desta página? Isso não afeta a névoa pintada manualmente.'))return;
+    pushUndo();
+    await Explorer.clear(page);
+    setupDarknessOverlay();
+    render();
+  });
   el('lantern-shape-input').addEventListener('change',async e=>{
     const page=currentPage(); if(!page||!effectiveMaster())return;
     ensureLightingModel(page).shape=e.target.value==='circle'?'circle':'cone';
@@ -15386,12 +15439,26 @@
     return page.fog;
   }
 
+  // Modo Explorador: mapa de memória (áreas já reveladas por alguma luz, em
+  // algum momento) próprio de cada página. Guardado dentro do mesmo objeto
+  // `fog` que já é sincronizado/backupeado/restaurado/limpo junto com a
+  // névoa manual — de propósito, pra herdar tudo isso sem código novo.
+  function ensureExploredModel(page){
+    const fog=ensureFogModel(page);
+    if(!fog.explored || typeof fog.explored!=='object') fog.explored={image:''};
+    if(typeof fog.explored.image!=='string') fog.explored.image='';
+    return fog.explored;
+  }
+
   function ensureLightingModel(page){
     const fog=ensureFogModel(page);
-    fog.lighting=Object.assign({enabled:false,opacity:100,color:'#000000',allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70},fog.lighting||{});
+    fog.lighting=Object.assign({enabled:false,opacity:100,color:'#000000',allowed:true,shape:'cone',visibility:'all',groups:[],points:[],range:250,unit:'pixels',angle:70,explorerMode:false,exploredOpacity:55},fog.lighting||{});
     const opacity=Number(fog.lighting.opacity);
     fog.lighting.opacity=Number.isFinite(opacity)?Math.max(0,Math.min(100,opacity)):100;
     fog.lighting.color=/^#[0-9a-f]{6}$/i.test(String(fog.lighting.color||''))?String(fog.lighting.color).toLowerCase():'#000000';
+    fog.lighting.explorerMode=!!fog.lighting.explorerMode;
+    const exploredOpacity=Number(fog.lighting.exploredOpacity);
+    fog.lighting.exploredOpacity=Number.isFinite(exploredOpacity)?Math.max(0,Math.min(100,exploredOpacity)):55;
     fog.lighting.range=Math.max(1,Number(fog.lighting.range)||250);
     fog.lighting.angle=Math.max(20,Math.min(160,Number(fog.lighting.angle)||70));
     if(!['pixels','cells','meters'].includes(fog.lighting.unit)) fog.lighting.unit='pixels';
@@ -15813,6 +15880,84 @@
       maskCtx.globalAlpha=1;
     });
   }
+  // ---------- Modo Explorador ----------
+  // Mantém, POR PÁGINA, um canvas acumulador local que nunca é limpo entre
+  // quadros: cada forma de luz atualmente revelada é "carimbada" nele em
+  // branco (reveal). Ele começa semeado a partir de fog.explored.image (o
+  // que já foi salvo) e só cresce a partir daí — nunca é a única fonte de
+  // verdade, é reconstruído sempre que a imagem persistida muda "por fora"
+  // (troca de página, restauração de backup, outro cliente mestre).
+  // Só o cliente do MESTRE grava de volta no Firebase (debounced), pelo
+  // mesmo motivo de edição de névoa/barreiras já ser mestre-only hoje:
+  // evita dois clientes brigando por escrita no mesmo objeto `fog`.
+  const Explorer = {
+    accum: null,
+    accumPageId: null,
+    seededSrc: null,
+    dirty: false,
+    persistTimer: null,
+
+    ensureAccum(page, width, height){
+      if(this.accum && this.accumPageId===page.id && this.accum.width===width && this.accum.height===height) return this.accum;
+      const canvas=document.createElement('canvas');
+      canvas.width=width; canvas.height=height;
+      this.accum=canvas; this.accumPageId=page.id; this.seededSrc=null;
+      return canvas;
+    },
+
+    seedIfNeeded(page, canvas){
+      const model=ensureExploredModel(page);
+      if(model.image===this.seededSrc) return;
+      const ctx=canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      this.seededSrc=model.image;
+      if(!model.image) return;
+      const img=new Image();
+      img.onload=()=>{
+        if(this.accum!==canvas) return; // trocou de página/tamanho enquanto carregava
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      };
+      img.src=model.image;
+    },
+
+    // drawFn(ctx) pinta em branco sólido a área revelada agora. União pura:
+    // nunca apaga o que já estava lá, só soma.
+    reveal(page, canvas, drawFn){
+      const ctx=canvas.getContext('2d');
+      ctx.save();
+      ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='#fff';
+      drawFn(ctx);
+      ctx.restore();
+      this.dirty=true;
+      this.schedulePersist(page);
+    },
+
+    schedulePersist(page){
+      if(!effectiveMaster()) return; // jogadores só enxergam/acumulam local, nunca gravam
+      clearTimeout(this.persistTimer);
+      this.persistTimer=setTimeout(async ()=>{
+        if(!this.dirty||!this.accum) return;
+        const livePage=state.pages.find(item=>item.id===page.id)||page;
+        const model=ensureExploredModel(livePage);
+        model.image=this.accum.toDataURL('image/png');
+        this.seededSrc=model.image;
+        this.dirty=false;
+        await persistPageFog(livePage);
+      }, 1200);
+    },
+
+    async clear(page){
+      clearTimeout(this.persistTimer);
+      this.dirty=false;
+      if(this.accum && this.accumPageId===page.id) this.accum.getContext('2d').clearRect(0,0,this.accum.width,this.accum.height);
+      const model=ensureExploredModel(page);
+      model.image='';
+      this.seededSrc='';
+      await persistPageFog(page);
+    }
+  };
+
   function setupDarknessOverlay(){
     const page=currentPage(), img=document.getElementById('map-img');
     const lighting=page&&ensureLightingModel(page);
@@ -15832,6 +15977,20 @@
     ctx.fillRect(0,0,canvas.width,canvas.height);
     const scaleX=canvas.width/Math.max(1,$canvas.clientWidth), scaleY=canvas.height/Math.max(1,$canvas.clientHeight);
     const viewerGroups=lighting.visibility==='groups'?currentViewerLightGroups():new Set();
+
+    // Modo Explorador: áreas já visitadas antes ficam num cinza mais claro
+    // que o resto do escuro, mesmo sem luz nelas agora — como no Roll20.
+    const explorerOn=!!lighting.explorerMode;
+    let explorerAccum=null;
+    if(explorerOn){
+      explorerAccum=Explorer.ensureAccum(page,canvas.width,canvas.height);
+      Explorer.seedIfNeeded(page,explorerAccum);
+      ctx.save();
+      ctx.globalCompositeOperation='destination-out';
+      ctx.globalAlpha=Math.max(0,Math.min(1,(Number(lighting.exploredOpacity)||55)/100));
+      ctx.drawImage(explorerAccum,0,0,canvas.width,canvas.height);
+      ctx.restore();
+    }
 
     // Cor individual por lanterna/ponto de luz: tinge a área revelada (tocha
     // alaranjada, luz mágica azulada etc). Isso só pode ser pintado DEPOIS que
@@ -15901,6 +16060,12 @@
         ctx.fill();
         const clearRange=Math.max(1,range*.82);
         ctx.restore();
+        if(explorerOn) Explorer.reveal(page,explorerAccum,actx=>{
+          actx.beginPath();
+          if(lighting.shape==='circle') actx.arc(x,y,clearRange,0,Math.PI*2);
+          else{ actx.moveTo(x,y); actx.arc(x,y,clearRange,angle-half,angle+half); actx.closePath(); }
+          actx.fill();
+        });
         ctx.save();
         ctx.beginPath();
         if(lighting.shape==='circle') ctx.arc(x,y,clearRange,0,Math.PI*2);
@@ -15932,6 +16097,7 @@
       paintBarrierShadowsOnMask(maskCtx,barrierModel.list,x,y,range);
       accCtx.globalCompositeOperation='lighter';
       accCtx.drawImage(maskCanvas,0,0);
+      if(explorerOn) Explorer.reveal(page,explorerAccum,actx=>actx.drawImage(maskCanvas,0,0));
     });
     lighting.points.forEach(point=>{
       if(!point.enabled||!viewerCanSeeLightPoint(point,lighting,viewerGroups))return;
@@ -15955,6 +16121,12 @@
         else ctx.arc(x,y,range,0,Math.PI*2);
         ctx.fill();
         ctx.restore();
+        if(explorerOn) Explorer.reveal(page,explorerAccum,actx=>{
+          actx.beginPath();
+          if(point.shape==='cone'){ actx.moveTo(x,y); actx.arc(x,y,Math.max(1,range*.82),pointAngle-pointHalf,pointAngle+pointHalf); actx.closePath(); }
+          else actx.arc(x,y,Math.max(1,range*.82),0,Math.PI*2);
+          actx.fill();
+        });
         ctx.save();
         ctx.beginPath();
         if(point.shape==='cone'){ ctx.moveTo(x,y); ctx.arc(x,y,Math.max(1,range*.82),pointAngle-pointHalf,pointAngle+pointHalf); ctx.closePath(); }
@@ -15984,6 +16156,7 @@
       paintBarrierShadowsOnMask(maskCtx,barrierModel.list,x,y,range);
       accCtx.globalCompositeOperation='lighter';
       accCtx.drawImage(maskCanvas,0,0);
+      if(explorerOn) Explorer.reveal(page,explorerAccum,actx=>actx.drawImage(maskCanvas,0,0));
     });
 
     if(barriersActive){
