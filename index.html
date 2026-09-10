@@ -7941,6 +7941,7 @@
     { title:'Painel de Fichas', body:'O botão <b>🎭 Fichas</b> no topo abre todas as fichas da mesa organizadas numa gaveta própria — muito mais fácil de gerenciar vida e condições durante um combate do que rolar a barra lateral inteira.' },
     { title:'Névoa, texto e grade', body:'Pinte névoa de guerra pra esconder áreas ainda não exploradas, adicione textos decorativos com fonte própria, e ative uma grade quadriculada — tudo ajustável em cor e tamanho.' },
     { title:'Menu Ferramentas', body:'O botão <b>🧰 Ferramentas</b> reúne diário 📖, iniciativa ⚔️, apontar 📍, medir 📏 e o tutorial. Dados 🎲 e Fichas 🎭 ficam soltos, de acesso rápido. Só desfazer/refazer, "ver como jogador" e o congelamento também ficam sempre visíveis.' },
+    { title:'Clique direito no mapa', body:'Clique com o botão direito num ponto vazio do mapa pra abrir um menu rápido: <b>centralizar a câmera de todos os jogadores</b> ali, pingar, adicionar ponto de luz, texto ou objeto de mapa direto naquele lugar, ou começar a medir sem precisar armar a ferramenta antes.' },
     { title:'Conversas', body:'Em <b>💬 Conversas</b>, inicie uma conversa com um ou vários destinatários ao mesmo tempo — jogadores podem sussurrar entre si também, com ou sem imagem. Como mestre, você sempre vê todas as conversas, mesmo as que não te incluem.' },
     { title:'Diário da campanha', body:'Em <b>📖 Diário</b> (dentro de Ferramentas), você e os jogadores escrevem entradas juntos — ótimo pra resumir sessões ou registrar pistas.' },
     { title:'Compartilhe o acesso', body:'No painel "Código de acesso dos jogadores", copie o código e mande pros seus amigos. Eles entram digitando esse código — sem precisar de senha nenhuma.' },
@@ -7953,6 +7954,7 @@
     { title:'Minha Ficha', body:'Se o mestre criar uma ficha com o mesmo nome que você usou pra entrar, o botão <b>🎴 Minha Ficha</b> deixa você ver e editar sua própria vida, condições e anotações — tudo sincroniza direto com o mestre. Toque na sua foto lá dentro pra centralizar o mapa na sua posição.' },
     { title:'Role os dados', body:'Em <b>🎲 Dados</b>, role d4 até d100, em qualquer quantidade. Escolha "Privada" se não quiser que os outros vejam o resultado. Toda rolagem visível pra você gera um aviso na tela.' },
     { title:'Aponte e meça', body:'Dentro de <b>🧰 Ferramentas</b>: use "Apontar" pra mostrar um lugar do mapa pra todo mundo, e "Medir" pra calcular distância entre dois pontos.' },
+    { title:'Clique direito no mapa', body:'Clique com o botão direito (ou toque e segure, no celular) num ponto do mapa pra pingar ou começar a medir uma distância ali mesmo, sem precisar abrir o menu Ferramentas.' },
     { title:'Converse', body:'Em <b>💬 Conversas</b> (dentro de Ferramentas), fale com o mestre, com outro jogador, ou monte um grupo com várias pessoas ao mesmo tempo — pode mandar texto e imagem. Só quem está na conversa (e o mestre) consegue ver.' },
     { title:'Iniciativa', body:'Dentro de Ferramentas, veja a ordem de turno assim que o mestre começar um combate — e saiba quando chegou a sua vez.' },
     { title:'Diário da campanha', body:'Dentro de Ferramentas, todo mundo escreve junto no diário — um resumo de sessão, uma pista importante, o que quiser registrar pro grupo.' }
@@ -9902,6 +9904,21 @@
     await safeSet(slotKey('page-'+page.id+'-ping'), entry);
   }
 
+  // ---------- recenter tool (mestre força a câmera de todos os jogadores num ponto) ----------
+  let lastRecenterTs = null;
+  function pctToClientPoint(pt){
+    const rect = $canvas.getBoundingClientRect();
+    return { clientX: rect.left + (pt.x/100)*rect.width, clientY: rect.top + (pt.y/100)*rect.height };
+  }
+  async function broadcastRecenter(pt){
+    const page = currentPage();
+    if(!page || !effectiveMaster()) return;
+    const entry = { x: pt.x, y: pt.y, ts: Date.now() };
+    lastRecenterTs = entry.ts;
+    showPingLocally(pt.x, pt.y);
+    await safeSet(slotKey('page-'+page.id+'-recenter'), entry);
+  }
+
   // ---------- measure tool (local-only ruler) ----------
   function clearMeasureVisual(){
     const line = document.getElementById('measure-line-el');
@@ -10233,6 +10250,16 @@
     }
   }
 
+  function jumpToPoint(xPct, yPct){
+    const canvasW = $canvas.offsetWidth, canvasH = $canvas.offsetHeight;
+    if(!canvasW || !canvasH) return;
+    const dx = canvasW * (xPct / 100 - 0.5);
+    const dy = canvasH * (yPct / 100 - 0.5);
+    state.pan.x = -dx * state.zoom;
+    state.pan.y = -dy * state.zoom;
+    applyTransform();
+  }
+
   function tokenDisplayDimensions(tok, size){
     if(!tok || (!tok.isReference && !tok.isMapObject)) return { width:size, height:size };
     const ratio = Number(tok.aspectRatio) || 1;
@@ -10254,7 +10281,29 @@
 
 
   let contextTarget=null;
+  let pendingPlacementPt=null;
   function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
+  function openMapClickMenu(e, pt){
+    closeConditionsPicker();
+    const menu=el('context-menu'); contextTarget={type:'mapclick', pt};
+    const actions=effectiveMaster() ? [
+      ['🎯 Centralizar todo mundo aqui','recenterall'],
+      ['📍 Pingar aqui','pinghere'],
+      ['💡 Adicionar ponto de luz aqui','lightpointhere'],
+      ['📝 Adicionar texto aqui','texthere'],
+      ['📏 Começar medição a partir daqui','measurehere'],
+      ['🖼️ Adicionar objeto de mapa aqui','mapobjecthere']
+    ] : [
+      ['📍 Pingar aqui','pinghere'],
+      ['📏 Começar medição a partir daqui','measurehere']
+    ];
+    menu.innerHTML=actions.map(a=>'<button type="button" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
+    menu.style.left='8px'; menu.style.top='8px'; menu.classList.add('open');
+    const menuWidth=Math.min(menu.offsetWidth||210,window.innerWidth-16);
+    const menuHeight=Math.min(menu.scrollHeight||260,window.innerHeight-16);
+    menu.style.left=Math.max(8,Math.min(e.clientX,window.innerWidth-menuWidth-8))+'px';
+    menu.style.top=Math.max(8,Math.min(e.clientY,window.innerHeight-menuHeight-8))+'px';
+  }
   function openContextMenu(e,type,id){
     closeConditionsPicker();
     if(type==='dicepicker'||type==='dicefav'||type==='diceentry'){
@@ -10565,6 +10614,17 @@
   }
   async function executeContextAction(action,anchorRect){
     const c=contextTarget; closeContextMenu(); if(!c)return;
+    if(c.type==='mapclick'){
+      const pt=c.pt;
+      if(action==='pinghere'){ const fake=pctToClientPoint(pt); await placePing(fake); }
+      else if(action==='measurehere'){ state.measureArmed=true; state.pingArmed=false; if(effectiveMaster()){ state.barrierTool=null; state.barrierDraftStart=null; } render(); }
+      else if(!effectiveMaster()){ /* demais ações são só do mestre */ }
+      else if(action==='recenterall'){ await broadcastRecenter(pt); }
+      else if(action==='lightpointhere'){ const fake=pctToClientPoint(pt); await placeLightPoint(Object.assign(fake,{preventDefault(){},stopPropagation(){}})); }
+      else if(action==='texthere'){ pendingPlacementPt=pt; openFloatPanel('float-text'); }
+      else if(action==='mapobjecthere'){ pendingPlacementPt=pt; openFloatPanel('float-mapobjects'); }
+      return;
+    }
     if(c.type==='dicepicker'){
       const sides=Number(c.id);
       if(action==='roll1') rollDiceQuick(sides,1);
@@ -14217,7 +14277,10 @@
     if(isNaN(size) || size < 4) size = 24;
     pushUndo();
     const textCount = page.texts.length;
-    page.texts.push({ id:newId('x'), content, color, size, font, bold:newTextBold, italic:newTextItalic, marker:newTextMarker, markerColor, markerOpacity, align:newTextAlign, lineHeight, x:-22, y:12 + (textCount % 7) * 12, boxWidth:28, boxHeight:12, zOrder:nextStageZOrder() });
+    const placedPt = pendingPlacementPt; pendingPlacementPt = null;
+    const posX = placedPt ? placedPt.x : -22;
+    const posY = placedPt ? placedPt.y : 12 + (textCount % 7) * 12;
+    page.texts.push({ id:newId('x'), content, color, size, font, bold:newTextBold, italic:newTextItalic, marker:newTextMarker, markerColor, markerOpacity, align:newTextAlign, lineHeight, x:posX, y:posY, boxWidth:28, boxHeight:12, zOrder:nextStageZOrder() });
     render();
     await persistPageTexts(page);
     el('text-content-input').innerHTML = '';
@@ -14536,7 +14599,8 @@
     submitButton.disabled=true; submitButton.textContent='Adicionando...';
     pushUndo();
     const count=state.tokens.filter(t=>t.isMapObject&&t.pageId===state.currentPageId).length;
-    const pos=stagePositionByType({isMapObject:true},count); pos.zOrder=MAP_LAYER_FLOOR_Z;
+    const placedPt=pendingPlacementPt; pendingPlacementPt=null;
+    const pos=placedPt ? {x:placedPt.x,y:placedPt.y} : stagePositionByType({isMapObject:true},count); pos.zOrder=MAP_LAYER_FLOOR_Z;
     const tok={
       id:newId('obj'), name:el('map-object-name').value.trim()||('Objeto '+(count+1)),
       image:pendingMapObjectImage, isMapObject:true, masterLocked:true, objectLocked:false, pageId:state.currentPageId,
@@ -14756,7 +14820,11 @@
   }
 
   $mapViewport.addEventListener('contextmenu', (e) => {
-    if(state.barrierTool && effectiveMaster()) e.preventDefault();
+    if(state.barrierTool && effectiveMaster()){ e.preventDefault(); return; }
+    if(state.currentSlot){
+      e.preventDefault();
+      openMapClickMenu(e, canvasPointPct(e));
+    }
   });
   $mapViewport.addEventListener('pointerdown', (e) => {
     if(!state.currentSlot) return;
@@ -16940,6 +17008,25 @@
         if(p.ts && p.ts !== lastPingTs){
           lastPingTs = p.ts;
           showPingLocally(p.x, p.y);
+        }
+      }catch(e){}
+    });
+    let recenterListenerReady = false;
+    watchPageKey(slotKey('page-'+pageId+'-recenter'), (raw) => {
+      if(!raw){ recenterListenerReady = true; return; }
+      try{
+        const p = JSON.parse(raw);
+        if(!recenterListenerReady){
+          // Primeira leitura ao conectar: é o último recentro já salvo, não um novo — só
+          // sincroniza o timestamp em silêncio, sem mover a câmera de novo.
+          lastRecenterTs = p.ts;
+          recenterListenerReady = true;
+          return;
+        }
+        if(p.ts && p.ts !== lastRecenterTs){
+          lastRecenterTs = p.ts;
+          showPingLocally(p.x, p.y);
+          if(!state.isMaster) jumpToPoint(p.x, p.y);
         }
       }catch(e){}
     });
