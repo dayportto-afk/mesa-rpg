@@ -3112,7 +3112,7 @@
           <form id="map-object-form">
             <input type="text" id="map-object-name" placeholder="Nome do objeto (ex.: Barco)">
             <label class="file-btn" for="map-object-upload">Escolher PNG transparente</label>
-            <input type="file" id="map-object-upload" accept="image/png,image/webp">
+            <input type="file" id="map-object-upload" accept="image/png,image/webp" multiple>
             <div id="map-object-preview" style="display:none; margin-top:8px;">
               <img id="map-object-preview-img" alt="Pré-visualização do objeto" style="display:block; width:100%; max-height:220px; object-fit:contain; border:1px solid var(--line); border-radius:4px; background:#0a0704;">
             </div>
@@ -3123,7 +3123,7 @@
             </div>
             <button type="submit" class="primary" style="width:100%; margin-top:10px;">Adicionar objeto ao mapa</button>
           </form>
-          <div class="hint">Coloque as fichas sobre o objeto. Ao mover a plataforma, as fichas que estiverem em cima acompanham o deslocamento e continuam livres para andar sobre ela.</div>
+          <div class="hint">Coloque as fichas sobre o objeto. Ao mover a plataforma, as fichas que estiverem em cima acompanham o deslocamento e continuam livres para andar sobre ela. Dá pra selecionar vários arquivos de uma vez — nesse caso, eles entram direto no mapa (sem nome/opacidade individual) usando o nome de cada arquivo.</div>
           <div id="map-object-list"></div>
         </div>
       </div>
@@ -3179,11 +3179,11 @@
           <form id="reference-form">
             <input type="text" id="reference-name" placeholder="Nome da imagem (opcional)">
             <label class="file-btn" for="reference-upload">Escolher imagem de referência</label>
-            <input type="file" id="reference-upload" accept="image/*">
+            <input type="file" id="reference-upload" accept="image/*" multiple>
             <div id="reference-preview" style="display:none; margin-top:8px;">
               <img id="reference-preview-img" alt="Pré-visualização" style="display:block; width:100%; max-height:220px; object-fit:contain; border:1px solid var(--line); border-radius:4px; background:#0a0704;">
             </div>
-            <div class="hint">A imagem não é recortada, aparece primeiro na área do mestre ao redor do mapa e pode ser redimensionada até 1200 px. Depois, você pode travá-la para impedir movimentos acidentais.</div>
+            <div class="hint">A imagem não é recortada, aparece primeiro na área do mestre ao redor do mapa e pode ser redimensionada até 1200 px. Depois, você pode travá-la para impedir movimentos acidentais. Dá pra selecionar várias imagens de uma vez — nesse caso, todas entram direto usando o nome de cada arquivo.</div>
             <button type="submit" class="primary" style="width:100%; margin-top:8px;">Adicionar imagem</button>
           </form>
         </div>
@@ -9883,6 +9883,16 @@
       y: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100))
     };
   }
+  // Igual a canvasPointPct, mas sem prender o ponto entre 0-100%: usada pra
+  // colocar texto/objeto fora da área visível do mapa (eles suportam posições
+  // negativas ou acima de 100%, na "zona de estacionamento" ao redor do mapa).
+  function canvasPointPctUnclamped(e){
+    const rect = $canvas.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100
+    };
+  }
 
   // ---------- ping tool (anyone can point at a spot; everyone sees it briefly) ----------
   let lastPingTs = null;
@@ -10283,9 +10293,9 @@
   let contextTarget=null;
   let pendingPlacementPt=null;
   function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
-  function openMapClickMenu(e, pt){
+  function openMapClickMenu(e, pt, ptRaw){
     closeConditionsPicker();
-    const menu=el('context-menu'); contextTarget={type:'mapclick', pt};
+    const menu=el('context-menu'); contextTarget={type:'mapclick', pt, ptRaw};
     const actions=effectiveMaster() ? [
       ['🎯 Centralizar todo mundo aqui','recenterall'],
       ['📍 Pingar aqui','pinghere'],
@@ -10621,8 +10631,8 @@
       else if(!effectiveMaster()){ /* demais ações são só do mestre */ }
       else if(action==='recenterall'){ await broadcastRecenter(pt); }
       else if(action==='lightpointhere'){ const fake=pctToClientPoint(pt); await placeLightPoint(Object.assign(fake,{preventDefault(){},stopPropagation(){}})); }
-      else if(action==='texthere'){ pendingPlacementPt=pt; openFloatPanel('float-text'); }
-      else if(action==='mapobjecthere'){ pendingPlacementPt=pt; openFloatPanel('float-mapobjects'); }
+      else if(action==='texthere'){ pendingPlacementPt=c.ptRaw||pt; openFloatPanel('float-text'); }
+      else if(action==='mapobjecthere'){ pendingPlacementPt=c.ptRaw||pt; openFloatPanel('float-mapobjects'); }
       return;
     }
     if(c.type==='dicepicker'){
@@ -10679,7 +10689,7 @@
       const page=currentPage(),txt=page&&page.texts.find(t=>t.id===c.id); if(!txt)return;
       if(action==='edit'){ const node=document.querySelector('.map-text[data-id="'+c.id+'"]'); if(node)beginInlineTextEdit(node,c.id); return; }
       if(action==='front'||action==='back'){ pushUndo(); txt.zOrder = action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z; await persistPageTexts(page); renderTexts(); return; }
-      if(action==='delete'){ await deleteText(c.id); return; }
+      if(action==='delete'){ await removeText(c.id); return; }
     }
     if(c.type==='lightpoint'){
       const page=currentPage(), lighting=page&&ensureLightingModel(page), point=lighting&&lighting.points.find(item=>item.id===c.id);
@@ -14578,17 +14588,56 @@
     el('map-object-preview-img').style.opacity=Number(el('map-object-new-opacity').value)/100;
   });
   el('map-object-upload').addEventListener('change',async(e)=>{
-    const file=e.target.files[0]; if(!file)return;
-    try{
-      pendingMapObjectImage=await resizeTransparentImage(file,1600);
-      pendingMapObjectAspectRatio=await getImageAspectRatio(pendingMapObjectImage);
-      el('map-object-preview-img').src=pendingMapObjectImage;
-      el('map-object-preview-img').style.opacity=Number(el('map-object-new-opacity').value)/100;
-      el('map-object-preview').style.display='block';
-    }catch(err){
-      pendingMapObjectImage=null; pendingMapObjectAspectRatio=1;
-      alert('Não consegui carregar esse PNG. Tente outro arquivo.');
+    const files=Array.from(e.target.files||[]); if(!files.length)return;
+    if(files.length===1){
+      const file=files[0];
+      try{
+        pendingMapObjectImage=await resizeTransparentImage(file,1600);
+        pendingMapObjectAspectRatio=await getImageAspectRatio(pendingMapObjectImage);
+        el('map-object-preview-img').src=pendingMapObjectImage;
+        el('map-object-preview-img').style.opacity=Number(el('map-object-new-opacity').value)/100;
+        el('map-object-preview').style.display='block';
+      }catch(err){
+        pendingMapObjectImage=null; pendingMapObjectAspectRatio=1;
+        alert('Não consegui carregar esse PNG. Tente outro arquivo.');
+      }
+      return;
     }
+    // Vários arquivos de uma vez: pula o preview/formulário e adiciona todos
+    // direto na área de estacionamento ao redor do mapa, empilhados como as
+    // outras fichas soltas (stagePositionByType), usando o nome do arquivo.
+    if(!state.currentPageId){ alert('Abra um mapa antes de adicionar objetos.'); e.target.value=''; return; }
+    pushUndo();
+    let count=state.tokens.filter(t=>t.isMapObject&&t.pageId===state.currentPageId).length;
+    const opacity=Number(el('map-object-new-opacity').value)/100;
+    let added=0, failed=0, lastId=null;
+    for(const file of files){
+      try{
+        const image=await resizeTransparentImage(file,1600);
+        const aspectRatio=await getImageAspectRatio(image);
+        const pos=stagePositionByType({isMapObject:true},count); pos.zOrder=MAP_LAYER_FLOOR_Z;
+        const tok={
+          id:newId('obj'), name:file.name.replace(/\.[^.]+$/,'')||('Objeto '+(count+1)),
+          image, isMapObject:true, masterLocked:true, objectLocked:false, pageId:state.currentPageId,
+          opacity, rotation:0, aspectRatio,
+          shadow:{enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},
+          size:360, sizes:{}, positions:{[state.currentPageId]:pos}
+        };
+        locallyProtectedTokenIds.add(tok.id);
+        state.tokens.push(tok);
+        count++; added++; lastId=tok.id;
+      }catch(err){ failed++; }
+    }
+    if(lastId) state.selectedTokenId=lastId;
+    render();
+    let saved=false;
+    for(let attempt=0;attempt<3&&!saved;attempt++){
+      saved=await persistTokens();
+      if(!saved&&attempt<2)await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));
+    }
+    e.target.value='';
+    if(added) showToast(added===1?'1 objeto adicionado ao mapa.':(added+' objetos adicionados ao mapa.')+(failed?(' ('+failed+' falharam)'):''));
+    else if(failed) alert('Não consegui carregar os arquivos selecionados.');
   });
   el('map-object-form').addEventListener('submit',async(e)=>{
     e.preventDefault();
@@ -14627,18 +14676,46 @@
   let pendingReferenceImage = null;
   let pendingReferenceAspectRatio = 1;
   el('reference-upload').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
-    try{
-      pendingReferenceImage = await resizeImage(file, 1200, 0.9);
-      pendingReferenceAspectRatio = await getImageAspectRatio(pendingReferenceImage);
-      el('reference-preview-img').src = pendingReferenceImage;
-      el('reference-preview').style.display = 'block';
-    }catch(err){
-      pendingReferenceImage = null;
-      pendingReferenceAspectRatio = 1;
-      alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+    const files=Array.from(e.target.files||[]); if(!files.length)return;
+    if(files.length===1){
+      const file=files[0];
+      try{
+        pendingReferenceImage = await resizeImage(file, 1200, 0.9);
+        pendingReferenceAspectRatio = await getImageAspectRatio(pendingReferenceImage);
+        el('reference-preview-img').src = pendingReferenceImage;
+        el('reference-preview').style.display = 'block';
+      }catch(err){
+        pendingReferenceImage = null;
+        pendingReferenceAspectRatio = 1;
+        alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+      }
+      return;
     }
+    // Várias imagens de uma vez: pula o preview/formulário, adiciona todas
+    // direto na área de estacionamento ao redor do mapa, usando o nome do arquivo.
+    pushUndo();
+    let refCount = state.tokens.filter(t => t.isReference).length;
+    let added=0, failed=0;
+    for(const file of files){
+      try{
+        const image = await resizeImage(file, 1200, 0.9);
+        const aspectRatio = await getImageAspectRatio(image);
+        const name = file.name.replace(/\.[^.]+$/,'') || ('Imagem ' + (refCount + 1));
+        const pos = stagePositionByType({ isReference:true, masterLocked:true }, refCount);
+        pos.zOrder = nextStageZOrder();
+        const tok = {
+          id:newId('t'), name, image, size:180, sizes:{}, isReference:true, masterLocked:true, referenceLocked:false, aspectRatio,
+          positions: state.currentPageId ? { [state.currentPageId]: pos } : {}
+        };
+        state.tokens.push(tok);
+        refCount++; added++;
+      }catch(err){ failed++; }
+    }
+    render();
+    await persistTokens();
+    e.target.value='';
+    if(added) showToast(added===1?'1 imagem adicionada.':(added+' imagens adicionadas.')+(failed?(' ('+failed+' falharam)'):''));
+    else if(failed) alert('Não consegui carregar as imagens selecionadas.');
   });
   el('reference-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -14821,9 +14898,10 @@
 
   $mapViewport.addEventListener('contextmenu', (e) => {
     if(state.barrierTool && effectiveMaster()){ e.preventDefault(); return; }
+    if(e.target.isContentEditable) return; // deixa o clique direito nativo funcionar num campo em edição (ex.: texto sendo editado)
     if(state.currentSlot){
       e.preventDefault();
-      openMapClickMenu(e, canvasPointPct(e));
+      openMapClickMenu(e, canvasPointPct(e), canvasPointPctUnclamped(e));
     }
   });
   $mapViewport.addEventListener('pointerdown', (e) => {
