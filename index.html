@@ -15396,8 +15396,7 @@
     if(!confirm('Apagar todos os seus '+mine.length+' traço(s) nesta página?')) return;
     pushUndo();
     page.draw.strokes = (page.draw.strokes || []).filter(s => s.author !== me);
-    const canvas = document.getElementById('draw-canvas');
-    if(canvas) redrawDrawCanvas(canvas, page);
+    render();
     await persistPageDraw(page);
   });
   el('btn-draw-clear-all').addEventListener('click', async () => {
@@ -15407,8 +15406,7 @@
     if(!confirm('Apagar TODO o desenho desta página, incluindo traços de outras pessoas?')) return;
     pushUndo();
     page.draw.strokes = [];
-    const canvas = document.getElementById('draw-canvas');
-    if(canvas) redrawDrawCanvas(canvas, page);
+    render();
     await persistPageDraw(page);
   });
 
