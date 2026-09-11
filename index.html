@@ -10610,7 +10610,7 @@
           t2.letterSpacing=sp;
           spacingValueLabel.textContent=sp+'px';
           const node=document.querySelector('.map-text[data-id="'+id+'"]');
-          if(node) node.style.letterSpacing=sp+'px';
+          if(node) node.style.letterSpacing=(sp*(($canvas.offsetWidth||TEXT_FONT_REFERENCE_WIDTH)/TEXT_FONT_REFERENCE_WIDTH))+'px';
         });
         spacingSlider.addEventListener('change',async()=>{
           if(!spacingUndoCaptured)return;
@@ -10630,7 +10630,7 @@
           sizeValueLabel.textContent=Math.round(s)+'px';
           const node=document.querySelector('.map-text[data-id="'+id+'"]');
           if(node){
-            node.style.fontSize=s+'px';
+            node.style.fontSize=(s*(($canvas.offsetWidth||TEXT_FONT_REFERENCE_WIDTH)/TEXT_FONT_REFERENCE_WIDTH))+'px';
             const contentWrap=node.querySelector('.map-text-content-wrap');
             const contentEl=node.querySelector('.map-text-content');
             applyTextMarkerRects(contentWrap,contentEl,t2);
@@ -13895,10 +13895,20 @@
     });
   }
 
+  const TEXT_FONT_REFERENCE_WIDTH = 1200; // largura de referência (px) em que txt.size/letterSpacing "batem" com o número digitado
   function renderTexts(){
     document.querySelectorAll('.map-text').forEach(t => t.remove());
     const page = currentPage();
     if(!document.getElementById('map-img') || !page) return;
+    // O tamanho da fonte e o espaço entre letras são guardados em pixels fixos,
+    // mas o mapa é exibido em tamanhos bem diferentes dependendo da tela (um
+    // notebook menor mostra o mesmo mapa bem mais encolhido que um monitor
+    // grande). Sem esse ajuste, a fonte fica com o mesmo tamanho literal em
+    // pixels nas duas telas — ou seja, proporcionalmente enorme na tela menor.
+    // Escalamos os dois pelo tamanho atual do canvas em relação a uma largura
+    // de referência, assim o texto sempre fica com a mesma aparência relativa
+    // ao mapa, não importa a tela.
+    const fontScale = ($canvas.offsetWidth || TEXT_FONT_REFERENCE_WIDTH) / TEXT_FONT_REFERENCE_WIDTH;
     page.texts.forEach(txt => {
       const t = document.createElement('div');
       t.className = 'map-text' + (effectiveMaster() ? ' draggable' : '') + (txt.id === state.selectedTextId ? ' selected' : '') + (txt.locked ? ' text-locked' : '');
@@ -13906,11 +13916,11 @@
       t.style.left = txt.x + '%';
       t.style.top = txt.y + '%';
       t.style.color = txt.color || '#e2a53f';
-      t.style.fontSize = (txt.size || 24) + 'px';
+      t.style.fontSize = ((txt.size || 24) * fontScale) + 'px';
       t.style.fontFamily = txt.font || "'Cinzel', serif";
       t.style.fontWeight = txt.bold ? '700' : '400';
       t.style.fontStyle = txt.italic ? 'italic' : 'normal';
-      t.style.letterSpacing = (typeof txt.letterSpacing === 'number' ? txt.letterSpacing : 0) + 'px';
+      t.style.letterSpacing = ((typeof txt.letterSpacing === 'number' ? txt.letterSpacing : 0) * fontScale) + 'px';
       t.style.backgroundColor = 'transparent';
       if(txt.marker) t.classList.add('has-marker');
       t.style.width = (typeof txt.boxWidth === 'number' ? txt.boxWidth : 28) + '%';
