@@ -17036,13 +17036,21 @@
   async function endDrawPaint(){
     const s = state.drawStroke;
     if(!s) return;
-    state.drawStroke = null;
     if(s.mode === 'pen' || s.mode === 'shape'){
       if(!s.page.draw.strokes) s.page.draw.strokes = [];
       s.page.draw.strokes.push(s.stroke);
       redrawDrawCanvas(s.canvas, s.page);
     }
+    // Só libera o "travamento" que faz a sincronização remota esperar (ver o
+    // watcher de page-*-draw) DEPOIS que a posição final já foi salva. Se
+    // isso fosse limpo antes do persistPageDraw terminar, uma atualização
+    // remota que já estava a caminho podia chegar nesse intervalo e
+    // sobrescrever com os dados antigos — fazendo a forma voltar pro lugar
+    // original (ou, se um traço novo tivesse acabado de ser empilhado
+    // localmente, o traço remoto antigo "ressuscitar" ao lado do novo,
+    // parecendo uma duplicata).
     await persistPageDraw(s.page);
+    state.drawStroke = null;
     flushPendingPageUpdates('draw');
   }
 
