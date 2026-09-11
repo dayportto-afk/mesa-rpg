@@ -10577,6 +10577,26 @@
       const page=currentPage();
       const txt=page&&page.texts.find(t=>t.id===id);
       if(txt){
+        const rotation=((Number(txt.rotation)||0)%360+360)%360;
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↻ Rotação da caixa</span><span class="context-range-value" data-context-text-rotation-value>'+rotation+'°</span></div><input type="range" min="0" max="359" step="1" value="'+rotation+'" aria-label="Rotação da caixa de texto" data-context-text-rotation></div>');
+        const rotationSlider=menu.querySelector('[data-context-text-rotation]');
+        const rotationValueLabel=menu.querySelector('[data-context-text-rotation-value]');
+        let rotationUndoCaptured=false;
+        rotationSlider.addEventListener('input',()=>{
+          const p2=currentPage(); const t2=p2&&p2.texts.find(t=>t.id===id); if(!t2)return;
+          if(!rotationUndoCaptured){ pushUndo(); rotationUndoCaptured=true; }
+          const rot=((Number(rotationSlider.value)||0)%360+360)%360;
+          t2.rotation=rot;
+          rotationValueLabel.textContent=rot+'°';
+          const node=document.querySelector('.map-text[data-id="'+id+'"]');
+          const wrap=node&&node.querySelector('.map-text-content-wrap');
+          if(wrap) wrap.style.transform='rotate('+rot+'deg)';
+        });
+        rotationSlider.addEventListener('change',async()=>{
+          if(!rotationUndoCaptured)return;
+          rotationUndoCaptured=false;
+          const p2=currentPage(); if(p2) await persistPageTexts(p2);
+        });
         const letterSpacing=typeof txt.letterSpacing==='number'?txt.letterSpacing:0;
         menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↔︎ Espaço entre letras</span><span class="context-range-value" data-context-text-spacing-value>'+letterSpacing+'px</span></div><input type="range" min="-3" max="30" step="0.5" value="'+letterSpacing+'" aria-label="Espaço entre letras do texto" data-context-text-spacing></div>');
         const spacingSlider=menu.querySelector('[data-context-text-spacing]');
@@ -13878,6 +13898,7 @@
       contentWrap.className = 'map-text-content-wrap';
       contentWrap.style.textAlign = txt.align || 'center';
       contentWrap.style.lineHeight = String(typeof txt.lineHeight === 'number' ? txt.lineHeight : 1.2);
+      contentWrap.style.transform = 'rotate(' + (((Number(txt.rotation) || 0) % 360 + 360) % 360) + 'deg)';
 
       const contentSpan = document.createElement('span');
       contentSpan.className = 'map-text-content';
