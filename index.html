@@ -1236,7 +1236,8 @@
   .token.token-reference.reference-locked .token-resize-handle{ display:none; }
   .reference-lock-badge{ position:absolute; top:4px; right:4px; z-index:8; background:#150f09; border:1px solid var(--wax); border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; pointer-events:none; }
   .note-badge{ position:absolute; top:30px; right:4px; z-index:8; background:#150f09; border:1px solid var(--wax); border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center; font-size:9px; pointer-events:none; }
-  .note-tooltip{ display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:6px; background:#150f09; border:1px solid var(--wax); border-radius:6px; padding:7px 11px; font-size:16px; line-height:1.35; color:#e2c98f; white-space:pre-wrap; max-width:260px; width:max-content; z-index:50; pointer-events:none; text-align:left; }
+  .map-text .note-badge{ top:4px; }
+  .note-tooltip{ display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:6px; background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px; padding:7px 11px; font-size:16px; line-height:1.35; color:var(--parchment); white-space:pre-wrap; max-width:260px; width:max-content; z-index:50; pointer-events:none; text-align:left; box-shadow:0 8px 26px rgba(0,0,0,.6); }
   .token:hover .note-tooltip, .map-text:hover .note-tooltip{ display:block; }
   #map-canvas img{ position:relative; z-index:0; display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
@@ -10641,6 +10642,29 @@
           const p2=currentPage(); if(p2) await persistPageTexts(p2);
         });
         const width=Math.round(typeof txt.boxWidth==='number'?txt.boxWidth:28);
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↕ Altura</span><span class="context-range-value" data-context-text-height-value>'+(Math.round(typeof txt.boxHeight==='number'?txt.boxHeight:12))+'%</span></div><input type="range" min="4" max="580" step="1" value="'+(Math.round(typeof txt.boxHeight==='number'?txt.boxHeight:12))+'" aria-label="Altura do campo de texto" data-context-text-height></div>');
+        const heightSlider=menu.querySelector('[data-context-text-height]');
+        const heightValueLabel=menu.querySelector('[data-context-text-height-value]');
+        let heightUndoCaptured=false;
+        heightSlider.addEventListener('input',()=>{
+          const p2=currentPage(); const t2=p2&&p2.texts.find(t=>t.id===id); if(!t2)return;
+          if(!heightUndoCaptured){ pushUndo(); heightUndoCaptured=true; }
+          const h=Math.max(4,Math.min(580,Number(heightSlider.value)||12));
+          t2.boxHeight=h;
+          heightValueLabel.textContent=Math.round(h)+'%';
+          const node=document.querySelector('.map-text[data-id="'+id+'"]');
+          if(node){
+            node.style.height=h+'%';
+            const contentWrap=node.querySelector('.map-text-content-wrap');
+            const contentEl=node.querySelector('.map-text-content');
+            applyTextMarkerRects(contentWrap,contentEl,t2);
+          }
+        });
+        heightSlider.addEventListener('change',async()=>{
+          if(!heightUndoCaptured)return;
+          heightUndoCaptured=false;
+          const p2=currentPage(); if(p2) await persistPageTexts(p2);
+        });
         menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↔ Largura</span><span class="context-range-value" data-context-text-width-value>'+width+'%</span></div><input type="range" min="4" max="580" step="1" value="'+width+'" aria-label="Largura do campo de texto" data-context-text-width></div>');
         const slider=menu.querySelector('[data-context-text-width]');
         const valueLabel=menu.querySelector('[data-context-text-width-value]');
@@ -13907,20 +13931,8 @@
       contentWrap.appendChild(contentSpan);
       t.appendChild(contentWrap);
       if(effectiveMaster()){
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'map-text-resize-handle';
-        resizeHandle.title = 'Redimensionar caixa de texto';
-        resizeHandle.addEventListener('pointerdown', onTextResizePointerDown);
-        t.appendChild(resizeHandle);
         t.addEventListener('pointerdown', onTextPointerDown);
         t.addEventListener('contextmenu', e=>openContextMenu(e,'text',txt.id));
-        if(txt.locked){
-          const lockBadge = document.createElement('div');
-          lockBadge.className = 'reference-lock-badge';
-          lockBadge.title = 'Posição travada';
-          lockBadge.textContent = '🔒';
-          t.appendChild(lockBadge);
-        }
         if(txt.note){
           const noteBadge = document.createElement('div');
           noteBadge.className = 'note-badge';
