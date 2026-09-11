@@ -17049,23 +17049,35 @@
       s.stroke.end = {x:pt.x, y:pt.y};
       redrawDrawCanvas(s.canvas, s.page, s.stroke);
     } else {
-      s.stroke.points.push({x:pt.x, y:pt.y});
-      redrawDrawCanvas(s.canvas, s.page, s.stroke);
+      // "Zona morta": só conta como um ponto novo se o mouse realmente se moveu
+      // uma distância mínima desde o último ponto registrado. Sem isso, o
+      // tremidinho inevitável de um clique único (pressionar e soltar sem
+      // querer mover o mouse) já virava um segundo ponto bem próximo do
+      // primeiro, fazendo o traço desenhar uma linha esticada em vez de só
+      // mostrar a bolinha do ponto único.
+      const last = s.stroke.points[s.stroke.points.length - 1];
+      const distFromLast = last ? Math.hypot(pt.x - last.x, pt.y - last.y) : Infinity;
+      if(distFromLast >= 4){
+        s.stroke.points.push({x:pt.x, y:pt.y});
+        redrawDrawCanvas(s.canvas, s.page, s.stroke);
+      }
     }
   }
   async function endDrawPaint(){
     const s = state.drawStroke;
     if(!s) return;
-    const liveCanvas = document.getElementById('draw-canvas');
-    if(liveCanvas) s.canvas = liveCanvas;
     if(s.mode === 'pen' || s.mode === 'shape'){
       if(!s.page.draw.strokes) s.page.draw.strokes = [];
       s.page.draw.strokes.push(s.stroke);
     }
-    // Redesenha sempre no final (não só pra pen/shape), usando a referência
-    // de canvas mais atual, pra garantir que a posição final correta apareça
-    // na tela mesmo se o canvas tiver sido reconstruído durante o arraste.
-    redrawDrawCanvas(s.canvas, s.page);
+    // Reconstrói o canvas de desenho do zero — exatamente o que já
+    // acontece (via render()) quando a ferramenta de desenho é fechada,
+    // que era o único jeito de o resultado final aparecer certo. Só
+    // redesenhar por cima da referência antiga (redrawDrawCanvas) não
+    // bastava: se aquele elemento tivesse sido substituído por baixo dos
+    // panos durante o arraste, a posição antiga continuava visível até
+    // essa reconstrução completa acontecer.
+    setupDrawCanvas();
     await persistPageDraw(s.page);
     state.drawStroke = null;
     flushPendingPageUpdates('draw');
