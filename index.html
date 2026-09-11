@@ -17024,13 +17024,16 @@
   function moveDrawPaint(e){
     const s = state.drawStroke;
     if(!s) return;
-    // Sempre pega a referência atual do canvas de desenho: ele pode ter sido
-    // reconstruído do zero (setupDrawCanvas) no meio do arraste por qualquer
-    // outra atualização da tela, e continuar desenhando na referência antiga
-    // (agora fora da tela) fazia o traço parecer "congelado" numa posição
-    // antiga por alguns segundos, dando a impressão de uma forma duplicada.
-    const liveCanvas = document.getElementById('draw-canvas');
-    if(liveCanvas) s.canvas = liveCanvas;
+    // A busca por uma referência mais atual do canvas só é necessária (e segura)
+    // nos modos "mover" e "apagar", que não acumulam pontos ao longo do
+    // traço. Fazer isso também no modo caneta/forma fazia o ponto seguinte
+    // ser calculado contra um canvas diferente do primeiro, esticando o
+    // traço mesmo num clique único (o navegador sempre gera algum movimento
+    // mínimo entre pressionar e soltar o botão).
+    if(s.mode === 'erase' || s.mode === 'move'){
+      const liveCanvas = document.getElementById('draw-canvas');
+      if(liveCanvas) s.canvas = liveCanvas;
+    }
     const pt = canvasPointFromEvent(e, s.canvas);
     if(!pt.inBounds) return;
     if(s.mode === 'erase'){
