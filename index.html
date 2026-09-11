@@ -16890,22 +16890,20 @@
     t = Math.max(0, Math.min(1, t));
     return Math.hypot(p.x - (a.x + t*dx), p.y - (a.y + t*dy));
   }
-  function isNearShapeOutline(stroke, pt, reach){
-    const r = reach + (stroke.brush || 10);
+  function shapeOutlineDistance(stroke, pt){
     const s = stroke.start, e = stroke.end;
-    if(!s || !e) return false;
+    if(!s || !e) return Infinity;
     if(stroke.shape === 'rect'){
       const x1=Math.min(s.x,e.x), x2=Math.max(s.x,e.x), y1=Math.min(s.y,e.y), y2=Math.max(s.y,e.y);
       const corners=[{x:x1,y:y1},{x:x2,y:y1},{x:x2,y:y2},{x:x1,y:y2}];
-      for(let i=0;i<4;i++){
-        if(pointToSegmentDistance(pt, corners[i], corners[(i+1)%4]) <= r) return true;
-      }
-      return false;
+      let best=Infinity;
+      for(let i=0;i<4;i++) best=Math.min(best, pointToSegmentDistance(pt, corners[i], corners[(i+1)%4]));
+      return best;
     }
     if(stroke.shape === 'circle'){
       const radius = Math.hypot(e.x - s.x, e.y - s.y);
       const dist = Math.hypot(pt.x - s.x, pt.y - s.y);
-      return Math.abs(dist - radius) <= r || dist <= r;
+      return Math.min(Math.abs(dist - radius), dist);
     }
     if(stroke.shape === 'cone'){
       const dist = Math.hypot(e.x - s.x, e.y - s.y);
@@ -16913,24 +16911,36 @@
       const spread = Math.PI / 6;
       const p1 = { x:s.x + dist*Math.cos(angle-spread), y:s.y + dist*Math.sin(angle-spread) };
       const p2 = { x:s.x + dist*Math.cos(angle+spread), y:s.y + dist*Math.sin(angle+spread) };
-      return pointToSegmentDistance(pt,s,p1) <= r || pointToSegmentDistance(pt,s,p2) <= r || pointToSegmentDistance(pt,p1,p2) <= r || Math.hypot(pt.x-s.x,pt.y-s.y) <= r;
+      return Math.min(pointToSegmentDistance(pt,s,p1), pointToSegmentDistance(pt,s,p2), pointToSegmentDistance(pt,p1,p2), Math.hypot(pt.x-s.x,pt.y-s.y));
     }
-    // linha reta (padrão): distância do ponto até o segmento inteiro, não só as pontas
-    return pointToSegmentDistance(pt, s, e) <= r;
+    // linha reta (padrão)
+    return pointToSegmentDistance(pt, s, e);
   }
-
+  function isNearShapeOutline(stroke, pt, reach){
+    const r = reach + (stroke.brush || 10);
+    if(!stroke.start || !stroke.end) return false;
+    return shapeOutlineDistance(stroke, pt) <= r;
+  }
   function findMovableShapeNear(page, pt, reach){
     if(!page.draw.strokes) return null;
     const me = myDrawAuthorName();
     const canMove = (stroke) => effectiveMaster() || stroke.author === me;
     const strokes = page.draw.strokes;
+    // Escolhe sempre a forma cujo contorno está mais perto do clique, não a
+    // primeira encontrada dentro da tolerância — evita pegar uma forma vizinha
+    // por engano quando há duas próximas ou sobrepostas (o que fazia parecer
+    // que uma forma "duplicava": na real, a errada era movida pra longe,
+    // deixando a certa parada no lugar original).
+    let best = null, bestDist = Infinity;
     for(let i = strokes.length - 1; i >= 0; i--){
       const stroke = strokes[i];
       if((stroke.shape || 'freehand') === 'freehand') continue;
       if(!canMove(stroke)) continue;
-      if(isNearShapeOutline(stroke, pt, reach)) return stroke;
+      const r = reach + (stroke.brush || 10);
+      const dist = shapeOutlineDistance(stroke, pt);
+      if(dist <= r && dist < bestDist){ bestDist = dist; best = stroke; }
     }
-    return null;
+    return best;
   }
 
   function eraseNear(page, pt){
@@ -17014,6 +17024,13 @@
   function moveDrawPaint(e){
     const s = state.drawStroke;
     if(!s) return;
+    // Sempre pega a referência atual do canvas de desenho: ele pode ter sido
+    // reconstruído do zero (setupDrawCanvas) no meio do arraste por qualquer
+    // outra atualização da tela, e continuar desenhando na referência antiga
+    // (agora fora da tela) fazia o traço parecer "congelado" numa posição
+    // antiga por alguns segundos, dando a impressão de uma forma duplicada.
+    const liveCanvas = document.getElementById('draw-canvas');
+    if(liveCanvas) s.canvas = liveCanvas;
     const pt = canvasPointFromEvent(e, s.canvas);
     if(!pt.inBounds) return;
     if(s.mode === 'erase'){
@@ -17036,19 +17053,16 @@
   async function endDrawPaint(){
     const s = state.drawStroke;
     if(!s) return;
+    const liveCanvas = document.getElementById('draw-canvas');
+    if(liveCanvas) s.canvas = liveCanvas;
     if(s.mode === 'pen' || s.mode === 'shape'){
       if(!s.page.draw.strokes) s.page.draw.strokes = [];
       s.page.draw.strokes.push(s.stroke);
-      redrawDrawCanvas(s.canvas, s.page);
     }
-    // Só libera o "travamento" que faz a sincronização remota esperar (ver o
-    // watcher de page-*-draw) DEPOIS que a posição final já foi salva. Se
-    // isso fosse limpo antes do persistPageDraw terminar, uma atualização
-    // remota que já estava a caminho podia chegar nesse intervalo e
-    // sobrescrever com os dados antigos — fazendo a forma voltar pro lugar
-    // original (ou, se um traço novo tivesse acabado de ser empilhado
-    // localmente, o traço remoto antigo "ressuscitar" ao lado do novo,
-    // parecendo uma duplicata).
+    // Redesenha sempre no final (não só pra pen/shape), usando a referência
+    // de canvas mais atual, pra garantir que a posição final correta apareça
+    // na tela mesmo se o canvas tiver sido reconstruído durante o arraste.
+    redrawDrawCanvas(s.canvas, s.page);
     await persistPageDraw(s.page);
     state.drawStroke = null;
     flushPendingPageUpdates('draw');
