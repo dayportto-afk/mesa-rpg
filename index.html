@@ -10577,6 +10577,25 @@
       const page=currentPage();
       const txt=page&&page.texts.find(t=>t.id===id);
       if(txt){
+        const letterSpacing=typeof txt.letterSpacing==='number'?txt.letterSpacing:0;
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↔︎ Espaço entre letras</span><span class="context-range-value" data-context-text-spacing-value>'+letterSpacing+'px</span></div><input type="range" min="-3" max="30" step="0.5" value="'+letterSpacing+'" aria-label="Espaço entre letras do texto" data-context-text-spacing></div>');
+        const spacingSlider=menu.querySelector('[data-context-text-spacing]');
+        const spacingValueLabel=menu.querySelector('[data-context-text-spacing-value]');
+        let spacingUndoCaptured=false;
+        spacingSlider.addEventListener('input',()=>{
+          const p2=currentPage(); const t2=p2&&p2.texts.find(t=>t.id===id); if(!t2)return;
+          if(!spacingUndoCaptured){ pushUndo(); spacingUndoCaptured=true; }
+          const sp=Math.max(-3,Math.min(30,Number(spacingSlider.value)||0));
+          t2.letterSpacing=sp;
+          spacingValueLabel.textContent=sp+'px';
+          const node=document.querySelector('.map-text[data-id="'+id+'"]');
+          if(node) node.style.letterSpacing=sp+'px';
+        });
+        spacingSlider.addEventListener('change',async()=>{
+          if(!spacingUndoCaptured)return;
+          spacingUndoCaptured=false;
+          const p2=currentPage(); if(p2) await persistPageTexts(p2);
+        });
         const fontSize=Math.round(typeof txt.size==='number'?txt.size:24);
         menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>🔤 Tamanho da fonte</span><span class="context-range-value" data-context-text-size-value>'+fontSize+'px</span></div><input type="range" min="8" max="200" step="1" value="'+fontSize+'" aria-label="Tamanho da fonte do texto" data-context-text-size></div>');
         const sizeSlider=menu.querySelector('[data-context-text-size]');
@@ -13847,6 +13866,7 @@
       t.style.fontFamily = txt.font || "'Cinzel', serif";
       t.style.fontWeight = txt.bold ? '700' : '400';
       t.style.fontStyle = txt.italic ? 'italic' : 'normal';
+      t.style.letterSpacing = (typeof txt.letterSpacing === 'number' ? txt.letterSpacing : 0) + 'px';
       t.style.backgroundColor = 'transparent';
       if(txt.marker) t.classList.add('has-marker');
       t.style.width = (typeof txt.boxWidth === 'number' ? txt.boxWidth : 28) + '%';
