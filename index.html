@@ -10416,7 +10416,10 @@
       const page=currentPage(), lighting=page&&ensureLightingModel(page), point=lighting&&lighting.points.find(item=>item.id===id); if(!point)return;
       actions=[['↔ Ajustar tamanho e formato','editlightpoint'],['👥 Visibilidade por grupos','lightpointgroups'],[point.enabled?'○ Desligar luz':'◉ Ligar luz','togglelightpoint'],['Excluir ponto de luz','deletelightpoint','context-danger']];
     }
-    else if(type==='text') actions=[['Editar conteúdo','edit'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
+    else if(type==='text'){
+      const page=currentPage(); const txt=page&&page.texts.find(t=>t.id===id); if(!txt)return;
+      actions=[['Editar conteúdo','edit'],['Duplicar','duplicate'],[txt.locked?'Destravar posição':'Travar posição','textlock'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
+    }
     else if(type==='barrier'){
       const page=currentPage(); const barrier=page&&ensureLightBarriers(page).list.find(item=>item.id===id); if(!barrier)return;
       if(barrier.type==='door') actions=[[barrier.open?'🔒 Fechar porta':'🔓 Abrir porta','barrierdoor'],['Excluir barreira','barrierdelete','context-danger']];
@@ -10688,6 +10691,8 @@
     if(c.type==='text'){
       const page=currentPage(),txt=page&&page.texts.find(t=>t.id===c.id); if(!txt)return;
       if(action==='edit'){ const node=document.querySelector('.map-text[data-id="'+c.id+'"]'); if(node)beginInlineTextEdit(node,c.id); return; }
+      if(action==='duplicate'){ await duplicateText(c.id); return; }
+      if(action==='textlock'){ pushUndo(); txt.locked=!txt.locked; render(); await persistPageTexts(page); return; }
       if(action==='front'||action==='back'){ pushUndo(); txt.zOrder = action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z; await persistPageTexts(page); renderTexts(); return; }
       if(action==='delete'){ await removeText(c.id); return; }
     }
@@ -13783,7 +13788,7 @@
     if(!document.getElementById('map-img') || !page) return;
     page.texts.forEach(txt => {
       const t = document.createElement('div');
-      t.className = 'map-text' + (effectiveMaster() ? ' draggable' : '') + (txt.id === state.selectedTextId ? ' selected' : '');
+      t.className = 'map-text' + (effectiveMaster() ? ' draggable' : '') + (txt.id === state.selectedTextId ? ' selected' : '') + (txt.locked ? ' text-locked' : '');
       t.dataset.id = txt.id;
       t.style.left = txt.x + '%';
       t.style.top = txt.y + '%';
@@ -13818,6 +13823,13 @@
         t.appendChild(resizeHandle);
         t.addEventListener('pointerdown', onTextPointerDown);
         t.addEventListener('contextmenu', e=>openContextMenu(e,'text',txt.id));
+        if(txt.locked){
+          const lockBadge = document.createElement('div');
+          lockBadge.className = 'reference-lock-badge';
+          lockBadge.title = 'Posição travada';
+          lockBadge.textContent = '🔒';
+          t.appendChild(lockBadge);
+        }
       }
       $canvas.appendChild(t);
       applyTextMarkerRects(contentWrap, contentSpan, txt);
@@ -13999,6 +14011,24 @@
     if(!page) return;
     pushUndo();
     page.texts = page.texts.filter(t => t.id !== id);
+    render();
+    await persistPageTexts(page);
+  }
+
+  async function duplicateText(id){
+    const page = currentPage();
+    if(!page) return;
+    const original = page.texts.find(t => t.id === id);
+    if(!original) return;
+    pushUndo();
+    const copy = JSON.parse(JSON.stringify(original));
+    copy.id = newId('x');
+    copy.x = original.x + 4;
+    copy.y = original.y + 4;
+    copy.locked = false;
+    copy.zOrder = nextStageZOrder();
+    page.texts.push(copy);
+    state.selectedTextId = copy.id;
     render();
     await persistPageTexts(page);
   }
@@ -14203,9 +14233,12 @@
     }
     lastTextTapId = id;
     lastTextTapTime = now;
-    pushUndo();
     state.selectedTextId = id;
     state.selectedTokenId = null;
+    const page = currentPage();
+    const txt = page && page.texts.find(t => t.id === id);
+    if(txt && txt.locked){ render(); return; } // posição travada: só seleciona, não arrasta
+    pushUndo();
     target.setPointerCapture(e.pointerId);
     target.classList.add('dragging');
     target.style.zIndex = 999999;
@@ -16736,31 +16769,41 @@
     return {draw:drawMoved,fog:fogMoved};
   }
 
+  function pointToSegmentDistance(p, a, b){
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const lenSq = dx*dx + dy*dy;
+    if(lenSq === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+    let t = ((p.x - a.x)*dx + (p.y - a.y)*dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (a.x + t*dx), p.y - (a.y + t*dy));
+  }
   function isNearShapeOutline(stroke, pt, reach){
     const r = reach + (stroke.brush || 10);
     const s = stroke.start, e = stroke.end;
     if(!s || !e) return false;
-    const candidates = [s, e, { x:(s.x+e.x)/2, y:(s.y+e.y)/2 }];
     if(stroke.shape === 'rect'){
-      candidates.push({x:s.x, y:e.y}, {x:e.x, y:s.y});
+      const x1=Math.min(s.x,e.x), x2=Math.max(s.x,e.x), y1=Math.min(s.y,e.y), y2=Math.max(s.y,e.y);
+      const corners=[{x:x1,y:y1},{x:x2,y:y1},{x:x2,y:y2},{x:x1,y:y2}];
+      for(let i=0;i<4;i++){
+        if(pointToSegmentDistance(pt, corners[i], corners[(i+1)%4]) <= r) return true;
+      }
+      return false;
     }
     if(stroke.shape === 'circle'){
       const radius = Math.hypot(e.x - s.x, e.y - s.y);
-      for(let a = 0; a < 8; a++){
-        const ang = (a / 8) * Math.PI * 2;
-        candidates.push({ x:s.x + radius * Math.cos(ang), y:s.y + radius * Math.sin(ang) });
-      }
+      const dist = Math.hypot(pt.x - s.x, pt.y - s.y);
+      return Math.abs(dist - radius) <= r || dist <= r;
     }
     if(stroke.shape === 'cone'){
       const dist = Math.hypot(e.x - s.x, e.y - s.y);
       const angle = Math.atan2(e.y - s.y, e.x - s.x);
       const spread = Math.PI / 6;
-      for(let a = 0; a <= 6; a++){
-        const ang = angle - spread + (a / 6) * spread * 2;
-        candidates.push({ x:s.x + dist * Math.cos(ang), y:s.y + dist * Math.sin(ang) });
-      }
+      const p1 = { x:s.x + dist*Math.cos(angle-spread), y:s.y + dist*Math.sin(angle-spread) };
+      const p2 = { x:s.x + dist*Math.cos(angle+spread), y:s.y + dist*Math.sin(angle+spread) };
+      return pointToSegmentDistance(pt,s,p1) <= r || pointToSegmentDistance(pt,s,p2) <= r || pointToSegmentDistance(pt,p1,p2) <= r || Math.hypot(pt.x-s.x,pt.y-s.y) <= r;
     }
-    return candidates.some(p => Math.hypot(p.x - pt.x, p.y - pt.y) <= r);
+    // linha reta (padrão): distância do ponto até o segmento inteiro, não só as pontas
+    return pointToSegmentDistance(pt, s, e) <= r;
   }
 
   function findMovableShapeNear(page, pt, reach){
