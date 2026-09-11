@@ -10418,7 +10418,7 @@
     }
     else if(type==='text'){
       const page=currentPage(); const txt=page&&page.texts.find(t=>t.id===id); if(!txt)return;
-      actions=[['Editar conteúdo','edit'],['Duplicar','duplicate'],[txt.locked?'Destravar posição':'Travar posição','textlock'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
+      actions=[['Duplicar','duplicate'],[txt.locked?'Destravar posição':'Travar posição','textlock'],['Trazer para frente','front'],['Enviar para trás','back'],['Excluir','delete','context-danger']];
     }
     else if(type==='barrier'){
       const page=currentPage(); const barrier=page&&ensureLightBarriers(page).list.find(item=>item.id===id); if(!barrier)return;
