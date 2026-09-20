@@ -1718,6 +1718,9 @@
   #context-menu .context-range-title{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--parchment); }
   #context-menu .context-range-value{ color:var(--amber-bright); min-width:38px; text-align:right; }
   #context-menu .context-range-control input[type=range]{ display:block; width:100%; margin:0; accent-color:var(--amber); cursor:ew-resize; }
+  #context-menu .context-size-stepper{ display:grid; grid-template-columns:28px minmax(0,1fr) 28px; align-items:center; gap:7px; }
+  #context-menu .context-size-stepper button{ display:flex; align-items:center; justify-content:center; width:28px; height:25px; padding:0; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,.035); color:var(--parchment); font-size:16px; font-weight:700; line-height:1; }
+  #context-menu .context-size-stepper button:hover{ background:#2a2116; border-color:var(--amber); }
   #context-menu .context-range-control input[type=color]{ display:block; width:100%; height:28px; margin:0; padding:0; border:1px solid var(--line); border-radius:4px; background:transparent; cursor:pointer; }
   #context-menu .context-range-title button{ display:inline-block !important; width:auto !important; padding:2px 8px !important; font-size:9px !important; border:1px solid var(--line) !important; border-radius:3px !important; }
   .move-distance-label{ position:absolute; pointer-events:none; z-index:2000000; transform:translate(-50%,-115%); background:#150f09; border:1px solid var(--amber-bright); color:var(--amber-bright); border-radius:4px; padding:3px 7px; font-family:'JetBrains Mono',monospace; font-size:10px; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.45); }
@@ -4513,6 +4516,23 @@
       if(!file){ editingTokenAltImageId = null; return; }
       editingTokenAltImageId = tok.id;
       openCropModal(file);
+    });
+    input.click();
+  }
+  function triggerAltImagePickForTargets(tokens){
+    const targets=(tokens||[]).filter(canFlipToken);
+    if(targets.length<=1){ if(targets[0]) triggerAltImagePick(targets[0]); return; }
+    const input=document.createElement('input');
+    input.type='file'; input.accept='image/*';
+    input.addEventListener('change',async()=>{
+      const file=input.files[0]; if(!file)return;
+      try{
+        const regular=await resizeImage(file,800,.9);
+        const transparent=targets.some(t=>t.isMapObject)?await resizeTransparentImage(file,1600):null;
+        pushUndo();
+        targets.forEach(t=>{ t.altImage=t.isMapObject?(transparent||regular):regular; t.showingAlt=true; });
+        render(); await persistTokens();
+      }catch(err){ alert('Não consegui carregar essa imagem. Tente outro arquivo.'); }
     });
     input.click();
   }
@@ -10490,6 +10510,16 @@
 
   let contextTarget=null;
   let pendingPlacementPt=null;
+  function contextSelectionIds(id){
+    return effectiveMaster() && multiSelectedTokenIds.has(id) && multiSelectedTokenIds.size>=2
+      ? [...multiSelectedTokenIds]
+      : [id];
+  }
+  function contextSelectionTokens(target){
+    const ids=(target&&Array.isArray(target.groupIds)&&target.groupIds.length)?target.groupIds:[target&&target.id];
+    return ids.map(id=>state.tokens.find(t=>t.id===id)).filter(Boolean);
+  }
+  function contextIsGroup(target){ return !!(target&&Array.isArray(target.groupIds)&&target.groupIds.length>=2); }
   function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
   function openMapClickMenu(e, pt, ptRaw){
     closeConditionsPicker();
@@ -10582,12 +10612,45 @@
     const tokForLantern=type==='token'?state.tokens.find(t=>t.id===id):null;
     if(!effectiveMaster()&&!canToggleTokenLantern(tokForLantern)&&!(type==='token'&&canResizeToken(tokForLantern))&&!(type==='token'&&canFlipToken(tokForLantern))) return;
     e.preventDefault(); e.stopPropagation();
-    const menu=el('context-menu'); contextTarget={type,id}; let actions=[];
-    if(type==='token'){
+    const menu=el('context-menu'); contextTarget={type,id,groupIds:contextSelectionIds(id)}; let actions=[];
+    const groupTokens=contextSelectionTokens(contextTarget);
+    const groupMode=contextIsGroup(contextTarget);
+    if(groupMode){
+      const characters=groupTokens.filter(t=>!t.isReference&&!t.isMapObject);
+      const flippable=groupTokens.filter(canFlipToken);
+      const altReady=flippable.filter(t=>!!t.altImage);
+      const objects=groupTokens.filter(t=>t.isMapObject);
+      const references=groupTokens.filter(t=>t.isReference);
+      if(characters.length){
+        const allLanternsOn=characters.every(t=>{const l=tokenLanternState(t,false);return !!(l&&l.enabled);});
+        actions.push([allLanternsOn?'🔦 Apagar lanternas':'🔦 Acender lanternas','lantern']);
+      }
+      if(flippable.length) actions.push([flippable.every(t=>!!t.flipped)?'↔️ Desespelhar selecionados':'↔️ Espelhar selecionados','flip']);
+      if(altReady.length){
+        actions.push([altReady.every(t=>!!t.showingAlt)?'🔄 Voltar todos à aparência original':'🔄 Mostrar imagens alternativas','togglealt']);
+        actions.push(['🗑️ Remover imagens alternativas','removealtimage']);
+      }
+      if(flippable.length) actions.push(['🖼️ Definir a mesma imagem alternativa','setaltimage']);
+      if(characters.length){
+        actions.push([characters.every(t=>!!t.sizeLocked)?'🔓 Destravar tamanhos':'🔒 Travar tamanhos','sizelock']);
+        actions.push([characters.every(t=>!!t.hostile)?'⚔️ Remover marca de hostil':'⚔️ Marcar como hostis','hostile']);
+        if(characters.some(t=>{const l=tokenLanternState(t,false);return !!(l&&l.enabled);})) actions.push(['📏 Alcance individual das lanternas','lanternradius']);
+        actions.push(['👥 Grupos de luz','lightgroups']);
+        actions.push([characters.every(tokenHasDarkvision)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
+        actions.push(['🩹 Condições','conditions']);
+      }
+      if(objects.length) actions.push([objects.every(t=>!!t.objectLocked)?'🔓 Destravar objetos':'🔒 Travar objetos','objectlock']);
+      if(references.length) actions.push([references.every(t=>!!t.referenceLocked)?'🔓 Destravar imagens':'🔒 Travar imagens','lock']);
+      actions.push(['📝 Aplicar a mesma nota','note']);
+      if(groupTokens.some(t=>!!t.note)) actions.push(['Excluir notas','deletenote']);
+      actions.push(['Duplicar selecionados','duplicate'],['Trazer selecionados para frente','front'],['Enviar selecionados para trás','back']);
+      actions.push([groupTokens.every(t=>isTokenOnPage(t,state.currentPageId))?'Remover selecionados desta página':'+ Colocar selecionados nesta página','page']);
+      actions.push(['Excluir selecionados permanentemente','delete','context-danger']);
+    }else if(type==='token'){
       const tok=tokForLantern; if(!tok)return;
       let lightActions=[];
+      const lantern=canToggleTokenLantern(tok)?tokenLanternState(tok,false):null;
       if(canToggleTokenLantern(tok)){
-        const lantern=tokenLanternState(tok,false);
         lightActions=[[lantern&&lantern.enabled?'🔦 Apagar lanterna':'🔦 Acender lanterna','lantern']];
       }
       if(canFlipToken(tok)){
@@ -10603,7 +10666,7 @@
       if(effectiveMaster()){
         lightActions.push([tok.sizeLocked?'🔓 Destravar tamanho':'🔒 Travar tamanho','sizelock']);
         lightActions.push([tok.hostile?'⚔️ Remover marca de hostil':'⚔️ Marcar como hostil','hostile']);
-        lightActions.push(['📏 Alcance individual','lanternradius',null,'Define o alcance de luz da lanterna deste token']);
+        if(lantern&&lantern.enabled) lightActions.push(['📏 Alcance individual','lanternradius',null,'Define o alcance de luz da lanterna deste token']);
         lightActions.push(['👥 Grupos de luz: '+tokenLightGroupLabel(tok),'lightgroups',null,'Escolhe quais grupos podem ver a luz da lanterna deste token. Só faz efeito quando a visibilidade da iluminação está em "Grupos" (Névoa → Escuridão e lanternas): jogadores cujo próprio token não compartilhar nenhum desses grupos não enxergam essa luz.']);
         lightActions.push([tokenHasDarkvision(tok)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
         lightActions.push(['🩹 Condições','conditions',null,'Envenenado, invisível, e outras condições — inclusive personalizadas. Abre um menuzinho com todas as opções pra marcar quantas quiser de uma vez.']);
@@ -10662,7 +10725,7 @@
           return [gid, t2?tokenSize(t2):size];
         })):null;
         const label=groupIds?'↔ Tamanho ('+groupIds.length+' selecionados)':'↔ Tamanho';
-        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>'+label+'</span><span class="context-range-value" data-context-size-value>'+size+'px</span></div><input type="range" min="10" max="500" step="1" value="'+size+'" aria-label="Tamanho do token" data-context-token-size></div>');
+        menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>'+label+'</span><span class="context-range-value" data-context-size-value>'+size+'px</span></div><div class="context-size-stepper"><button type="button" data-context-size-step="-3" aria-label="Diminuir tamanho em 3 pixels" title="Diminuir 3 px">−</button><input type="range" min="10" max="500" step="1" value="'+size+'" aria-label="Tamanho do token" data-context-token-size><button type="button" data-context-size-step="3" aria-label="Aumentar tamanho em 3 pixels" title="Aumentar 3 px">+</button></div></div>');
         const slider=menu.querySelector('[data-context-token-size]');
         const valueLabel=menu.querySelector('[data-context-size-value]');
         let undoCaptured=false;
@@ -10691,9 +10754,19 @@
           undoCaptured=false;
           await persistTokens();
         });
+        menu.querySelectorAll('[data-context-size-step]').forEach(button=>button.addEventListener('click',()=>{
+          const delta=Number(button.getAttribute('data-context-size-step'))||0;
+          slider.value=String(Math.max(Number(slider.min),Math.min(Number(slider.max),Number(slider.value)+delta)));
+          slider.dispatchEvent(new Event('input',{bubbles:true}));
+          slider.dispatchEvent(new Event('change',{bubbles:true}));
+        }));
       }
-      if(tok&&canToggleTokenLantern(tok)){
-        const lantern=tokenLanternState(tok,false);
+      const lanternControlTokens=groupMode
+        ? groupTokens.filter(t=>!t.isReference&&!t.isMapObject).filter(t=>{const l=tokenLanternState(t,false);return !!(l&&l.enabled);})
+        : (tok&&canToggleTokenLantern(tok)?[tok]:[]);
+      const lanternControlAnchor=lanternControlTokens[0]||null;
+      if(lanternControlAnchor){
+        const lantern=tokenLanternState(lanternControlAnchor,false);
         if(lantern&&lantern.enabled&&ensureLightingModel(currentPage()).shape==='cone'){
           const angleDeg=Math.round((((Number(lantern.angle)||0)*180/Math.PI)%360+360)%360);
           menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↻ Direção do cone</span><span class="context-range-value" data-context-lantern-angle-value>'+angleDeg+'°</span></div><input type="range" min="0" max="359" step="1" value="'+angleDeg+'" aria-label="Direção do cone da lanterna" data-context-lantern-angle></div>');
@@ -10701,11 +10774,10 @@
           const rotValueLabel=menu.querySelector('[data-context-lantern-angle-value]');
           let rotUndoCaptured=false;
           rotSlider.addEventListener('input',()=>{
-            const t2=state.tokens.find(x=>x.id===id); if(!t2||!canToggleTokenLantern(t2))return;
+            if(!lanternControlTokens.length)return;
             if(!rotUndoCaptured){ pushUndo(); rotUndoCaptured=true; }
             const deg=Number(rotSlider.value)||0;
-            const lantern2=tokenLanternState(t2,true);
-            lantern2.angle=deg*Math.PI/180;
+            lanternControlTokens.forEach(t2=>{ tokenLanternState(t2,true).angle=deg*Math.PI/180; });
             rotValueLabel.textContent=deg+'°';
             setupDarknessOverlay();
           });
@@ -10716,8 +10788,9 @@
           });
         }
       }
-      if(tok&&canToggleTokenLantern(tok)&&effectiveMaster()){
-        const lantern=tokenLanternState(tok,true);
+      const activeLantern=lanternControlAnchor&&canToggleTokenLantern(lanternControlAnchor)?tokenLanternState(lanternControlAnchor,false):null;
+      if(lanternControlAnchor&&effectiveMaster()&&activeLantern&&activeLantern.enabled){
+        const lantern=tokenLanternState(lanternControlAnchor,true);
         const intensity=Math.max(10,Math.min(100,Number(lantern.intensity)||100));
         const hasColor=/^#[0-9a-f]{6}$/i.test(String(lantern.color||''));
         const colorVal=hasColor?lantern.color:'#ffb347';
@@ -10728,11 +10801,11 @@
         const colorResetBtn=menu.querySelector('[data-context-lantern-color-reset]');
         let intensityUndo=false, colorUndo=false;
         intensitySlider.addEventListener('input',()=>{
-          const t2=state.tokens.find(x=>x.id===id); if(!t2)return;
+          if(!lanternControlTokens.length)return;
           if(!intensityUndo){ pushUndo(); intensityUndo=true; }
-          const lantern2=tokenLanternState(t2,true);
-          lantern2.intensity=Math.max(10,Math.min(100,Number(intensitySlider.value)||100));
-          intensityValueLabel.textContent=lantern2.intensity+'%';
+          const value=Math.max(10,Math.min(100,Number(intensitySlider.value)||100));
+          lanternControlTokens.forEach(t2=>{ tokenLanternState(t2,true).intensity=value; });
+          intensityValueLabel.textContent=value+'%';
           setupDarknessOverlay();
         });
         intensitySlider.addEventListener('change',async()=>{
@@ -10741,10 +10814,9 @@
           await persistTokens();
         });
         colorInput.addEventListener('input',()=>{
-          const t2=state.tokens.find(x=>x.id===id); if(!t2)return;
+          if(!lanternControlTokens.length)return;
           if(!colorUndo){ pushUndo(); colorUndo=true; }
-          const lantern2=tokenLanternState(t2,true);
-          lantern2.color=colorInput.value;
+          lanternControlTokens.forEach(t2=>{ tokenLanternState(t2,true).color=colorInput.value; });
           setupDarknessOverlay();
         });
         colorInput.addEventListener('change',async()=>{
@@ -10753,28 +10825,33 @@
           await persistTokens();
         });
         colorResetBtn.addEventListener('click',async()=>{
-          const t2=state.tokens.find(x=>x.id===id); if(!t2)return;
+          if(!lanternControlTokens.length)return;
           pushUndo();
-          const lantern2=tokenLanternState(t2,true);
-          lantern2.color=null;
+          lanternControlTokens.forEach(t2=>{ tokenLanternState(t2,true).color=null; });
           colorInput.value='#ffb347';
           setupDarknessOverlay();
           await persistTokens();
         });
       }
     }
-    if(type==='mapobject'){
-      const object=state.tokens.find(t=>t.id===id&&t.isMapObject);
+    const rotationObjects=groupMode?groupTokens.filter(t=>t.isMapObject):(type==='mapobject'?[state.tokens.find(t=>t.id===id&&t.isMapObject)].filter(Boolean):[]);
+    if(rotationObjects.length){
+      const object=rotationObjects.find(t=>t.id===id)||rotationObjects[0];
       const rotation=Math.round(((Number(object&&object.rotation)||0)%360+360)%360);
+      const startRotations=new Map(rotationObjects.map(t=>[t.id,((Number(t.rotation)||0)%360+360)%360]));
       menu.insertAdjacentHTML('afterbegin','<div class="context-range-control"><div class="context-range-title"><span>↻ Rotação</span><span class="context-range-value" data-context-rotation-value>'+rotation+'°</span></div><input type="range" min="0" max="359" step="1" value="'+rotation+'" aria-label="Rotação do objeto em graus" data-context-object-rotation></div>');
       const slider=menu.querySelector('[data-context-object-rotation]');
       const valueLabel=menu.querySelector('[data-context-rotation-value]');
       let undoCaptured=false, drawMoved=false, fogMoved=false;
       slider.addEventListener('input',()=>{
-        const tok=state.tokens.find(t=>t.id===id&&t.isMapObject); if(!tok)return;
+        if(!rotationObjects.length)return;
         if(!undoCaptured){ pushUndo(); undoCaptured=true; }
-        const moved=rotateMapObjectAndContents(tok,Number(slider.value));
-        drawMoved=drawMoved||moved.draw; fogMoved=fogMoved||moved.fog;
+        const next=Number(slider.value)||0;
+        const delta=next-rotation;
+        rotationObjects.forEach(tok=>{
+          const moved=rotateMapObjectAndContents(tok,(startRotations.get(tok.id)||0)+delta);
+          drawMoved=drawMoved||moved.draw; fogMoved=fogMoved||moved.fog;
+        });
         valueLabel.textContent=Math.round(Number(slider.value))+'°';
         renderTokens(); refreshLiveMoveDependentLayers();
       });
@@ -11044,6 +11121,12 @@
       return;
     }
     const tok=state.tokens.find(t=>t.id===c.id); if(!tok)return;
+    const targets=contextSelectionTokens(c);
+    const groupMode=contextIsGroup(c);
+    const characters=targets.filter(t=>!t.isReference&&!t.isMapObject);
+    const flippable=targets.filter(canFlipToken);
+    const objects=targets.filter(t=>t.isMapObject);
+    const references=targets.filter(t=>t.isReference);
     if((action==='npchpdescriptive'||action==='npchppercentage'||action==='npchphidden')&&effectiveMaster()&&tok.masterLocked){
       const page=currentPage(); if(!page)return;
       pushUndo();
@@ -11053,17 +11136,22 @@
       return;
     }
     if(action==='sizelock'&&effectiveMaster()){
-      pushUndo(); tok.sizeLocked=!tok.sizeLocked; render(); await persistTokens(); return;
+      const list=characters; if(!list.length)return;
+      const enabled=groupMode?!list.every(t=>t.sizeLocked):!tok.sizeLocked;
+      pushUndo(); list.forEach(t=>{t.sizeLocked=enabled;}); render(); await persistTokens(); return;
     }
     if(action==='hostile'&&effectiveMaster()){
-      pushUndo(); tok.hostile=!tok.hostile; render(); await persistTokens(); return;
+      const list=characters; if(!list.length)return;
+      const enabled=groupMode?!list.every(t=>t.hostile):!tok.hostile;
+      pushUndo(); list.forEach(t=>{t.hostile=enabled;}); render(); await persistTokens(); return;
     }
     if(action==='lantern'){
-      if(!canToggleTokenLantern(tok))return;
-      const lantern=tokenLanternState(tok,true); lantern.enabled=!lantern.enabled;
+      const list=targets.filter(canToggleTokenLantern); if(!list.length)return;
+      const enabled=groupMode?!list.every(t=>tokenLanternState(t,true).enabled):!tokenLanternState(tok,true).enabled;
+      pushUndo(); list.forEach(t=>{tokenLanternState(t,true).enabled=enabled;});
       const page=currentPage();
       let lightingChanged=false;
-      if(lantern.enabled&&effectiveMaster()&&page){
+      if(enabled&&effectiveMaster()&&page){
         const lighting=ensureLightingModel(page);
         if(!lighting.enabled){ lighting.enabled=true; lightingChanged=true; }
         if(!lighting.allowed){ lighting.allowed=true; lightingChanged=true; }
@@ -11073,57 +11161,75 @@
       return;
     }
     if(action==='lanternradius'&&effectiveMaster()){
-      const lantern=tokenLanternState(tok,true), lighting=ensureLightingModel(currentPage());
+      const list=characters; if(!list.length)return;
+      const lantern=tokenLanternState(list[0],true), lighting=ensureLightingModel(currentPage());
       const entered=prompt('Alcance individual em '+({pixels:'pixels',cells:'células',meters:'metros'}[lighting.unit])+'. Deixe vazio para usar o padrão do mapa.',lantern.range==null?'':String(lantern.range));
       if(entered===null)return;
-      lantern.range=entered.trim()===''?null:Math.max(1,Number(entered)||lighting.range);
+      pushUndo(); const range=entered.trim()===''?null:Math.max(1,Number(entered)||lighting.range);
+      list.forEach(t=>{tokenLanternState(t,true).range=range;});
       render(); await persistTokens(); return;
     }
-    if(action==='lightgroups'&&effectiveMaster()&&!tok.isReference&&!tok.isMapObject){
+    if(action==='lightgroups'&&effectiveMaster()&&characters.length){
       const lighting=ensureLightingModel(currentPage()), groups=lighting.groups;
       if(!groups.length){ alert('Crie primeiro um grupo em Névoa → Escuridão e lanternas.'); return; }
-      const currentIds=new Set(tokenLightGroupIds(tok));
+      const currentIds=new Set(tokenLightGroupIds(characters[0]));
       const currentNumbers=groups.map((group,index)=>currentIds.has(group.id)?String(index+1):'').filter(Boolean).join(', ');
       const list=groups.map((group,index)=>(index+1)+'. '+group.name+(currentIds.has(group.id)?' ✓':'')).join('\n');
-      const entered=prompt('GRUPOS DE ILUMINAÇÃO — '+tok.name+'\n\n'+list+'\n\nDigite os números separados por vírgula. Deixe vazio para remover de todos os grupos.',currentNumbers);
+      const entered=prompt('GRUPOS DE ILUMINAÇÃO — '+(groupMode?characters.length+' selecionados':tok.name)+'\n\n'+list+'\n\nDigite os números separados por vírgula. Deixe vazio para remover de todos os grupos.',currentNumbers);
       if(entered===null)return;
       const chosen=new Set(entered.split(/[,;\s]+/).map(value=>Number(value)).filter(value=>Number.isInteger(value)&&value>=1&&value<=groups.length));
-      if(!tok.lightGroupsByPage)tok.lightGroupsByPage={};
       const ids=groups.filter((group,index)=>chosen.has(index+1)).map(group=>group.id);
-      if(ids.length)tok.lightGroupsByPage[state.currentPageId]=ids;
-      else delete tok.lightGroupsByPage[state.currentPageId];
+      pushUndo(); characters.forEach(t=>{
+        if(!t.lightGroupsByPage)t.lightGroupsByPage={};
+        if(ids.length)t.lightGroupsByPage[state.currentPageId]=[...ids];
+        else delete t.lightGroupsByPage[state.currentPageId];
+      });
       render(); await persistTokens(); return;
     }
-    if(action==='darkvision'&&effectiveMaster()&&!tok.isReference&&!tok.isMapObject){
-      if(!tok.darkvisionByPage) tok.darkvisionByPage={};
-      if(tokenHasDarkvision(tok)) delete tok.darkvisionByPage[state.currentPageId];
-      else tok.darkvisionByPage[state.currentPageId]=true;
+    if(action==='darkvision'&&effectiveMaster()&&characters.length){
+      const enabled=groupMode?!characters.every(tokenHasDarkvision):!tokenHasDarkvision(tok);
+      pushUndo(); characters.forEach(t=>{
+        if(!t.darkvisionByPage)t.darkvisionByPage={};
+        if(enabled)t.darkvisionByPage[state.currentPageId]=true;
+        else delete t.darkvisionByPage[state.currentPageId];
+      });
       render(); await persistTokens(); return;
     }
-    if(action==='conditions'&&effectiveMaster()&&!tok.isReference&&!tok.isMapObject){
-      openConditionsPicker(tok.id,anchorRect);
+    if(action==='conditions'&&effectiveMaster()&&characters.length){
+      openConditionsPicker(tok.id,anchorRect,characters.map(t=>t.id));
       return;
     }
     if(action==='open'&&!tok.isReference&&!tok.isMapObject){openTokenSheet(tok);return;}
-    if(action==='duplicate'){await duplicateToken(tok.id);return;}
-    if(action==='front'||action==='back'){ pushUndo(); if(!tok.positions)tok.positions={}; const pos=tokenPos(tok); tok.positions[state.currentPageId] = { x:pos.x, y:pos.y, zOrder: action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z }; await persistTokens();render();return; }
-    if(action==='lock'&&tok.isReference){await toggleReferenceLock(tok.id);return;}
-    if(action==='objectlock'&&tok.isMapObject){await toggleMapObjectLock(tok.id);return;}
-    if(action==='flip'&&canFlipToken(tok)){ pushUndo(); tok.flipped=!tok.flipped; render(); await persistTokens(); return; }
-    if(action==='setaltimage'&&canFlipToken(tok)){ triggerAltImagePick(tok); return; }
-    if(action==='togglealt'&&canFlipToken(tok)&&tok.altImage){ pushUndo(); tok.showingAlt=!tok.showingAlt; render(); await persistTokens(); return; }
-    if(action==='removealtimage'&&canFlipToken(tok)){ pushUndo(); delete tok.altImage; delete tok.showingAlt; render(); await persistTokens(); return; }
+    if(action==='duplicate'){
+      pushUndo(); const newIds=[];
+      targets.forEach(source=>{ const clone=JSON.parse(JSON.stringify(source)); clone.id=newId('t'); clone.name=(source.name||'Item')+' (cópia)'; if(clone.platformByPage&&state.currentPageId)delete clone.platformByPage[state.currentPageId]; if(clone.positions&&state.currentPageId&&clone.positions[state.currentPageId]){const p=clone.positions[state.currentPageId];clone.positions[state.currentPageId]={...p,x:Math.min(96,p.x+4),y:Math.min(96,p.y+4)};} state.tokens.push(clone);newIds.push(clone.id); });
+      multiSelectedTokenIds=new Set(newIds); state.selectedTokenId=newIds.length===1?newIds[0]:null; render(); await persistTokens(); return;
+    }
+    if(action==='front'||action==='back'){ pushUndo(); targets.forEach(t=>{if(!t.positions)t.positions={};const pos=tokenPos(t);t.positions[state.currentPageId]={...pos,zOrder:action==='front'?nextStageZOrder():MAP_LAYER_FLOOR_Z};}); await persistTokens();render();return; }
+    if(action==='lock'&&references.length){ const enabled=groupMode?!references.every(t=>t.referenceLocked):!tok.referenceLocked;pushUndo();references.forEach(t=>{t.referenceLocked=enabled;});render();await persistTokens();return; }
+    if(action==='objectlock'&&objects.length){ const enabled=groupMode?!objects.every(t=>t.objectLocked):!tok.objectLocked;pushUndo();objects.forEach(t=>{t.objectLocked=enabled;});render();await persistTokens();return; }
+    if(action==='flip'&&flippable.length){ const enabled=groupMode?!flippable.every(t=>t.flipped):!tok.flipped;pushUndo();flippable.forEach(t=>{t.flipped=enabled;});render();await persistTokens();return; }
+    if(action==='setaltimage'&&flippable.length){ triggerAltImagePickForTargets(flippable); return; }
+    if(action==='togglealt'&&flippable.some(t=>t.altImage)){ const list=flippable.filter(t=>t.altImage);const enabled=groupMode?!list.every(t=>t.showingAlt):!tok.showingAlt;pushUndo();list.forEach(t=>{t.showingAlt=enabled;});render();await persistTokens();return; }
+    if(action==='removealtimage'&&flippable.length){ pushUndo();flippable.forEach(t=>{delete t.altImage;delete t.showingAlt;});render();await persistTokens();return; }
     if(action==='note'){
       const entered=prompt(tok.note?'Editar nota (só o mestre vê; aparece ao passar o mouse por cima):':'Nota (só o mestre vê; aparece ao passar o mouse por cima):', tok.note||'');
       if(entered===null) return;
       pushUndo();
       const trimmed=entered.trim();
-      if(trimmed) tok.note=trimmed; else delete tok.note;
+      targets.forEach(t=>{if(trimmed)t.note=trimmed;else delete t.note;});
       render(); await persistTokens(); return;
     }
-    if(action==='deletenote'){ pushUndo(); delete tok.note; render(); await persistTokens(); return; }
-    if(action==='page'){ if(isTokenOnPage(tok,state.currentPageId))await removeTokenFromPage(tok.id);else await addTokenToPage(tok.id);return; }
-    if(action==='delete'){await deleteTokenPermanently(tok.id);return;}
+    if(action==='deletenote'){ pushUndo();targets.forEach(t=>{delete t.note;});render();await persistTokens();return; }
+    if(action==='page'){
+      const remove=targets.every(t=>isTokenOnPage(t,state.currentPageId));pushUndo();let stagedCount=0;
+      targets.forEach(t=>{if(remove){if(t.isMapObject)detachTokensFromMapObject(t.id);if(!t.removedFromPages)t.removedFromPages=[];if(!t.removedFromPages.includes(state.currentPageId))t.removedFromPages.push(state.currentPageId);if(t.platformByPage)delete t.platformByPage[state.currentPageId];}else{t.removedFromPages=(t.removedFromPages||[]).filter(pid=>pid!==state.currentPageId);if(t.platformByPage)delete t.platformByPage[state.currentPageId];if(!t.positions)t.positions={};const pos=bulkStagePosition(stagedCount++);t.positions[state.currentPageId]={...pos,zOrder:nextTokenZOrder()};}});
+      render();await persistTokens();return;
+    }
+    if(action==='delete'){
+      const message=targets.length===1?'Excluir este item de todas as páginas permanentemente?':'Excluir os '+targets.length+' itens selecionados de todas as páginas permanentemente?';if(!confirm(message))return;
+      pushUndo();const ids=new Set(targets.map(t=>t.id));targets.filter(t=>t.isMapObject).forEach(t=>detachTokensFromMapObject(t.id));state.tokens=state.tokens.filter(t=>!ids.has(t.id));multiSelectedTokenIds.clear();state.selectedTokenId=null;render();await persistTokens();return;
+    }
   }
 
   function renderTokens(){
@@ -13944,6 +14050,37 @@
     await persistTokens();
   }
 
+  async function toggleConditionForTokens(ids,key){
+    const tokens=ids.map(id=>state.tokens.find(t=>t.id===id)).filter(t=>t&&!t.isReference&&!t.isMapObject);
+    if(!tokens.length)return;
+    const allActive=tokens.every(t=>Array.isArray(t.conditions)&&t.conditions.includes(key));
+    let turns=null;
+    if(!allActive){
+      const c=CONDITIONS.find(item=>item.key===key);
+      const entered=prompt('Duração de "'+(c?c.label:key)+'" em turnos para '+tokens.length+' selecionado(s). Deixe vazio para efeito indefinido.','');
+      if(entered===null)return;
+      turns=entered.trim()===''?null:Math.max(1,Math.round(Number(entered))||1);
+    }
+    pushUndo();
+    tokens.forEach(tok=>{
+      if(!Array.isArray(tok.conditions))tok.conditions=[];
+      if(!tok.conditionDurations)tok.conditionDurations={};
+      const index=tok.conditions.indexOf(key);
+      if(allActive){if(index>=0)tok.conditions.splice(index,1);delete tok.conditionDurations[key];}
+      else{if(index<0)tok.conditions.push(key);if(turns)tok.conditionDurations[key]=turns;else delete tok.conditionDurations[key];}
+    });
+    render();await persistTokens();
+  }
+
+  async function toggleCustomStatusForTokens(ids,statusId){
+    const tokens=ids.map(id=>state.tokens.find(t=>t.id===id)).filter(t=>t&&!t.isReference&&!t.isMapObject);
+    if(!tokens.length)return;
+    const allActive=tokens.every(t=>Array.isArray(t.customStatuses)&&t.customStatuses.includes(statusId));
+    pushUndo();
+    tokens.forEach(tok=>{if(!Array.isArray(tok.customStatuses))tok.customStatuses=[];const index=tok.customStatuses.indexOf(statusId);if(allActive){if(index>=0)tok.customStatuses.splice(index,1);}else if(index<0)tok.customStatuses.push(statusId);});
+    render();await persistTokens();
+  }
+
   // Chamada quando o turno de UM token termina (ver nextInitiativeTurn): reduz
   // em 1 cada condição com duração ativa NESSE token, remove as que zeraram e
   // avisa o mestre quais terminaram. Cada condição tem sua própria contagem,
@@ -13974,30 +14111,35 @@
   // num só lugar, com botões que ligam/desligam na hora, sem fechar o painel,
   // pra marcar quantas quiser em sequência.
   let conditionsPickerTokenId=null;
+  let conditionsPickerTokenIds=[];
   function closeConditionsPicker(){
     const p=el('conditions-picker'); if(p)p.classList.remove('open');
     conditionsPickerTokenId=null;
+    conditionsPickerTokenIds=[];
   }
   function renderConditionsPicker(){
     const picker=el('conditions-picker'); if(!picker||!conditionsPickerTokenId)return;
     const tok=state.tokens.find(t=>t.id===conditionsPickerTokenId);
     if(!tok){ closeConditionsPicker(); return; }
+    const tokens=conditionsPickerTokenIds.map(id=>state.tokens.find(t=>t.id===id)).filter(Boolean);
+    if(!tokens.length)tokens.push(tok);
     const builtIn=CONDITIONS.map(c=>{
-      const active=(tok.conditions||[]).includes(c.key);
-      const turns=active&&tok.conditionDurations&&tok.conditionDurations[c.key];
+      const active=tokens.every(t=>(t.conditions||[]).includes(c.key));
+      const turns=tokens.length===1&&active&&tok.conditionDurations&&tok.conditionDurations[c.key];
       return '<button type="button" class="condition-chip'+(active?' toggle-active':'')+'" data-picker-condition="'+c.key+'" title="'+c.label+(turns?' — '+turns+' turno(s) restante(s)':'')+'">'+c.icon+(turns?'<span class="condition-chip-turns">'+turns+'</span>':'')+'</button>';
     }).join('');
     const customs=customStatusList();
     const customHtml=customs.length
       ? ('<div class="conditions-picker-divider">Personalizadas</div><div class="condition-chip-row">'+customs.map(st=>{
-          const active=Array.isArray(tok.customStatuses)&&tok.customStatuses.includes(st.id);
+          const active=tokens.every(t=>Array.isArray(t.customStatuses)&&t.customStatuses.includes(st.id));
           return '<button type="button" class="condition-chip'+(active?' toggle-active':'')+'" data-picker-custom-status="'+st.id+'" title="'+escapeHtml(st.name)+'" style="border-color:'+escapeHtml(st.color||'#e2a53f')+'">'+escapeHtml(st.icon||'●')+'</button>';
         }).join('')+'</div>')
       : '<div class="conditions-picker-divider">Personalizadas</div><div class="conditions-picker-empty">Nenhuma criada ainda — dá pra criar em Fichas → Status personalizados.</div>';
-    picker.innerHTML='<div class="conditions-picker-title">🩹 Condições — '+escapeHtml(tok.name)+'</div><div class="condition-chip-row">'+builtIn+'</div>'+customHtml;
+    picker.innerHTML='<div class="conditions-picker-title">🩹 Condições — '+(tokens.length>1?tokens.length+' selecionados':escapeHtml(tok.name))+'</div><div class="condition-chip-row">'+builtIn+'</div>'+customHtml;
   }
-  function openConditionsPicker(tokenId,anchorRect){
+  function openConditionsPicker(tokenId,anchorRect,tokenIds){
     conditionsPickerTokenId=tokenId;
+    conditionsPickerTokenIds=Array.isArray(tokenIds)&&tokenIds.length?[...new Set(tokenIds)]:[tokenId];
     renderConditionsPicker();
     const picker=el('conditions-picker'); if(!picker)return;
     picker.style.left='8px'; picker.style.top='8px'; picker.classList.add('open');
@@ -14010,9 +14152,9 @@
   el('conditions-picker').addEventListener('click',async e=>{
     if(!conditionsPickerTokenId)return;
     const condBtn=e.target.closest('[data-picker-condition]');
-    if(condBtn){ await toggleCondition(conditionsPickerTokenId,condBtn.getAttribute('data-picker-condition')); renderConditionsPicker(); return; }
+    if(condBtn){ if(conditionsPickerTokenIds.length>1)await toggleConditionForTokens(conditionsPickerTokenIds,condBtn.getAttribute('data-picker-condition'));else await toggleCondition(conditionsPickerTokenId,condBtn.getAttribute('data-picker-condition'));renderConditionsPicker();return; }
     const custBtn=e.target.closest('[data-picker-custom-status]');
-    if(custBtn){ await toggleCustomStatus(conditionsPickerTokenId,custBtn.getAttribute('data-picker-custom-status')); renderConditionsPicker(); return; }
+    if(custBtn){ if(conditionsPickerTokenIds.length>1)await toggleCustomStatusForTokens(conditionsPickerTokenIds,custBtn.getAttribute('data-picker-custom-status'));else await toggleCustomStatus(conditionsPickerTokenId,custBtn.getAttribute('data-picker-custom-status'));renderConditionsPicker();return; }
   });
   document.addEventListener('pointerdown',e=>{
     if(!e.target.closest('#conditions-picker') && !e.target.closest('[data-context-action="conditions"]')) closeConditionsPicker();
