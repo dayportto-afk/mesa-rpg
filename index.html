@@ -2398,6 +2398,7 @@
     /* iOS Safari auto-zooms the page when a focused input's font is under 16px;
        force every text field/select in the app up to 16px so typing never yanks the view. */
     input[type=text], input[type=number], input[type=password], select{ font-size:16px; }
+    .phrase-input{ font-size:14px; }
     .token-row-hp .hp-max-input, .token-row-size .size-input{ font-size:16px; width:auto; min-width:52px; }
 
     /* Bigger touch targets: small nudge buttons and swatches are hard to hit with a thumb. */
@@ -4428,24 +4429,39 @@
     return effectiveMaster() || (!tok.masterLocked && isOwnToken(tok));
   }
   function triggerAltImagePick(tok){
+    if(tok.isMapObject){
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png,image/webp';
+      input.addEventListener('change', async () => {
+        const file = input.files[0];
+        if(!file) return;
+        let dataUrl;
+        try{
+          dataUrl = await resizeTransparentImage(file, 1600);
+        }catch(err){
+          alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+          return;
+        }
+        pushUndo();
+        tok.altImage = dataUrl;
+        tok.showingAlt = true;
+        render();
+        await persistTokens();
+      });
+      input.click();
+      return;
+    }
+    // Ficha de personagem: usa o mesmo recorte redondo (zoom + arraste) da
+    // imagem principal, pra imagem alternativa ficar enquadrada igual.
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = tok.isMapObject ? 'image/png,image/webp' : 'image/*';
-    input.addEventListener('change', async () => {
+    input.accept = 'image/*';
+    input.addEventListener('change', () => {
       const file = input.files[0];
-      if(!file) return;
-      let dataUrl;
-      try{
-        dataUrl = tok.isMapObject ? await resizeTransparentImage(file, 1600) : await resizeImage(file, 800, 0.85);
-      }catch(err){
-        alert('Não consegui carregar essa imagem. Tente outro arquivo.');
-        return;
-      }
-      pushUndo();
-      tok.altImage = dataUrl;
-      tok.showingAlt = true;
-      render();
-      await persistTokens();
+      if(!file){ editingTokenAltImageId = null; return; }
+      editingTokenAltImageId = tok.id;
+      openCropModal(file);
     });
     input.click();
   }
@@ -14723,6 +14739,7 @@
 
   let croppedTokenImage = null;
   let editingTokenId = null;
+  let editingTokenAltImageId = null;
 
   el('token-edit-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -15086,6 +15103,7 @@
     closeCropModal();
     el('token-upload').value = '';
     editingTokenId = null;
+    editingTokenAltImageId = null;
   });
   el('crop-confirm').addEventListener('click', async () => {
     const canvas = document.createElement('canvas');
@@ -15097,6 +15115,18 @@
     ctx.drawImage($cropImg, sx, sy, sSize, sSize, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
     closeCropModal();
+    if(editingTokenAltImageId){
+      const tok = state.tokens.find(t => t.id === editingTokenAltImageId);
+      editingTokenAltImageId = null;
+      if(tok){
+        pushUndo();
+        tok.altImage = dataUrl;
+        tok.showingAlt = true;
+        render();
+        await persistTokens();
+      }
+      return;
+    }
     if(editingTokenId){
       const tok = state.tokens.find(t => t.id === editingTokenId);
       editingTokenId = null;
