@@ -2214,6 +2214,17 @@
   .dice-log-entry .dice-log-ts{ font-family:'JetBrains Mono', monospace; font-size:9.5px; color:var(--parchment-dim); flex-shrink:0; }
   .dice-log-entry .dice-log-formula{ font-family:'JetBrains Mono', monospace; font-size:10.5px; color:var(--parchment-dim); margin-bottom:6px; }
   .dice-log-roll-row{ display:flex; align-items:center; flex-wrap:wrap; gap:2px; }
+  @keyframes diceIconSpin{
+    0%{ transform:rotate(0deg) scale(.6); }
+    60%{ transform:rotate(480deg) scale(1.25); }
+    100%{ transform:rotate(600deg) scale(1); }
+  }
+  @keyframes diceRollReveal{
+    from{ opacity:0; transform:translateY(3px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  .dice-spin-icon{ display:inline-block; margin-right:5px; font-size:15px; animation:diceIconSpin .5s cubic-bezier(.34,1.56,.64,1); }
+  .fresh-roll{ animation:diceRollReveal .35s ease-out .35s both; }
   .dice-log-op{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--parchment-dim); margin:0 3px; }
   .dice-log-total{
     font-family:'Cinzel', serif; font-size:17px; font-weight:700; padding:2px 10px; border-radius:6px;
@@ -5662,9 +5673,9 @@
     const card = document.createElement('div');
     card.className = 'dice-roll-notification';
     card.innerHTML =
-      '<div class="roll-who" style="color:' + escapeHtml(entry.color || '#e2a53f') + ';">🎲 ' + escapeHtml(entry.roller || 'Jogador') + '</div>' +
+      '<div class="roll-who" style="color:' + escapeHtml(entry.color || '#e2a53f') + ';"><span class="dice-spin-icon">🎲</span>' + escapeHtml(entry.roller || 'Jogador') + '</div>' +
       '<div class="roll-breakdown">' + escapeHtml(diceBreakdownCompact(entry)) + '</div>' +
-      '<div class="roll-total">' + escapeHtml(String(entry.total)) + '</div>';
+      '<div class="roll-total fresh-roll">' + escapeHtml(String(entry.total)) + '</div>';
     host.replaceChildren(card);
     requestAnimationFrame(() => card.classList.add('show'));
     await new Promise(r => setTimeout(r, 1550));
@@ -7239,6 +7250,7 @@
   }
   function diceAvatarInitial(name){ return (name||'?').trim().charAt(0).toUpperCase() || '?'; }
 
+  let diceLogAnimatedId = null;
   function renderDiceLog(){
     const myName = state.isMaster ? 'Mestre' : (state.playerName || 'Jogador');
     const filter = state.diceHistoryFilter || 'all';
@@ -7248,6 +7260,11 @@
     visible = visible.sort((a,b) => b.ts - a.ts).slice(0, 25);
     const $log = el('dice-log');
     if(!$log) return;
+    // Anima só a rolagem mais nova que ainda não foi animada — evita que o
+    // dado "gire de novo" pra todo o histórico sempre que a lista é redesenhada.
+    const newestId = visible.length ? visible[0].id : null;
+    const shouldAnimate = !!(newestId && newestId !== diceLogAnimatedId);
+    if(newestId) diceLogAnimatedId = newestId;
     const clearBtn = el('btn-dice-history-clear');
     if(clearBtn) clearBtn.style.display = effectiveMaster() && state.diceRolls.length ? 'block' : 'none';
     document.querySelectorAll('[data-dice-filter]').forEach(btn => btn.classList.toggle('toggle-active', btn.getAttribute('data-dice-filter') === filter));
@@ -7272,7 +7289,8 @@
             '<div class="dice-log-ts">'+formatDiceTime(entry.ts)+'</div>' +
           '</div>' +
           '<div class="dice-log-formula">'+escapeHtml(entry.formula)+'</div>' +
-          '<div class="dice-log-roll-row">' +
+          '<div class="dice-log-roll-row'+(entry.id===newestId&&shouldAnimate?' fresh-roll':'')+'">' +
+            (entry.id===newestId&&shouldAnimate?'<span class="dice-spin-icon">🎲</span>':'') +
             diceBreakdownChipsHtml(entry.breakdown) +
             (entry.modifier ? '<span class="dice-log-op">'+(entry.modifier>0?'+':'−')+' '+Math.abs(entry.modifier)+'</span>' : '') +
             '<span class="dice-log-op">=</span>' +
