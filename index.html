@@ -1110,21 +1110,54 @@
   }
 
   /* Page history panel */
-  #float-maps{ width:360px; max-width:94vw; }
-  #page-history-list{ display:flex; flex-direction:column; gap:7px; margin-top:10px; max-height:320px; overflow-y:auto; padding-right:2px; }
-  .page-row{
-    display:flex; align-items:center; gap:8px; padding:8px; border-radius:3px;
-    border:1px solid var(--line); background:#120e08; cursor:pointer;
+  #float-maps{ width:920px; max-width:calc(100vw - 40px); }
+  #page-history-list{ margin-top:12px; min-width:0; }
+  .page-gallery-track{
+    display:flex; gap:10px; overflow-x:auto; overflow-y:hidden; padding:2px 2px 10px;
+    scroll-snap-type:x proximity; scrollbar-color:var(--amber) transparent;
   }
-  .page-row-wrap{ margin-bottom:6px; }
-  .page-access-list{ background:#120e08; border:1px solid var(--line); border-top:none; border-radius:0 0 3px 3px; padding:6px 8px 8px; }
+  .page-gallery-track::-webkit-scrollbar{ height:8px; }
+  .page-gallery-track::-webkit-scrollbar-thumb{ background:var(--amber); border-radius:8px; }
+  .page-gallery-track::-webkit-scrollbar-track{ background:rgba(0,0,0,.14); border-radius:8px; }
+  .page-row{
+    display:grid; grid-template-columns:1fr; gap:8px; height:100%; padding:9px; border-radius:6px;
+    border:1px solid var(--line); background:#120e08; cursor:pointer; box-sizing:border-box;
+  }
+  .page-row-wrap{ flex:0 0 240px; min-width:0; scroll-snap-align:start; }
+  .page-card-main{ display:flex; flex-direction:column; gap:7px; min-width:0; }
+  .page-card-footer{ display:flex; align-items:center; justify-content:space-between; gap:7px; min-height:27px; }
+  .page-card-footer .page-card-spacer{ flex:1; }
+  .page-active-settings{
+    margin-top:10px; padding:12px; border:1px solid var(--amber); border-radius:6px;
+    background:rgba(12,9,6,.86); box-shadow:inset 0 0 18px rgba(0,0,0,.16);
+  }
+  .page-settings-title{
+    margin-bottom:9px; font-family:'Cinzel',serif; font-size:12px; color:var(--amber-bright);
+    letter-spacing:.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .page-access-list{ background:#120e08; border:1px solid var(--line); border-top:none; border-radius:0 0 5px 5px; padding:8px 10px 10px; }
   .page-access-list .hint{ font-size:11px; margin:2px 0 4px; }
   .page-row:hover{ border-color:var(--amber); }
   .page-row.active{ border-color:var(--amber-bright); background:#1c1509; }
-  .page-row input[type=text]{ flex:0 1 62%; min-width:70px; font-size:13px; padding:5px 7px; background:transparent; border:1px solid transparent; }
+  .page-row input[type=text]{ width:100%; min-width:0; box-sizing:border-box; font-size:13px; padding:6px 7px; background:transparent; border:1px solid transparent; }
   .page-row input[type=text]:focus{ background:#0c0906; border-color:var(--amber); }
   .page-row .page-active-tag{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--amber-bright); letter-spacing:1px; text-transform:uppercase; flex-shrink:0;}
   .page-row button{ padding:4px 7px; font-size:10px; flex-shrink:0; }
+  .page-thumb{ width:100%; height:128px; object-fit:cover; border-radius:5px; border:1px solid var(--line); flex-shrink:0; background:#0c0906; box-sizing:border-box; }
+  .page-scale-box{ display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0 0 10px; background:transparent; border:none; }
+  .page-scale-box label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
+  .page-scale-box input{ margin-top:4px; width:100%; box-sizing:border-box; }
+  .page-scale-hint{ grid-column:1/-1; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); line-height:1.4; }
+
+  @media (max-width:760px){
+    #page-history-list{ margin-top:10px; }
+    .page-gallery-track{ flex-direction:column; overflow-x:visible; overflow-y:visible; padding:0; scroll-snap-type:none; }
+    .page-row-wrap{ flex:none; width:100%; }
+    .page-row{ grid-template-columns:96px minmax(0,1fr); align-items:center; }
+    .page-thumb{ width:96px; height:68px; }
+    .page-active-settings{ margin-top:9px; padding:10px; }
+    .page-scale-box{ grid-template-columns:1fr 1fr; }
+  }
 
   /* Player access code panel */
   #access-code-box{
@@ -1675,12 +1708,6 @@
   .token-conditions .token-condition.custom-condition + .token-condition.custom-condition{
     margin-top:calc(var(--token-custom-status-size,9px) * -.08);
   }
-  .page-thumb{ width:68px; height:44px; object-fit:cover; border-radius:4px; border:1px solid var(--line); flex-shrink:0; background:#0c0906; }
-  .page-row .page-thumb + input[type=text]{ flex-basis:45%; }
-  .page-scale-box{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:7px 8px; background:#120e08; border:1px solid var(--line); border-top:none; }
-  .page-scale-box label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); }
-  .page-scale-box input{ margin-top:3px; }
-  .page-scale-hint{ grid-column:1/-1; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--parchment-dim); line-height:1.4; }
   #context-menu{ display:none; position:fixed; z-index:2000002; min-width:190px; max-width:260px; max-height:calc(100dvh - 16px); overflow-y:auto; overscroll-behavior:contain; background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:5px; }
   #context-menu.open{ display:block; }
   #context-menu button{ display:block; width:100%; text-align:left; border:none; background:transparent; padding:7px 9px; text-transform:none; letter-spacing:0; font-size:11px; }
@@ -9842,25 +9869,40 @@
   function renderPageHistory(){
     if(!effectiveMaster()) return;
     const $list = el('page-history-list');
+    const previousTrack = $list.querySelector('.page-gallery-track');
+    const previousScrollLeft = previousTrack ? previousTrack.scrollLeft : 0;
     if(state.pages.length === 0){
       $list.innerHTML = '<div class="hint">Nenhuma página ainda. Envie a primeira imagem de mapa acima.</div>';
       return;
     }
     const players = knownPlayerNames();
-    $list.innerHTML = state.pages.map(p => {
+    const cards = state.pages.map(p => {
       const active = p.id === state.currentPageId;
-      const isOpen = openPageAccessRows.has(p.id);
-      const drawAccessOpen = openPageAccessRows.has('draw:'+p.id);
-      const restricted = p.allowedPlayers && p.allowedPlayers.length > 0;
-      const blockedDrawCount = (p.drawingBlockedPlayers || []).length;
       return (
         '<div class="page-row-wrap">' +
           '<div class="page-row' + (active ? ' active' : '') + '" data-page-select="'+p.id+'">' +
             (p.map&&p.map.image?'<img class="page-thumb" src="'+p.map.image+'" alt="">':'<div class="page-thumb"></div>') +
-            '<input type="text" value="'+escapeHtml(p.name)+'" data-page-rename="'+p.id+'">' +
-            (active ? '<span class="page-active-tag">Atual</span>' : '') +
-            '<button class="danger" data-page-delete="'+p.id+'">Excluir</button>' +
+            '<div class="page-card-main">' +
+              '<input type="text" value="'+escapeHtml(p.name)+'" data-page-rename="'+p.id+'">' +
+              '<div class="page-card-footer">' +
+                (active ? '<span class="page-active-tag">Atual</span>' : '<span class="page-card-spacer"></span>') +
+                '<button class="danger" data-page-delete="'+p.id+'">Excluir</button>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
+        '</div>'
+      );
+    }).join('');
+    const p = currentPage();
+    let settings = '';
+    if(p){
+      const isOpen = openPageAccessRows.has(p.id);
+      const drawAccessOpen = openPageAccessRows.has('draw:'+p.id);
+      const restricted = p.allowedPlayers && p.allowedPlayers.length > 0;
+      const blockedDrawCount = (p.drawingBlockedPlayers || []).length;
+      settings =
+        '<div class="page-active-settings">' +
+          '<div class="page-settings-title">Configurações — '+escapeHtml(p.name)+'</div>' +
           '<div class="page-scale-box">' +
             '<label>Largura real (m)<input type="number" min="0" step="0.1" value="'+((p.grid&&p.grid.realWidthM)||'')+'" data-page-real-width="'+p.id+'" placeholder="opcional"></label>' +
             '<label>Comprimento real (m)<input type="number" min="0" step="0.1" value="'+((p.grid&&p.grid.realHeightM)||'')+'" data-page-real-height="'+p.id+'" placeholder="opcional"></label>' +
@@ -9890,9 +9932,11 @@
               '<div class="hint">Desmarque um jogador para bloquear o desenho apenas para ele nesta cena.</div>' +
             '</div>'
           ) : '') +
-        '</div>'
-      );
-    }).join('');
+        '</div>';
+    }
+    $list.innerHTML = '<div class="page-gallery-track">'+cards+'</div>'+settings;
+    const nextTrack = $list.querySelector('.page-gallery-track');
+    if(nextTrack) nextTrack.scrollLeft = previousScrollLeft;
     $list.querySelectorAll('.page-row').forEach(row => {
       row.addEventListener('click', (e) => {
         if(e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
