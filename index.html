@@ -900,7 +900,8 @@
   .phrase-input{
     width:100%; margin-top:4px; background:#0c0906; border:1px solid var(--line); border-radius:3px;
     color:var(--parchment-dim); padding:6px 8px; font-family:var(--ui-font,'EB Garamond',serif); font-style:italic; font-size:13px;
-    outline:none;
+    outline:none; resize:none; overflow:hidden; white-space:pre-wrap; word-wrap:break-word; line-height:1.35;
+    box-sizing:border-box; display:block;
   }
   .phrase-input:focus{ border-color:var(--amber); color:var(--parchment); }
   .raceclass-input{
@@ -11628,7 +11629,7 @@
     if(tok.statSystem !== 'numenera') return '';
     const damageIdx = tok.damageTrack || 0;
     return (
-      '<input type="text" class="phrase-input" data-phrase-input="'+tok.id+'" value="'+escapeHtml(tok.phrase||'')+'" placeholder="Tipo + Descritor + Foco">' +
+      '<textarea class="phrase-input" data-phrase-input="'+tok.id+'" placeholder="Tipo + Descritor + Foco" rows="1">'+escapeHtml(tok.phrase||'')+'</textarea>' +
       '<div class="damage-track-row">' +
         DAMAGE_TRACK.map((d, i) =>
           '<button type="button" class="damage-track-chip'+(i===damageIdx?' toggle-active':'')+'" data-damage-track="'+tok.id+':'+i+'" title="'+escapeHtml(d.tooltip)+'">'+d.label+'</button>'
@@ -11661,6 +11662,8 @@
     });
     $root.querySelectorAll('[data-phrase-input]').forEach(inp=>{
       inp.addEventListener('change', () => setTokenPhrase(inp.getAttribute('data-phrase-input'), inp.value));
+      autoGrowPhraseInput(inp);
+      inp.addEventListener('input', () => autoGrowPhraseInput(inp));
     });
     $root.querySelectorAll('[data-raceclass-input]').forEach(inp=>{
       inp.addEventListener('change', () => setTokenRaceClass(inp.getAttribute('data-raceclass-input'), inp.value));
@@ -13654,6 +13657,11 @@
     tok.phrase = value;
     render();
     await persistTokens();
+  }
+
+  function autoGrowPhraseInput(textarea){
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
   }
 
   async function setTokenRaceClass(id, value){
