@@ -1686,6 +1686,8 @@
     border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:9px;
   }
   #token-visibility-picker.open{ display:block; }
+  #token-visibility-picker .token-visibility-drag-handle{ cursor:grab; touch-action:none; user-select:none; }
+  #token-visibility-picker.dragging .token-visibility-drag-handle{ cursor:grabbing; }
   .token-visibility-options{ display:grid; gap:5px; }
   #token-visibility-picker .token-visibility-option{ width:100%; text-align:left; border:1px solid var(--line); border-radius:5px; padding:7px 8px; text-transform:none; letter-spacing:0; font-size:11px; }
   #token-visibility-picker .token-visibility-option.toggle-active{ background:var(--amber); color:#1a1206; border-color:var(--amber-bright); }
@@ -4595,12 +4597,15 @@
   let tokenVisibilityPickerMode='all';
   let tokenVisibilityPickerPlayers=new Set();
   let tokenVisibilityPickerOwner='';
+  let tokenVisibilityPickerDrag=null;
   function closeTokenVisibilityPicker(){
     const picker=el('token-visibility-picker');if(picker)picker.classList.remove('open');
-    tokenVisibilityPickerIds=[];tokenVisibilityPickerPlayers=new Set();tokenVisibilityPickerOwner='';
+    if(picker)picker.classList.remove('dragging');
+    tokenVisibilityPickerIds=[];tokenVisibilityPickerPlayers=new Set();tokenVisibilityPickerOwner='';tokenVisibilityPickerDrag=null;
   }
   function renderTokenVisibilityPicker(){
     const picker=el('token-visibility-picker');if(!picker||!tokenVisibilityPickerIds.length)return;
+    if(!effectiveMaster()){closeTokenVisibilityPicker();return;}
     const targets=tokenVisibilityPickerIds.map(id=>state.tokens.find(t=>t.id===id)).filter(t=>t&&!t.isReference);
     if(!targets.length){closeTokenVisibilityPicker();return;}
     const players=knownPlayerNames();
@@ -4616,12 +4621,13 @@
     }else if(tokenVisibilityPickerMode==='owner'&&targets.some(t=>t.isMapObject)){
       detail='<div class="token-visibility-detail"><div class="hint">Para os objetos selecionados, escolha qual personagem é o dono:</div><select data-token-visibility-owner style="width:100%;margin-top:7px;"><option value="">Selecione...</option>'+players.map((name,index)=>'<option value="'+index+'"'+(name===tokenVisibilityPickerOwner?' selected':'')+'>'+escapeHtml(name)+'</option>').join('')+'</select></div>';
     }
-    picker.innerHTML='<div class="conditions-picker-title">👁 Visibilidade — '+(targets.length===1?escapeHtml(targets[0].name):targets.length+' itens selecionados')+'</div><div class="token-visibility-options">'+choices.map(choice=>'<button type="button" class="token-visibility-option'+(tokenVisibilityPickerMode===choice[0]?' toggle-active':'')+'" data-token-visibility-mode="'+choice[0]+'"><strong>'+choice[1]+'</strong><br><span class="hint">'+choice[2]+'</span></button>').join('')+'</div>'+detail+'<div class="token-visibility-actions"><button type="button" data-token-visibility-cancel>Cancelar</button><button type="button" class="toggle-active" data-token-visibility-save>Aplicar</button></div>';
+    picker.innerHTML='<div class="conditions-picker-title token-visibility-drag-handle" title="Arraste para mover">👁 Visibilidade — '+(targets.length===1?escapeHtml(targets[0].name):targets.length+' itens selecionados')+'</div><div class="token-visibility-options">'+choices.map(choice=>'<button type="button" class="token-visibility-option'+(tokenVisibilityPickerMode===choice[0]?' toggle-active':'')+'" data-token-visibility-mode="'+choice[0]+'"><strong>'+choice[1]+'</strong><br><span class="hint">'+choice[2]+'</span></button>').join('')+'</div>'+detail+'<div class="token-visibility-actions"><button type="button" data-token-visibility-cancel>Cancelar</button><button type="button" class="toggle-active" data-token-visibility-save>Aplicar</button></div>';
     const ownerSelect=picker.querySelector('[data-token-visibility-owner]');
     if(ownerSelect)ownerSelect.addEventListener('change',()=>{tokenVisibilityPickerOwner=ownerSelect.value===''?'':(players[Number(ownerSelect.value)]||'');});
     picker.querySelectorAll('[data-token-visibility-player]').forEach(input=>input.addEventListener('change',()=>{const name=players[Number(input.getAttribute('data-token-visibility-player'))];if(!name)return;if(input.checked)tokenVisibilityPickerPlayers.add(name);else tokenVisibilityPickerPlayers.delete(name);}));
   }
   function openTokenVisibilityPicker(tokens,anchorRect){
+    if(!effectiveMaster())return;
     const targets=(tokens||[]).filter(t=>t&&!t.isReference);
     if(!targets.length)return;
     tokenVisibilityPickerIds=targets.map(t=>t.id);
@@ -4640,6 +4646,7 @@
     picker.style.top=Math.max(8,Math.min(y,window.innerHeight-height-8))+'px';
   }
   el('token-visibility-picker').addEventListener('click',async event=>{
+    if(!effectiveMaster()){closeTokenVisibilityPicker();return;}
     const modeButton=event.target.closest('[data-token-visibility-mode]');
     if(modeButton){tokenVisibilityPickerMode=modeButton.getAttribute('data-token-visibility-mode');renderTokenVisibilityPicker();return;}
     if(event.target.closest('[data-token-visibility-cancel]')){closeTokenVisibilityPicker();return;}
@@ -4655,6 +4662,30 @@
     });
     closeTokenVisibilityPicker();render();await persistTokens();
   });
+  el('token-visibility-picker').addEventListener('pointerdown',event=>{
+    if(!effectiveMaster()){closeTokenVisibilityPicker();return;}
+    if(!event.target.closest('.token-visibility-drag-handle'))return;
+    const picker=el('token-visibility-picker'),rect=picker.getBoundingClientRect();
+    tokenVisibilityPickerDrag={pointerId:event.pointerId,offsetX:event.clientX-rect.left,offsetY:event.clientY-rect.top};
+    picker.classList.add('dragging');
+    picker.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  el('token-visibility-picker').addEventListener('pointermove',event=>{
+    const drag=tokenVisibilityPickerDrag,picker=el('token-visibility-picker');
+    if(!drag||drag.pointerId!==event.pointerId)return;
+    const width=picker.offsetWidth,height=picker.offsetHeight;
+    picker.style.left=Math.max(8,Math.min(event.clientX-drag.offsetX,window.innerWidth-width-8))+'px';
+    picker.style.top=Math.max(8,Math.min(event.clientY-drag.offsetY,window.innerHeight-height-8))+'px';
+  });
+  function endTokenVisibilityPickerDrag(event){
+    const picker=el('token-visibility-picker');
+    if(!tokenVisibilityPickerDrag||tokenVisibilityPickerDrag.pointerId!==event.pointerId)return;
+    tokenVisibilityPickerDrag=null;picker.classList.remove('dragging');
+    try{picker.releasePointerCapture(event.pointerId);}catch(err){}
+  }
+  el('token-visibility-picker').addEventListener('pointerup',endTokenVisibilityPickerDrag);
+  el('token-visibility-picker').addEventListener('pointercancel',endTokenVisibilityPickerDrag);
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('#token-visibility-picker')&&!event.target.closest('[data-context-action="visibility"]'))closeTokenVisibilityPicker();});
   window.addEventListener('resize',()=>{if(el('token-visibility-picker')&&el('token-visibility-picker').classList.contains('open'))closeTokenVisibilityPicker();});
 
