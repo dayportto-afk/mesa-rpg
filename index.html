@@ -1680,6 +1680,19 @@
     border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:9px;
   }
   #conditions-picker.open{ display:block; }
+  #token-visibility-picker{
+    display:none; position:fixed; z-index:2000004; width:286px; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px);
+    overflow-y:auto; overscroll-behavior:contain; background:var(--bg-panel); border:1px solid var(--amber);
+    border-radius:6px; box-shadow:0 8px 26px rgba(0,0,0,.6); padding:9px;
+  }
+  #token-visibility-picker.open{ display:block; }
+  .token-visibility-options{ display:grid; gap:5px; }
+  #token-visibility-picker .token-visibility-option{ width:100%; text-align:left; border:1px solid var(--line); border-radius:5px; padding:7px 8px; text-transform:none; letter-spacing:0; font-size:11px; }
+  #token-visibility-picker .token-visibility-option.toggle-active{ background:var(--amber); color:#1a1206; border-color:var(--amber-bright); }
+  .token-visibility-detail{ margin-top:7px; padding:7px 9px; background:#120e08; border:1px solid var(--line); border-radius:5px; }
+  .token-visibility-detail .checkbox-row{ margin-top:6px; }
+  .token-visibility-actions{ display:flex; gap:6px; margin-top:9px; }
+  #token-visibility-picker .token-visibility-actions button{ flex:1; }
   .map-text-inline-toolbar{
     position:fixed; z-index:2000005; display:none; max-width:min(320px,92vw);
     background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px;
@@ -3874,6 +3887,7 @@
     <div id="context-menu" role="menu"></div>
     <div id="music-label-picker" role="menu" aria-label="Selecionar etiqueta"></div>
     <div id="conditions-picker" role="menu"></div>
+    <div id="token-visibility-picker" role="dialog" aria-label="Visibilidade de fichas e objetos"></div>
     <div id="map-text-inline-toolbar" class="rich-toolbar map-text-inline-toolbar" data-toolbar-for="map-text-inline-target"></div>
     <div id="emoji-picker" aria-label="Catálogo de emojis">
       <input type="text" id="emoji-picker-search" placeholder="Buscar emoji ou categoria...">
@@ -4549,6 +4563,100 @@
       .map(t => t.name.trim());
     return [...new Set(names)];
   }
+  function tokenVisibilityRule(tok,pageId){
+    const raw=tok&&tok.visibilityByPage&&tok.visibilityByPage[pageId];
+    const mode=raw&&['all','master','selected','owner'].includes(raw.mode)?raw.mode:'all';
+    return {mode,players:Array.isArray(raw&&raw.players)?raw.players:[],ownerName:String(raw&&raw.ownerName||'')};
+  }
+  function tokenVisibilityLabel(tok,pageId){
+    const rule=tokenVisibilityRule(tok,pageId);
+    if(rule.mode==='master')return 'Somente o mestre';
+    if(rule.mode==='owner')return 'Somente o dono';
+    if(rule.mode==='selected')return rule.players.length+' personagem'+(rule.players.length===1?'':'s');
+    return 'Todos';
+  }
+  function currentViewerCanSeeToken(tok,pageId){
+    if(!tok||effectiveMaster())return true;
+    if(tok.isReference)return false;
+    const rule=tokenVisibilityRule(tok,pageId);
+    if(rule.mode==='all')return true;
+    if(rule.mode==='master')return false;
+    const viewer=(state.playerName||'').trim().toLowerCase();
+    if(!viewer)return false;
+    if(rule.mode==='selected')return rule.players.some(name=>(name||'').trim().toLowerCase()===viewer);
+    if(rule.mode==='owner'){
+      const owner=tok.isMapObject?rule.ownerName:(tok.name||'');
+      return owner.trim().toLowerCase()===viewer;
+    }
+    return true;
+  }
+
+  let tokenVisibilityPickerIds=[];
+  let tokenVisibilityPickerMode='all';
+  let tokenVisibilityPickerPlayers=new Set();
+  let tokenVisibilityPickerOwner='';
+  function closeTokenVisibilityPicker(){
+    const picker=el('token-visibility-picker');if(picker)picker.classList.remove('open');
+    tokenVisibilityPickerIds=[];tokenVisibilityPickerPlayers=new Set();tokenVisibilityPickerOwner='';
+  }
+  function renderTokenVisibilityPicker(){
+    const picker=el('token-visibility-picker');if(!picker||!tokenVisibilityPickerIds.length)return;
+    const targets=tokenVisibilityPickerIds.map(id=>state.tokens.find(t=>t.id===id)).filter(t=>t&&!t.isReference);
+    if(!targets.length){closeTokenVisibilityPicker();return;}
+    const players=knownPlayerNames();
+    const choices=[
+      ['all','Todos','Comportamento normal: todos os jogadores veem.'],
+      ['master','Somente o mestre','Nenhum jogador vê neste mapa.'],
+      ['selected','Personagens selecionados','Apenas os personagens marcados veem.'],
+      ['owner','Somente o dono da ficha','Cada ficha fica visível ao próprio dono.']
+    ];
+    let detail='';
+    if(tokenVisibilityPickerMode==='selected'){
+      detail='<div class="token-visibility-detail"><div class="hint">Quem poderá ver neste mapa:</div>'+(players.length?players.map((name,index)=>'<label class="checkbox-row"><input type="checkbox" data-token-visibility-player="'+index+'"'+(tokenVisibilityPickerPlayers.has(name)?' checked':'')+'><span>'+escapeHtml(name)+'</span></label>').join(''):'<div class="hint">Nenhum personagem de jogador disponível.</div>')+'</div>';
+    }else if(tokenVisibilityPickerMode==='owner'&&targets.some(t=>t.isMapObject)){
+      detail='<div class="token-visibility-detail"><div class="hint">Para os objetos selecionados, escolha qual personagem é o dono:</div><select data-token-visibility-owner style="width:100%;margin-top:7px;"><option value="">Selecione...</option>'+players.map((name,index)=>'<option value="'+index+'"'+(name===tokenVisibilityPickerOwner?' selected':'')+'>'+escapeHtml(name)+'</option>').join('')+'</select></div>';
+    }
+    picker.innerHTML='<div class="conditions-picker-title">👁 Visibilidade — '+(targets.length===1?escapeHtml(targets[0].name):targets.length+' itens selecionados')+'</div><div class="token-visibility-options">'+choices.map(choice=>'<button type="button" class="token-visibility-option'+(tokenVisibilityPickerMode===choice[0]?' toggle-active':'')+'" data-token-visibility-mode="'+choice[0]+'"><strong>'+choice[1]+'</strong><br><span class="hint">'+choice[2]+'</span></button>').join('')+'</div>'+detail+'<div class="token-visibility-actions"><button type="button" data-token-visibility-cancel>Cancelar</button><button type="button" class="toggle-active" data-token-visibility-save>Aplicar</button></div>';
+    const ownerSelect=picker.querySelector('[data-token-visibility-owner]');
+    if(ownerSelect)ownerSelect.addEventListener('change',()=>{tokenVisibilityPickerOwner=ownerSelect.value===''?'':(players[Number(ownerSelect.value)]||'');});
+    picker.querySelectorAll('[data-token-visibility-player]').forEach(input=>input.addEventListener('change',()=>{const name=players[Number(input.getAttribute('data-token-visibility-player'))];if(!name)return;if(input.checked)tokenVisibilityPickerPlayers.add(name);else tokenVisibilityPickerPlayers.delete(name);}));
+  }
+  function openTokenVisibilityPicker(tokens,anchorRect){
+    const targets=(tokens||[]).filter(t=>t&&!t.isReference);
+    if(!targets.length)return;
+    tokenVisibilityPickerIds=targets.map(t=>t.id);
+    const rules=targets.map(t=>tokenVisibilityRule(t,state.currentPageId));
+    const first=rules[0];
+    const same=rules.every(rule=>rule.mode===first.mode&&JSON.stringify(rule.players)===JSON.stringify(first.players)&&rule.ownerName===first.ownerName);
+    tokenVisibilityPickerMode=same?first.mode:'all';
+    tokenVisibilityPickerPlayers=new Set(same?first.players:[]);
+    tokenVisibilityPickerOwner=same?first.ownerName:'';
+    renderTokenVisibilityPicker();
+    const picker=el('token-visibility-picker');if(!picker)return;
+    picker.style.left='8px';picker.style.top='8px';picker.classList.add('open');
+    const x=anchorRect?anchorRect.right+6:16,y=anchorRect?anchorRect.top:16;
+    const width=Math.min(picker.offsetWidth||286,window.innerWidth-16),height=Math.min(picker.scrollHeight||420,window.innerHeight-16);
+    picker.style.left=Math.max(8,Math.min(x,window.innerWidth-width-8))+'px';
+    picker.style.top=Math.max(8,Math.min(y,window.innerHeight-height-8))+'px';
+  }
+  el('token-visibility-picker').addEventListener('click',async event=>{
+    const modeButton=event.target.closest('[data-token-visibility-mode]');
+    if(modeButton){tokenVisibilityPickerMode=modeButton.getAttribute('data-token-visibility-mode');renderTokenVisibilityPicker();return;}
+    if(event.target.closest('[data-token-visibility-cancel]')){closeTokenVisibilityPicker();return;}
+    if(!event.target.closest('[data-token-visibility-save]'))return;
+    const targets=tokenVisibilityPickerIds.map(id=>state.tokens.find(t=>t.id===id)).filter(t=>t&&!t.isReference);
+    if(tokenVisibilityPickerMode==='selected'&&!tokenVisibilityPickerPlayers.size){alert('Marque pelo menos um personagem que poderá ver.');return;}
+    if(tokenVisibilityPickerMode==='owner'&&targets.some(t=>t.isMapObject)&&!tokenVisibilityPickerOwner){alert('Escolha qual personagem é o dono dos objetos selecionados.');return;}
+    pushUndo();
+    targets.forEach(tok=>{
+      if(!tok.visibilityByPage)tok.visibilityByPage={};
+      if(tokenVisibilityPickerMode==='all')delete tok.visibilityByPage[state.currentPageId];
+      else tok.visibilityByPage[state.currentPageId]={mode:tokenVisibilityPickerMode,players:tokenVisibilityPickerMode==='selected'?[...tokenVisibilityPickerPlayers]:[],ownerName:tokenVisibilityPickerMode==='owner'&&tok.isMapObject?tokenVisibilityPickerOwner:''};
+    });
+    closeTokenVisibilityPicker();render();await persistTokens();
+  });
+  document.addEventListener('pointerdown',event=>{if(!event.target.closest('#token-visibility-picker')&&!event.target.closest('[data-context-action="visibility"]'))closeTokenVisibilityPicker();});
+  window.addEventListener('resize',()=>{if(el('token-visibility-picker')&&el('token-visibility-picker').classList.contains('open'))closeTokenVisibilityPicker();});
 
   // ---------- dice roller (available to master and players alike) ----------
   const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
@@ -7405,14 +7513,14 @@
 
   function renderInitiativeHud(){
     const $hud = el('initiative-hud');
-    if(!canAccessPageCombat(state.currentPageId) || state.initiative.list.length === 0){
+    const sorted = sortedInitiative().filter(entry=>{const tok=state.tokens.find(t=>t.id===entry.tokenId);return !tok||currentViewerCanSeeToken(tok,state.currentPageId);});
+    if(!canAccessPageCombat(state.currentPageId) || sorted.length === 0){
       $hud.classList.remove('show');
       return;
     }
     $hud.classList.add('show');
     centerInitiativeHud();
     el('initiative-hud-round').textContent = 'Rodada ' + state.initiative.round;
-    const sorted = sortedInitiative();
     el('initiative-hud-list').innerHTML = sorted.map(entry =>
       '<img class="hud-avatar'+(entry.id === state.initiative.activeId ? ' active' : '')+'" src="'+entry.image+'" alt="" title="'+escapeHtml(entry.name)+' ('+entry.score+')">'
     ).join('');
@@ -7437,7 +7545,7 @@
       sel.innerHTML = initiativeTokens.map(t => '<option value="'+t.id+'">'+escapeHtml(t.name)+'</option>').join('');
       if(prevValue && initiativeTokens.some(t => t.id === prevValue)) sel.value = prevValue;
     }
-    const sorted = sortedInitiative();
+    const sorted = sortedInitiative().filter(entry=>{const tok=state.tokens.find(t=>t.id===entry.tokenId);return !tok||currentViewerCanSeeToken(tok,state.currentPageId);});
     const $list = el('initiative-list');
     if(!combatVisible || sorted.length === 0){
       $list.innerHTML = '<div class="hint">Nenhum combatente na iniciativa ainda.</div>';
@@ -7534,10 +7642,12 @@
     if(!inCombat) return;
 
     const active = activeInitiativeEntry();
-    if(nameEl) nameEl.textContent = (active && active.name) || '—';
+    const activeToken=active&&active.tokenId?state.tokens.find(t=>t.id===active.tokenId):null;
+    const visibleActive=!activeToken||currentViewerCanSeeToken(activeToken,state.currentPageId)?active:null;
+    if(nameEl) nameEl.textContent = (visibleActive && visibleActive.name) || '—';
     if(imageEl){
-      imageEl.src = (active && active.image) || '';
-      imageEl.style.display = (active && active.image) ? 'block' : 'none';
+      imageEl.src = (visibleActive && visibleActive.image) || '';
+      imageEl.style.display = (visibleActive && visibleActive.image) ? 'block' : 'none';
     }
 
     const allowed = canPassCurrentTurn();
@@ -7549,7 +7659,7 @@
       btn.textContent = 'PASSAR MINHA VEZ →';
       btn.title = 'Encerrar suas ações e avançar para o próximo combatente';
     } else {
-      btn.textContent = 'AGUARDANDO ' + ((active && active.name) || 'TURNO') + '…';
+      btn.textContent = 'AGUARDANDO ' + ((visibleActive && visibleActive.name) || 'TURNO') + '…';
       btn.title = 'Você só pode passar a vez quando for o seu turno';
     }
   }
@@ -7638,13 +7748,18 @@
     if(!root) return;
     const combatVisible = canAccessPageCombat(state.currentPageId);
     if(clearBtn) clearBtn.style.display = effectiveMaster() && combatVisible && state.combatHistory.length ? 'block' : 'none';
-    if(!combatVisible || !state.combatHistory.length){
+    const visibleHistory=effectiveMaster()?state.combatHistory:state.combatHistory.filter(item=>{
+      const active=item.activeTokenId?state.tokens.find(t=>t.id===item.activeTokenId):null;
+      const target=item.targetTokenId?state.tokens.find(t=>t.id===item.targetTokenId):null;
+      return (!active||currentViewerCanSeeToken(active,state.currentPageId))&&(!target||currentViewerCanSeeToken(target,state.currentPageId));
+    });
+    if(!combatVisible || !visibleHistory.length){
       root.innerHTML = '<div class="hint">Nenhuma alteração registrada em combate.</div>';
       return;
     }
     const groups = [];
     const map = new Map();
-    state.combatHistory.forEach(item => {
+    visibleHistory.forEach(item => {
       const key = (item.combatId||'legacy')+'|'+(item.turnSeq||0)+'|'+(item.round||1)+'|'+(item.activeEntryId||item.activeName||'turn');
       if(!map.has(key)){
         const g = { key, combatId:item.combatId, round:item.round||1, turnSeq:item.turnSeq||0, activeName:item.activeName||'Turno', ts:item.ts, items:[] };
@@ -10523,6 +10638,7 @@
   function closeContextMenu(){ const m=el('context-menu'); if(m)m.classList.remove('open'); contextTarget=null; }
   function openMapClickMenu(e, pt, ptRaw){
     closeConditionsPicker();
+    closeTokenVisibilityPicker();
     const menu=el('context-menu'); contextTarget={type:'mapclick', pt, ptRaw};
     const actions=effectiveMaster() ? [
       ['🎯 Centralizar todo mundo aqui','recenterall'],
@@ -10545,6 +10661,7 @@
   }
   function openContextMenu(e,type,id){
     closeConditionsPicker();
+    closeTokenVisibilityPicker();
     if(type==='dicepicker'||type==='dicefav'||type==='diceentry'){
       e.preventDefault(); e.stopPropagation();
       const menu=el('context-menu'); contextTarget={type,id}; let diceActions=[];
@@ -10621,6 +10738,7 @@
       const altReady=flippable.filter(t=>!!t.altImage);
       const objects=groupTokens.filter(t=>t.isMapObject);
       const references=groupTokens.filter(t=>t.isReference);
+      if(characters.length||objects.length) actions.push(['👁 Visibilidade','visibility']);
       if(characters.length){
         const allLanternsOn=characters.every(t=>{const l=tokenLanternState(t,false);return !!(l&&l.enabled);});
         actions.push([allLanternsOn?'🔦 Apagar lanternas':'🔦 Acender lanternas','lantern']);
@@ -10664,6 +10782,7 @@
         }
       }
       if(effectiveMaster()){
+        lightActions.push(['👁 Visibilidade: '+tokenVisibilityLabel(tok,state.currentPageId),'visibility']);
         lightActions.push([tok.sizeLocked?'🔓 Destravar tamanho':'🔒 Travar tamanho','sizelock']);
         lightActions.push([tok.hostile?'⚔️ Remover marca de hostil':'⚔️ Marcar como hostil','hostile']);
         if(lantern&&lantern.enabled) lightActions.push(['📏 Alcance individual','lanternradius',null,'Define o alcance de luz da lanterna deste token']);
@@ -10683,7 +10802,7 @@
     }else if(type==='reference') actions=[['Trazer para frente','front'],['Enviar para trás','back'],['Travar / destravar','lock'],['Remover desta página','page'],['Excluir permanentemente','delete','context-danger']];
     else if(type==='mapobject'){
       const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
-      actions=[[tok.objectLocked?'Destravar posição':'Travar posição','objectlock']];
+      actions=[['👁 Visibilidade: '+tokenVisibilityLabel(tok,state.currentPageId),'visibility'],[tok.objectLocked?'Destravar posição':'Travar posição','objectlock']];
       actions.push([tok.flipped?'↔️ Desespelhar':'↔️ Espelhar','flip']);
       if(tok.altImage){
         actions.push([tok.showingAlt?'🔄 Voltar à aparência original':'🔄 Mostrar aparência alternativa','togglealt']);
@@ -11127,6 +11246,10 @@
     const flippable=targets.filter(canFlipToken);
     const objects=targets.filter(t=>t.isMapObject);
     const references=targets.filter(t=>t.isReference);
+    if(action==='visibility'&&effectiveMaster()){
+      openTokenVisibilityPicker(targets.filter(t=>!t.isReference),anchorRect);
+      return;
+    }
     if((action==='npchpdescriptive'||action==='npchppercentage'||action==='npchphidden')&&effectiveMaster()&&tok.masterLocked){
       const page=currentPage(); if(!page)return;
       pushUndo();
@@ -11235,6 +11358,7 @@
       if(!isTokenOnPage(tok, state.currentPageId)) return;
       if(tok.isMapObject && tok.pageId && tok.pageId !== state.currentPageId) return;
       if(tok.isReference && !effectiveMaster()) return;
+      if(!currentViewerCanSeeToken(tok,state.currentPageId)) return;
       const pos = tokenPos(tok);
       const t = document.createElement('div');
       t.className = 'token' + (tok.isReference ? ' token-reference' : '') + (tok.isMapObject ? ' map-object' : '') + (tok.isMapObject && tok.objectLocked ? ' object-locked' : '') + (tok.isReference && tok.referenceLocked ? ' reference-locked' : '') + (state.initiative.activeId && activeInitiativeTokenId===tok.id ? ' active-turn' : '');
@@ -16476,7 +16600,7 @@
   function currentViewerLightGroups(){
     const ids=new Set();
     state.tokens.forEach(tok=>{
-      if(tok.isReference||tok.isMapObject||!isOwnToken(tok)||!isTokenOnPage(tok,state.currentPageId))return;
+      if(tok.isReference||tok.isMapObject||!isOwnToken(tok)||!isTokenOnPage(tok,state.currentPageId)||!currentViewerCanSeeToken(tok,state.currentPageId))return;
       tokenLightGroupIds(tok).forEach(id=>ids.add(id));
     });
     return ids;
@@ -16499,7 +16623,7 @@
 
   function currentPlayerHasDarkvision(){
     if(effectiveMaster()) return false;
-    return state.tokens.some(tok=>!tok.isReference&&!tok.isMapObject&&isOwnToken(tok)&&isTokenOnPage(tok,state.currentPageId)&&tokenHasDarkvision(tok));
+    return state.tokens.some(tok=>!tok.isReference&&!tok.isMapObject&&isOwnToken(tok)&&isTokenOnPage(tok,state.currentPageId)&&currentViewerCanSeeToken(tok,state.currentPageId)&&tokenHasDarkvision(tok));
   }
 
   function tokenLanternState(tok,create){
@@ -16794,12 +16918,13 @@
     // mesmo as de personagens em cômodos totalmente separados.
     let viewerOwnPos=null;
     if(barriersActive&&!effectiveMaster()){
-      const ownTok=state.tokens.find(t=>!t.isReference&&!t.isMapObject&&isOwnToken(t)&&isTokenOnPage(t,state.currentPageId));
+      const ownTok=state.tokens.find(t=>!t.isReference&&!t.isMapObject&&isOwnToken(t)&&isTokenOnPage(t,state.currentPageId)&&currentViewerCanSeeToken(t,state.currentPageId));
       if(ownTok) viewerOwnPos=liveTokenPosition(ownTok);
     }
 
     if(lighting.allowed)state.tokens.forEach(tok=>{
       if(tok.isReference||tok.isMapObject||!isTokenOnPage(tok,state.currentPageId)) return;
+      if(!currentViewerCanSeeToken(tok,state.currentPageId)) return;
       if(!viewerCanSeeLantern(tok,lighting,viewerGroups)) return;
       if(viewerOwnPos&&!isOwnToken(tok)){
         const pctPos=liveTokenPosition(tok);
