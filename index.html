@@ -11149,15 +11149,8 @@
       const list=targets.filter(canToggleTokenLantern); if(!list.length)return;
       const enabled=groupMode?!list.every(t=>tokenLanternState(t,true).enabled):!tokenLanternState(tok,true).enabled;
       pushUndo(); list.forEach(t=>{tokenLanternState(t,true).enabled=enabled;});
-      const page=currentPage();
-      let lightingChanged=false;
-      if(enabled&&effectiveMaster()&&page){
-        const lighting=ensureLightingModel(page);
-        if(!lighting.enabled){ lighting.enabled=true; lightingChanged=true; }
-        if(!lighting.allowed){ lighting.allowed=true; lightingChanged=true; }
-      }
       render();
-      await Promise.all([persistTokens(),lightingChanged?persistPageFog(page):Promise.resolve()]);
+      await persistTokens();
       return;
     }
     if(action==='lanternradius'&&effectiveMaster()){
