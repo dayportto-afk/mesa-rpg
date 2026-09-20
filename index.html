@@ -3110,6 +3110,18 @@
         <div class="float-panel-body">
           <label class="file-btn" for="map-upload">Escolher imagem para novo mapa</label>
           <input type="file" id="map-upload" accept="image/*">
+          <div style="margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:4px; background:#0b0907;">
+            <div style="font-family:'Cinzel',serif; color:var(--amber-bright); font-size:12px; margin-bottom:7px;">⬛ Criar mapa em branco</div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <select id="blank-map-size" style="flex:1; min-width:0;">
+                <option value="1000">Pequeno — 1000 × 1000 px</option>
+                <option value="1500" selected>Médio — 1500 × 1500 px</option>
+                <option value="2000">Grande — 2000 × 2000 px</option>
+              </select>
+              <button type="button" id="btn-open-blank-map" class="primary">Abrir</button>
+            </div>
+            <div class="hint" style="margin-top:6px;">Cria uma área preta pronta para receber fichas, objetos, desenhos, textos, névoa e iluminação.</div>
+          </div>
           <div id="new-map-preview" style="display:none;">
             <img id="new-map-preview-img" alt="Pré-visualização do novo mapa" style="width:100%; border-radius:4px; margin-top:8px; display:block;">
             <button type="button" class="notes-toggle" id="new-map-access-toggle" style="margin-top:8px;">👥 Quem vê <span>▼</span></button>
@@ -4283,7 +4295,7 @@
     pingArmed:false,
     measureArmed:false,
     measureDrag:null,
-    initiative:{ list:[], activeId:null, round:1, turnSeq:0, combatId:null },
+    initiative:{ list:[], activeId:null, round:1, turnSeq:0, combatId:null }, // combate da página atual
     combatHistory:[],
     journal:[],
     sessionNotes:[],
@@ -7333,8 +7345,11 @@
   }
 
   // ---------- initiative tracker ----------
-  async function persistInitiative(){
-    await safeSet(slotKey('initiative'), state.initiative);
+  async function persistInitiative(pageId){
+    const targetPageId = pageId || state.currentPageId;
+    if(!targetPageId) return false;
+    lastInitiativeSnapshot = JSON.stringify(state.initiative);
+    return await safeSet(slotKey('page-'+targetPageId+'-initiative'), state.initiative);
   }
 
   function sortedInitiative(){
@@ -7343,7 +7358,7 @@
 
   function renderInitiativeHud(){
     const $hud = el('initiative-hud');
-    if(state.initiative.list.length === 0){
+    if(!canAccessPageCombat(state.currentPageId) || state.initiative.list.length === 0){
       $hud.classList.remove('show');
       return;
     }
@@ -7361,22 +7376,23 @@
     document.documentElement.style.setProperty('--initiative-turn-color', (state.initiative && state.initiative.turnColor) || DEFAULT_INITIATIVE_TURN_COLOR);
   }
   function renderInitiativeList(){
+    const combatVisible = canAccessPageCombat(state.currentPageId);
     el('initiative-round').textContent = state.initiative.round;
     renderCombatHistory();
     updatePassTurnButton();
     applyInitiativeTurnColor();
-    el('initiative-master-controls').style.display = effectiveMaster() ? 'block' : 'none';
+    el('initiative-master-controls').style.display = effectiveMaster() && combatVisible ? 'block' : 'none';
     if(effectiveMaster()){
       el('initiative-turn-color').value = (state.initiative && state.initiative.turnColor) || DEFAULT_INITIATIVE_TURN_COLOR;
       const sel = el('initiative-token-select');
       const prevValue = sel.value;
-      const initiativeTokens=state.tokens.filter(t=>!t.isReference&&!t.isMapObject);
+      const initiativeTokens=state.tokens.filter(t=>!t.isReference&&!t.isMapObject&&isTokenOnPage(t,state.currentPageId));
       sel.innerHTML = initiativeTokens.map(t => '<option value="'+t.id+'">'+escapeHtml(t.name)+'</option>').join('');
       if(prevValue && initiativeTokens.some(t => t.id === prevValue)) sel.value = prevValue;
     }
     const sorted = sortedInitiative();
     const $list = el('initiative-list');
-    if(sorted.length === 0){
+    if(!combatVisible || sorted.length === 0){
       $list.innerHTML = '<div class="hint">Nenhum combatente na iniciativa ainda.</div>';
       return;
     }
@@ -7401,7 +7417,7 @@
 
   async function addToInitiative(tokenId, score){
     const tok = state.tokens.find(t => t.id === tokenId);
-    if(!tok) return;
+    if(!tok || !isTokenOnPage(tok,state.currentPageId)) return;
     const entry = { id:newId('i'), tokenId:tok.id, name:tok.name, image:tok.image, score:score||0 };
     const wasEmpty = state.initiative.list.length === 0;
     state.initiative.list.push(entry);
@@ -7465,7 +7481,7 @@
     const nameEl = el('initiative-current-turn-name');
     const imageEl = el('initiative-current-turn-image');
     if(!btn) return;
-    const inCombat = state.initiative.list.length > 0 && !!state.initiative.activeId;
+    const inCombat = canAccessPageCombat(state.currentPageId) && state.initiative.list.length > 0 && !!state.initiative.activeId;
     btn.style.display = inCombat ? 'block' : 'none';
     if(box) box.classList.toggle('show', inCombat);
     if(!inCombat) return;
@@ -7501,7 +7517,7 @@
 
   async function clearInitiative(){
     if(state.initiative.list.length && !confirm('Encerrar o combate e limpar a iniciativa?')) return;
-    state.initiative = { list:[], activeId:null, round:1, turnSeq:0, combatId:null, turnColor:state.initiative.turnColor };
+    state.initiative = emptyInitiative(state.initiative.turnColor);
     renderInitiativeList();
     renderInitiativeHud();
     renderTokens();
@@ -7532,7 +7548,9 @@
       publicText: publicText || null
     };
     let list = [];
-    const raw = await safeGet(slotKey('combat-history'));
+    const pageId = state.currentPageId;
+    if(!pageId) return;
+    const raw = await safeGet(slotKey('page-'+pageId+'-combat-history'));
     if(raw){ try{ list = JSON.parse(raw).list || []; }catch(e){} }
     list.push(entry);
     if(list.length > 600) list = list.slice(list.length - 600);
@@ -7540,7 +7558,7 @@
     const payload = JSON.stringify({list});
     lastCombatHistorySnapshot = payload;
     renderCombatHistory();
-    await safeSet(slotKey('combat-history'), {list});
+    await safeSet(slotKey('page-'+pageId+'-combat-history'), {list});
   }
 
   function combatHistoryDisplayText(item){
@@ -7571,8 +7589,9 @@
     const root = el('combat-history-list');
     const clearBtn = el('btn-combat-history-clear');
     if(!root) return;
-    if(clearBtn) clearBtn.style.display = effectiveMaster() && state.combatHistory.length ? 'block' : 'none';
-    if(!state.combatHistory.length){
+    const combatVisible = canAccessPageCombat(state.currentPageId);
+    if(clearBtn) clearBtn.style.display = effectiveMaster() && combatVisible && state.combatHistory.length ? 'block' : 'none';
+    if(!combatVisible || !state.combatHistory.length){
       root.innerHTML = '<div class="hint">Nenhuma alteração registrada em combate.</div>';
       return;
     }
@@ -7598,14 +7617,15 @@
 
   async function clearCombatHistory(){
     if(!effectiveMaster()) return;
-    if(state.combatHistory.length && !confirm('Limpar todo o histórico de combate desta campanha?')) return;
+    if(state.combatHistory.length && !confirm('Limpar o histórico de combate deste mapa?')) return;
     state.combatHistory = [];
     lastCombatHistorySnapshot = JSON.stringify({list:[]});
     renderCombatHistory();
-    await safeSet(slotKey('combat-history'), {list:[]});
+    if(state.currentPageId) await safeSet(slotKey('page-'+state.currentPageId+'-combat-history'), {list:[]});
   }
 
   function openInitiativePanel(){
+    if(!canAccessPageCombat(state.currentPageId)) return;
     el('initiative-panel').classList.add('open');
     el('initiative-backdrop').classList.add('open');
     renderInitiativeList();
@@ -8083,6 +8103,45 @@
     return normalizeNpcHpDisplayMode(page&&page.npcHpDisplayMode);
   }
   function currentPage(){ return state.pages.find(p => p.id === state.currentPageId) || null; }
+  function emptyInitiative(turnColor){
+    return { list:[], activeId:null, round:1, turnSeq:0, combatId:null, turnColor:turnColor || DEFAULT_INITIATIVE_TURN_COLOR };
+  }
+  function canAccessPageCombat(pageId){
+    const page = state.pages.find(p => p.id === pageId);
+    return !!page && (effectiveMaster() || canPlayerSeePage(page));
+  }
+
+  async function loadPageCombatData(pageId, legacyInitRaw, legacyHistoryRaw){
+    state.initiative = emptyInitiative(state.initiative && state.initiative.turnColor);
+    state.combatHistory = [];
+    lastInitiativeSnapshot = '';
+    lastCombatHistorySnapshot = '';
+    if(!pageId || !canAccessPageCombat(pageId)) return;
+
+    const [pageInitRaw, pageHistoryRaw] = await Promise.all([
+      safeGet(slotKey('page-'+pageId+'-initiative')),
+      safeGet(slotKey('page-'+pageId+'-combat-history'))
+    ]);
+    const initRaw = pageInitRaw || legacyInitRaw || null;
+    const historyRaw = pageHistoryRaw || legacyHistoryRaw || null;
+    if(initRaw){ try{ state.initiative = Object.assign(emptyInitiative(), JSON.parse(initRaw)); }catch(e){} }
+    if(!Array.isArray(state.initiative.list)) state.initiative.list = [];
+    if(!state.initiative.turnSeq) state.initiative.turnSeq = state.initiative.activeId ? 1 : 0;
+    if(!('combatId' in state.initiative)) state.initiative.combatId = state.initiative.list.length ? 'legacy-combat' : null;
+    if(historyRaw){ try{ state.combatHistory = JSON.parse(historyRaw).list || []; }catch(e){} }
+    lastInitiativeSnapshot = JSON.stringify(state.initiative);
+    lastCombatHistorySnapshot = JSON.stringify({list:state.combatHistory});
+
+    // Migração única das campanhas antigas: o combate global passa a pertencer
+    // ao mapa que estava aberto quando esta versão foi usada pela primeira vez.
+    if(effectiveMaster() && ((legacyInitRaw && !pageInitRaw) || (legacyHistoryRaw && !pageHistoryRaw))){
+      const jobs = [];
+      if(legacyInitRaw && !pageInitRaw) jobs.push(safeSet(slotKey('page-'+pageId+'-initiative'), state.initiative));
+      if(legacyHistoryRaw && !pageHistoryRaw) jobs.push(safeSet(slotKey('page-'+pageId+'-combat-history'), {list:state.combatHistory}));
+      jobs.push(safeDelete(slotKey('initiative')), safeDelete(slotKey('combat-history')));
+      await Promise.all(jobs);
+    }
+  }
 
   // ---------- Firebase setup ----------
   const firebaseConfig = {
@@ -8903,7 +8962,9 @@
         safeDelete(slotKey('meta')),
         safeDelete(slotKey('tokens')),
         safeDelete(slotKey('pages-index')),
-        safeDelete(slotKey('dice-log'))
+        safeDelete(slotKey('dice-log')),
+        safeDelete(slotKey('initiative')),
+        safeDelete(slotKey('combat-history'))
       ];
       state.pages.forEach(p => {
         jobs.push(safeDelete(slotKey('page-'+p.id+'-map')));
@@ -8911,6 +8972,8 @@
         jobs.push(safeDelete(slotKey('page-'+p.id+'-draw')));
         jobs.push(safeDelete(slotKey('page-'+p.id+'-texts')));
         jobs.push(safeDelete(slotKey('page-'+p.id+'-grid')));
+        jobs.push(safeDelete(slotKey('page-'+p.id+'-initiative')));
+        jobs.push(safeDelete(slotKey('page-'+p.id+'-combat-history')));
       });
       await Promise.all(jobs);
       await removeCampaignFromIndex(state.currentSlot);
@@ -8989,6 +9052,8 @@
       safeDelete('c'+id+'-tokens'),
       safeDelete('c'+id+'-pages-index'),
       safeDelete('c'+id+'-dice-log'),
+      safeDelete('c'+id+'-initiative'),
+      safeDelete('c'+id+'-combat-history'),
       safeDelete('c'+id+'-music-tracks'),
       safeDelete('c'+id+'-music-state'),
       safeDelete('c'+id+'-music-labels')
@@ -8999,6 +9064,8 @@
       jobs.push(safeDelete('c'+id+'-page-'+pid+'-draw'));
       jobs.push(safeDelete('c'+id+'-page-'+pid+'-texts'));
       jobs.push(safeDelete('c'+id+'-page-'+pid+'-grid'));
+      jobs.push(safeDelete('c'+id+'-page-'+pid+'-initiative'));
+      jobs.push(safeDelete('c'+id+'-page-'+pid+'-combat-history'));
     });
     await Promise.all(jobs);
     await removeCampaignFromIndex(id);
@@ -9007,7 +9074,7 @@
 
   // ---------- loading a slot's full data ----------
   async function loadSlotData(){
-    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, initRaw, combatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw, musicLabelsRaw, sessionNotesRaw] = await Promise.all([
+    const [metaRaw, tokensRaw, indexRaw, diceLogRaw, legacyInitRaw, legacyCombatHistoryRaw, journalRaw, sendsRaw, musicTracksRaw, musicStateRaw, musicLabelsRaw, sessionNotesRaw] = await Promise.all([
       safeGet(slotKey('meta')), safeGet(slotKey('tokens')), safeGet(slotKey('pages-index')), safeGet(slotKey('dice-log')), safeGet(slotKey('initiative')), safeGet(slotKey('combat-history')), safeGet(slotKey('journal')), safeGet(slotKey('sends')), safeGet(slotKey('music-tracks')), safeGet(slotKey('music-state')), safeGet(slotKey('music-labels')), effectiveMaster() ? safeGet(slotKey('session-notes')) : Promise.resolve(null)
     ]);
     if(metaRaw){ try{ state.meta = JSON.parse(metaRaw); }catch(e){} }
@@ -9024,10 +9091,6 @@
     applyIconRailOrder();
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; lastSeenRollId = state.diceRolls[0] ? state.diceRolls[0].id : 'NONE'; }catch(e){} }
-    if(initRaw){ try{ state.initiative = JSON.parse(initRaw); lastInitiativeSnapshot = initRaw; }catch(e){} }
-    if(!state.initiative.turnSeq) state.initiative.turnSeq = state.initiative.activeId ? 1 : 0;
-    if(!('combatId' in state.initiative)) state.initiative.combatId = state.initiative.list.length ? 'legacy-combat' : null;
-    if(combatHistoryRaw){ try{ state.combatHistory = JSON.parse(combatHistoryRaw).list || []; lastCombatHistorySnapshot = combatHistoryRaw; }catch(e){} }
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
     if(effectiveMaster() && sessionNotesRaw){ try{ state.sessionNotes = JSON.parse(sessionNotesRaw).list || []; normalizeAllSessionNotes(); lastSessionNotesSnapshot = sessionNotesRaw; }catch(e){} } else if(!effectiveMaster()){ state.sessionNotes = []; }
     if(sendsRaw){ try{ state.sends = JSON.parse(sendsRaw).list || []; lastSendsSnapshot = sendsRaw; }catch(e){} }
@@ -9081,6 +9144,7 @@
     state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
       ? index.currentPageId
       : (pages.length ? pages[pages.length-1].id : null);
+    await loadPageCombatData(state.currentPageId, legacyInitRaw, legacyCombatHistoryRaw);
   }
 
   async function persistPagesIndex(){
@@ -9923,6 +9987,8 @@
     state.selectedTokenId = null;
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
     state.musicPlayingIds = currentMusicPlayingIds();
+    await loadPageCombatData(id);
+    closeInitiativePanel();
     render();
     updateAmbientAudio();
     updateMusicIndicator();
@@ -9945,14 +10011,20 @@
     const removedObjectIds=state.tokens.filter(t=>t.isMapObject&&t.pageId===id).map(t=>t.id);
     removedObjectIds.forEach(detachTokensFromMapObject);
     state.tokens = state.tokens.filter(t => !(t.isMapObject && t.pageId === id));
-    if(state.currentPageId === id){ state.currentPageId = state.pages[state.pages.length-1].id; }
+    if(state.currentPageId === id){
+      state.currentPageId = state.pages[state.pages.length-1].id;
+      await loadPageCombatData(state.currentPageId);
+    }
     render();
     await Promise.all([
       persistPagesIndex(), persistTokens(),
       safeDelete(slotKey('page-'+id+'-map')),
       safeDelete(slotKey('page-'+id+'-fog')),
       safeDelete(slotKey('page-'+id+'-draw')),
-      safeDelete(slotKey('page-'+id+'-texts'))
+      safeDelete(slotKey('page-'+id+'-texts')),
+      safeDelete(slotKey('page-'+id+'-grid')),
+      safeDelete(slotKey('page-'+id+'-initiative')),
+      safeDelete(slotKey('page-'+id+'-combat-history'))
     ]);
   }
 
@@ -14716,16 +14788,49 @@
   }
   el('btn-cancel-new-map').addEventListener('click', resetNewMapStaging);
 
+  function blankMapDataUrl(size){
+    const px = [1000,1500,2000].includes(Number(size)) ? Number(size) : 1500;
+    const canvas = document.createElement('canvas');
+    canvas.width = px; canvas.height = px;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0,0,px,px);
+    return canvas.toDataURL('image/png');
+  }
+
+  el('btn-open-blank-map').addEventListener('click', async () => {
+    if(!effectiveMaster()) return;
+    pushUndo();
+    const size = Number(el('blank-map-size').value) || 1500;
+    const page = { id:newId('p'), name:'Mapa em branco ' + (state.pages.length + 1), allowedPlayers:[], npcHpDisplayMode:'descriptive', map:{ image:blankMapDataUrl(size), blank:true, width:size, height:size }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' } };
+    state.pages.push(page);
+    state.currentPageId = page.id;
+    state.initiative = emptyInitiative(state.initiative.turnColor);
+    state.combatHistory = [];
+    state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
+    render();
+    await Promise.all([
+      persistPageMap(page), persistPagesIndex(), persistInitiative(page.id),
+      safeSet(slotKey('page-'+page.id+'-combat-history'), {list:[]})
+    ]);
+    showToast('Mapa preto de '+size+' × '+size+' px criado.');
+  });
+
   el('btn-open-new-map').addEventListener('click', async () => {
     if(!pendingNewMapDataUrl) return;
     pushUndo();
     const page = { id:newId('p'), name:'Página ' + (state.pages.length + 1), allowedPlayers: pendingNewMapAllowedPlayers.slice(), npcHpDisplayMode:'descriptive', map:{ image:pendingNewMapDataUrl }, fog:{ image:'' }, draw:{ strokes:[] }, texts:[], grid:{ enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' } };
     state.pages.push(page);
     state.currentPageId = page.id;
+    state.initiative = emptyInitiative(state.initiative.turnColor);
+    state.combatHistory = [];
     state.zoom = 1; state.pan = {x:0,y:0}; userZoomedManually = false;
     resetNewMapStaging();
     render();
-    await Promise.all([ persistPageMap(page), persistPagesIndex() ]);
+    await Promise.all([
+      persistPageMap(page), persistPagesIndex(), persistInitiative(page.id),
+      safeSet(slotKey('page-'+page.id+'-combat-history'), {list:[]})
+    ]);
     noteDailyUpload('map', '⚠️ Você já trocou de mapa 10 vezes hoje nessa campanha. Pode continuar — mas trocar de imagem com muita frequência consome dados rápido, principalmente se for só pra testar.');
   });
 
@@ -17512,6 +17617,21 @@
       if(!page || page.id !== pageId) return;
       try{ page.grid = Object.assign({ enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' }, JSON.parse(raw)); render(); }catch(e){}
     });
+    if(canAccessPageCombat(pageId)){
+      watchPageKey(slotKey('page-'+pageId+'-initiative'), (raw) => {
+        if(!raw || raw === lastInitiativeSnapshot || pageId !== state.currentPageId) return;
+        lastInitiativeSnapshot = raw;
+        try{
+          state.initiative = Object.assign(emptyInitiative(), JSON.parse(raw));
+          render();
+        }catch(e){}
+      });
+      watchPageKey(slotKey('page-'+pageId+'-combat-history'), (raw) => {
+        if(!raw || raw === lastCombatHistorySnapshot || pageId !== state.currentPageId) return;
+        lastCombatHistorySnapshot = raw;
+        try{ state.combatHistory = JSON.parse(raw).list || []; renderCombatHistory(); }catch(e){}
+      });
+    }
   }
 
   let playerReleaseSyncInFlight = false;
@@ -17581,18 +17701,6 @@
         state.diceRolls = newRolls;
         render();
       }catch(e){}
-    });
-
-    watchKey(slotKey('initiative'), (raw) => {
-      if(!raw || raw === lastInitiativeSnapshot) return;
-      lastInitiativeSnapshot = raw;
-      try{ state.initiative = JSON.parse(raw); render(); }catch(e){}
-    });
-
-    watchKey(slotKey('combat-history'), (raw) => {
-      if(!raw || raw === lastCombatHistorySnapshot) return;
-      lastCombatHistorySnapshot = raw;
-      try{ state.combatHistory = JSON.parse(raw).list || []; renderCombatHistory(); }catch(e){}
     });
 
     watchKey(slotKey('journal'), (raw) => {
