@@ -4417,6 +4417,33 @@
     if(!tok) return false;
     return (tok.name||'').trim().toLowerCase() === (state.playerName||'').trim().toLowerCase();
   }
+  function canFlipToken(tok){
+    if(!tok) return false;
+    if(tok.isMapObject || tok.isReference) return effectiveMaster();
+    return effectiveMaster() || (!tok.masterLocked && isOwnToken(tok));
+  }
+  function triggerAltImagePick(tok){
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = tok.isMapObject ? 'image/png,image/webp' : 'image/*';
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if(!file) return;
+      let dataUrl;
+      try{
+        dataUrl = tok.isMapObject ? await resizeTransparentImage(file, 1600) : await resizeImage(file, 800, 0.85);
+      }catch(err){
+        alert('Não consegui carregar essa imagem. Tente outro arquivo.');
+        return;
+      }
+      pushUndo();
+      tok.altImage = dataUrl;
+      tok.showingAlt = true;
+      render();
+      await persistTokens();
+    });
+    input.click();
+  }
   function canResizeToken(tok){ return effectiveMaster() || (!tok.isReference && !tok.isMapObject && !tok.masterLocked && !tok.sizeLocked && isOwnToken(tok)); }
   function canPlayerSeePage(page){
     if(!page) return true;
@@ -10397,7 +10424,7 @@
       return;
     }
     const tokForLantern=type==='token'?state.tokens.find(t=>t.id===id):null;
-    if(!effectiveMaster()&&!canToggleTokenLantern(tokForLantern)&&!(type==='token'&&canResizeToken(tokForLantern))) return;
+    if(!effectiveMaster()&&!canToggleTokenLantern(tokForLantern)&&!(type==='token'&&canResizeToken(tokForLantern))&&!(type==='token'&&canFlipToken(tokForLantern))) return;
     e.preventDefault(); e.stopPropagation();
     const menu=el('context-menu'); contextTarget={type,id}; let actions=[];
     if(type==='token'){
@@ -10406,6 +10433,16 @@
       if(canToggleTokenLantern(tok)){
         const lantern=tokenLanternState(tok,false);
         lightActions=[[lantern&&lantern.enabled?'🔦 Apagar lanterna':'🔦 Acender lanterna','lantern']];
+      }
+      if(canFlipToken(tok)){
+        lightActions.push([tok.flipped?'↔️ Desespelhar':'↔️ Espelhar','flip']);
+        if(tok.altImage){
+          lightActions.push([tok.showingAlt?'🔄 Voltar à aparência original':'🔄 Mostrar aparência alternativa','togglealt']);
+          lightActions.push(['🖼️ Trocar imagem alternativa','setaltimage']);
+          lightActions.push(['🗑️ Remover imagem alternativa','removealtimage']);
+        }else{
+          lightActions.push(['🖼️ Definir imagem alternativa','setaltimage']);
+        }
       }
       if(effectiveMaster()){
         lightActions.push([tok.sizeLocked?'🔓 Destravar tamanho':'🔒 Travar tamanho','sizelock']);
@@ -10426,7 +10463,16 @@
     }else if(type==='reference') actions=[['Trazer para frente','front'],['Enviar para trás','back'],['Travar / destravar','lock'],['Remover desta página','page'],['Excluir permanentemente','delete','context-danger']];
     else if(type==='mapobject'){
       const tok=state.tokens.find(t=>t.id===id); if(!tok)return;
-      actions=[[tok.objectLocked?'Destravar posição':'Travar posição','objectlock'],[tok.note?'📝 Editar nota':'📝 Adicionar nota','note']];
+      actions=[[tok.objectLocked?'Destravar posição':'Travar posição','objectlock']];
+      actions.push([tok.flipped?'↔️ Desespelhar':'↔️ Espelhar','flip']);
+      if(tok.altImage){
+        actions.push([tok.showingAlt?'🔄 Voltar à aparência original':'🔄 Mostrar aparência alternativa','togglealt']);
+        actions.push(['🖼️ Trocar imagem alternativa','setaltimage']);
+        actions.push(['🗑️ Remover imagem alternativa','removealtimage']);
+      }else{
+        actions.push(['🖼️ Definir imagem alternativa','setaltimage']);
+      }
+      actions.push([tok.note?'📝 Editar nota':'📝 Adicionar nota','note']);
       if(tok.note) actions.push(['Excluir nota','deletenote']);
       actions.push(['Trazer para frente','front'],['Enviar para trás','back'],['Excluir objeto','delete','context-danger']);
     }
@@ -10903,6 +10949,10 @@
     if(action==='front'||action==='back'){ pushUndo(); if(!tok.positions)tok.positions={}; const pos=tokenPos(tok); tok.positions[state.currentPageId] = { x:pos.x, y:pos.y, zOrder: action === 'front' ? nextStageZOrder() : MAP_LAYER_FLOOR_Z }; await persistTokens();render();return; }
     if(action==='lock'&&tok.isReference){await toggleReferenceLock(tok.id);return;}
     if(action==='objectlock'&&tok.isMapObject){await toggleMapObjectLock(tok.id);return;}
+    if(action==='flip'&&canFlipToken(tok)){ pushUndo(); tok.flipped=!tok.flipped; render(); await persistTokens(); return; }
+    if(action==='setaltimage'&&canFlipToken(tok)){ triggerAltImagePick(tok); return; }
+    if(action==='togglealt'&&canFlipToken(tok)&&tok.altImage){ pushUndo(); tok.showingAlt=!tok.showingAlt; render(); await persistTokens(); return; }
+    if(action==='removealtimage'&&canFlipToken(tok)){ pushUndo(); delete tok.altImage; delete tok.showingAlt; render(); await persistTokens(); return; }
     if(action==='note'){
       const entered=prompt(tok.note?'Editar nota (só o mestre vê; aparece ao passar o mouse por cima):':'Nota (só o mestre vê; aparece ao passar o mouse por cima):', tok.note||'');
       if(entered===null) return;
@@ -10990,7 +11040,9 @@
         const shadow=Object.assign({enabled:false,color:'#000000',opacity:.65,blur:10,offset:6},tok.shadow||{});
         const shadowFilter=shadow.enabled ? 'drop-shadow(0 '+Math.max(0,Number(shadow.offset)||0)+'px '+Math.max(0,Number(shadow.blur)||0)+'px '+hexToRgbaTheme(shadow.color||'#000000',Math.max(0,Math.min(1,Number(shadow.opacity)||0)))+')' : 'none';
         const objectRotation=((Number(tok.rotation)||0)%360+360)%360;
-        t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(0,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';filter:'+shadowFilter+';transform:rotate('+objectRotation+'deg);">' +
+        const objectFlip=tok.flipped?-1:1;
+        const objectImage=(tok.showingAlt&&tok.altImage)?tok.altImage:tok.image;
+        t.innerHTML = '<img src="'+objectImage+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="opacity:'+Math.max(0,Math.min(1,Number(tok.opacity == null ? 1 : tok.opacity)))+';filter:'+shadowFilter+';transform:rotate('+objectRotation+'deg) scaleX('+objectFlip+');">' +
                       (effectiveMaster() ? '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' : '') + lockBadge + noteBadge + handleHtml;
         t.addEventListener('pointerdown', onTokenPointerDown);
         t.addEventListener('contextmenu', e=>openContextMenu(e,'mapobject',tok.id));
@@ -11085,7 +11137,8 @@
       const rightConditionsRow=rightBadges.length?'<div class="token-conditions">'+rightBadges.join('')+'</div>':'';
       const statusStackLeft=(lightRow||leftConditionsRow)?'<div class="token-status-stack">'+lightRow+leftConditionsRow+'</div>':'';
       const statusStackRight=rightConditionsRow?'<div class="token-status-stack-right">'+rightConditionsRow+'</div>':'';
-      t.innerHTML = '<img src="'+tok.image+'" alt="'+escapeHtml(tok.name)+'" draggable="false">' +
+      const characterImage=(tok.showingAlt&&tok.altImage)?tok.altImage:tok.image;
+      t.innerHTML = '<img src="'+characterImage+'" alt="'+escapeHtml(tok.name)+'" draggable="false" style="transform:scaleX('+(tok.flipped?-1:1)+');">' +
                     (inCombat && !enemyHpPrivate ? '<div class="token-hp-track" style="top:'+barTop+'px;"><div class="token-hp-fill" style="width:'+Math.round(Math.max(0, frac)*100)+'%; background:'+hpCol+';"></div></div>' : '') +
                     (qualitativeHp ? '<div class="token-hp-status'+(qualitativeHpHoverOnly?' hover-only':'')+'" title="'+qualitativeHpTitle+'">'+qualitativeHp+'</div>' : '') +
                     '<div class="token-label" style="font-size:'+labelFontSize+'px;">'+tokenLabelHtml(tok.name)+'</div>' +
