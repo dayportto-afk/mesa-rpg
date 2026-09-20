@@ -1300,6 +1300,7 @@
   .token.token-reference.selected{ border-color:var(--amber-bright); }
   .token.defeated{ border-color:#0a0a0a !important; }
   .token.defeated img{ filter:grayscale(100%); }
+  .token.hostile{ box-shadow:0 0 0 3px #c0392b, 0 0 14px 4px rgba(192,57,43,.55), 0 3px 10px var(--shadow); }
   .token.dragging{ cursor:grabbing; box-shadow:0 0 0 3px var(--amber-bright), 0 6px 18px var(--shadow); z-index:1000; }
   .light-barrier{
     position:absolute; height:5px; border-radius:3px; transform-origin:0 50%;
@@ -10446,6 +10447,7 @@
       }
       if(effectiveMaster()){
         lightActions.push([tok.sizeLocked?'🔓 Destravar tamanho':'🔒 Travar tamanho','sizelock']);
+        lightActions.push([tok.hostile?'⚔️ Remover marca de hostil':'⚔️ Marcar como hostil','hostile']);
         lightActions.push(['📏 Alcance individual','lanternradius',null,'Define o alcance de luz da lanterna deste token']);
         lightActions.push(['👥 Grupos de luz: '+tokenLightGroupLabel(tok),'lightgroups',null,'Escolhe quais grupos podem ver a luz da lanterna deste token. Só faz efeito quando a visibilidade da iluminação está em "Grupos" (Névoa → Escuridão e lanternas): jogadores cujo próprio token não compartilhar nenhum desses grupos não enxergam essa luz.']);
         lightActions.push([tokenHasDarkvision(tok)?'👁 Remover visão no escuro':'👁 Conceder visão no escuro','darkvision']);
@@ -10898,6 +10900,9 @@
     if(action==='sizelock'&&effectiveMaster()){
       pushUndo(); tok.sizeLocked=!tok.sizeLocked; render(); await persistTokens(); return;
     }
+    if(action==='hostile'&&effectiveMaster()){
+      pushUndo(); tok.hostile=!tok.hostile; render(); await persistTokens(); return;
+    }
     if(action==='lantern'){
       if(!canToggleTokenLantern(tok))return;
       const lantern=tokenLanternState(tok,true); lantern.enabled=!lantern.enabled;
@@ -11080,6 +11085,7 @@
       const inCombat = !!(state.initiative && state.initiative.list && state.initiative.list.length > 0);
       t.classList.add('token-character');
       t.classList.toggle('in-combat', inCombat);
+      t.classList.toggle('hostile', !!tok.hostile);
       // Fora do combate, não sobrescrevemos a moldura temática definida por applyTheme().
       // Quando existe iniciativa, a borda volta a indicar a condição de HP do personagem.
       if(inCombat) t.style.borderColor = hpCol;
