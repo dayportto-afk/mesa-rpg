@@ -9660,8 +9660,14 @@
     return true;
   }
   function refreshMapGeometryForViewport(force){
-    const changed=syncMobileMapFrame();
-    if(!force&&!changed)return;
+    // syncMobileMapFrame só faz algo em telas classificadas como "modo
+    // celular" (aplica width/height via JS); no desktop ela sempre retorna
+    // "nada mudou", mesmo que a janela tenha sido redimensionada — o
+    // navegador já redimensiona o mapa sozinho via CSS. Só que, sem recalcular
+    // aqui, o tamanho de fichas/objetos e a fonte dos textos (que dependem da
+    // largura atual do mapa) ficavam "presos" no valor de antes do resize.
+    // Por isso sempre recalculamos tudo, independente de "changed"/"force".
+    syncMobileMapFrame();
     const page=currentPage();
     if(!page||!page.map||!page.map.image||!document.getElementById('map-img'))return;
     setupGridOverlay();
