@@ -10463,6 +10463,12 @@
   function tokenSize(tok){
     return (tok.sizes && tok.sizes[state.currentPageId]) || tok.size || 64;
   }
+  function tokenScaleFactor(){
+    // Mesma ideia do texto: o número salvo em tok.size é relativo a uma
+    // largura de referência fixa, e aqui convertemos pra pixels de tela reais
+    // conforme o mapa está sendo exibido no momento.
+    return ($canvas.offsetWidth || TEXT_FONT_REFERENCE_WIDTH) / TEXT_FONT_REFERENCE_WIDTH;
+  }
   const CONDITIONS = [
     { key:'debilitado', icon:'💔', label:'Debilitado' },
     { key:'atordoado', icon:'💫', label:'Atordoado' },
@@ -11384,6 +11390,13 @@
     if(!document.getElementById('map-img')) return;
     const activeEntry=activeInitiativeEntry();
     const activeInitiativeTokenId=activeEntry?activeEntry.tokenId:null;
+    // Tamanhos de ficha/objeto são guardados como se o mapa estivesse sendo
+    // exibido numa largura de referência fixa (a mesma usada pro texto). Sem
+    // esse ajuste, o tamanho ficava igual em pixels reais da tela não importa
+    // o quanto o mapa tivesse encolhido/crescido ao redimensionar a janela —
+    // proporcionalmente ficando grande demais numa janela pequena, ou pequeno
+    // demais numa janela grande.
+    const tokenDisplayScale = tokenScaleFactor();
     const renderOrder = state.tokens.slice().sort((a,b) => Number(!!b.isMapObject) - Number(!!a.isMapObject));
     renderOrder.forEach(tok => {
       if(!isTokenOnPage(tok, state.currentPageId)) return;
@@ -11394,7 +11407,7 @@
       const t = document.createElement('div');
       t.className = 'token' + (tok.isReference ? ' token-reference' : '') + (tok.isMapObject ? ' map-object' : '') + (tok.isMapObject && tok.objectLocked ? ' object-locked' : '') + (tok.isReference && tok.referenceLocked ? ' reference-locked' : '') + (state.initiative.activeId && activeInitiativeTokenId===tok.id ? ' active-turn' : '');
       t.dataset.id = tok.id;
-      const size = tokenSize(tok);
+      const size = tokenSize(tok) * tokenDisplayScale;
       const dims = tokenDisplayDimensions(tok, size);
       t.style.left = pos.x + '%';
       t.style.top = pos.y + '%';
@@ -13195,9 +13208,14 @@
     if(!s) return;
     const dx = e.clientX - s.centerX;
     const dy = e.clientY - s.centerY;
-    let newSize = Math.round(Math.max(Math.abs(dx), Math.abs(dy)) * 2);
+    // O arraste acontece em pixels reais de tela; convertemos de volta pro
+    // tamanho "lógico" (relativo à largura de referência) antes de aplicar,
+    // senão o valor gravado ficaria enviesado pelo tamanho da janela no
+    // momento do arraste, e apareceria errado depois numa janela diferente.
+    const scale = tokenScaleFactor();
+    let newSize = Math.round((Math.max(Math.abs(dx), Math.abs(dy)) * 2) / scale);
     newSize = Math.max(10, Math.min(1200, newSize));
-    applyLiveTokenSize(s.tokenEl, newSize, state.tokens.find(t => t.id === s.id));
+    applyLiveTokenSize(s.tokenEl, newSize * scale, state.tokens.find(t => t.id === s.id));
     s.liveSize = newSize;
     if(s.group){
       const ratio = newSize / (s.startSize || newSize || 1);
@@ -13205,7 +13223,7 @@
         const gTok = state.tokens.find(t => t.id === g.id);
         const gMax = gTok && (gTok.isReference || gTok.isMapObject) ? 1200 : 500;
         const gSize = Math.max(10, Math.min(gMax, Math.round(g.startSize * ratio)));
-        applyLiveTokenSize(g.el, gSize, gTok);
+        applyLiveTokenSize(g.el, gSize * scale, gTok);
         g.liveSize = gSize;
       });
     }
