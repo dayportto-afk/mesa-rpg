@@ -1272,7 +1272,7 @@
   .note-badge{ position:absolute; top:30px; right:4px; z-index:8; background:#150f09; border:1px solid var(--wax); border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center; font-size:9px; pointer-events:none; }
   .map-text .note-badge{ top:4px; }
   .note-tooltip{ display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:6px; background:var(--bg-panel); border:1px solid var(--amber); border-radius:6px; padding:7px 11px; font-size:16px; line-height:1.35; color:var(--parchment); white-space:pre-wrap; max-width:260px; width:max-content; z-index:50; pointer-events:none; text-align:left; box-shadow:0 8px 26px rgba(0,0,0,.6); }
-  .token:hover .note-tooltip, .map-text:hover .note-tooltip{ display:block; }
+  .token:hover .note-tooltip, .map-text:hover .note-tooltip, .secret-note-marker:hover .note-tooltip{ display:block; }
   #map-canvas img{ position:relative; z-index:0; display:block; width:100%; height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0; }
@@ -1403,6 +1403,14 @@
   }
   .light-point-marker.off{ opacity:.48; box-shadow:none; filter:grayscale(1); }
   .light-point-marker span{ position:absolute; top:27px; left:50%; transform:translateX(-50%); padding:2px 5px; border-radius:3px; background:#150f09; border:1px solid var(--amber); color:var(--parchment); font-size:9px; white-space:nowrap; }
+  .secret-note-marker{
+    position:absolute; width:24px; height:24px; margin:-12px 0 0 -12px; z-index:1000001;
+    display:flex; align-items:center; justify-content:center; border:1px solid #7a4fc9; border-radius:50%;
+    background:rgba(25,16,5,.88); color:#c9a6ff; font-size:12px; cursor:grab; pointer-events:auto;
+    box-shadow:0 0 10px rgba(122,79,201,.7); user-select:none; touch-action:none;
+  }
+  .secret-note-marker.dragging{ cursor:grabbing; box-shadow:0 0 14px rgba(122,79,201,1); }
+  .secret-note-marker.locked{ cursor:context-menu; }
   .token.selected .token-label, .token:hover .token-label{ display:block; }
   .token-hp-track{
     position:absolute; left:50%; transform:translateX(-50%);
@@ -3791,6 +3799,7 @@
           <button type="button" id="btn-shape-rect" title="Retângulo">▭ Retângulo</button>
           <button type="button" id="btn-shape-cone" title="Cone">🔺 Cone</button>
         </div>
+        <button type="button" id="btn-draw-measure-toggle" style="width:100%; margin-top:4px;" title="Mostra o tamanho da forma (na mesma unidade configurada pro mapa) enquanto você desenha">📏 Mostrar medida ao desenhar formas</button>
         <div id="fog-brush-row">
           <label for="draw-brush">Pincel</label>
           <input type="range" id="draw-brush" min="2" max="80" value="10">
@@ -9318,20 +9327,22 @@
     const pageStubs = index.list || [];
 
     const pages = await Promise.all(pageStubs.map(async stub => {
-      const [mapRaw, fogRaw, drawRaw, textsRaw, gridRaw] = await Promise.all([
+      const [mapRaw, fogRaw, drawRaw, textsRaw, gridRaw, secretNotesRaw] = await Promise.all([
         safeGet(slotKey('page-'+stub.id+'-map')),
         safeGet(slotKey('page-'+stub.id+'-fog')),
         safeGet(slotKey('page-'+stub.id+'-draw')),
         safeGet(slotKey('page-'+stub.id+'-texts')),
-        safeGet(slotKey('page-'+stub.id+'-grid'))
+        safeGet(slotKey('page-'+stub.id+'-grid')),
+        safeGet(slotKey('page-'+stub.id+'-secret-notes'))
       ]);
-      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' };
+      let map = { image:'' }, fog = { image:'' }, draw = { strokes:[] }, texts = [], grid = { enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' }, secretNotes = [];
       if(mapRaw){ try{ map = JSON.parse(mapRaw); }catch(e){} }
       if(fogRaw){ try{ fog = JSON.parse(fogRaw); }catch(e){} }
       if(drawRaw){ try{ draw = JSON.parse(drawRaw); }catch(e){} }
       if(textsRaw){ try{ texts = JSON.parse(textsRaw).list || []; }catch(e){} }
       if(gridRaw){ try{ grid = Object.assign(grid, JSON.parse(gridRaw)); }catch(e){} }
-      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], npcHpDisplayMode: normalizeNpcHpDisplayMode(stub.npcHpDisplayMode), map, fog, draw, texts, grid };
+      if(secretNotesRaw){ try{ secretNotes = JSON.parse(secretNotesRaw).list || []; }catch(e){} }
+      return { id: stub.id, name: stub.name, allowedPlayers: stub.allowedPlayers || [], npcHpDisplayMode: normalizeNpcHpDisplayMode(stub.npcHpDisplayMode), map, fog, draw, texts, grid, secretNotes };
     }));
     state.pages = pages;
     state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
@@ -9350,6 +9361,7 @@
   async function persistPageFog(page){ return await safeSet(slotKey('page-'+page.id+'-fog'), page.fog); }
   async function persistPageDraw(page){ await safeSet(slotKey('page-'+page.id+'-draw'), page.draw); }
   async function persistPageTexts(page){ await safeSet(slotKey('page-'+page.id+'-texts'), { list: page.texts }); }
+  async function persistSecretNotes(page){ await safeSet(slotKey('page-'+page.id+'-secret-notes'), { list: page.secretNotes || [] }); }
   async function persistPageGrid(page){ await safeSet(slotKey('page-'+page.id+'-grid'), page.grid); }
   async function persistTokens(){
     /* Cada alteração é calculada em relação à última versão recebida e
@@ -9515,6 +9527,7 @@
       fog: page ? (()=>{ const clone=JSON.parse(JSON.stringify(page.fog || {image:''})); delete clone.explored; return clone; })() : {image:''},
       draw: page ? JSON.parse(JSON.stringify(page.draw.strokes || [])) : [],
       texts: page ? JSON.parse(JSON.stringify(page.texts)) : [],
+      secretNotes: page ? JSON.parse(JSON.stringify(page.secretNotes || [])) : [],
       tokens: JSON.parse(JSON.stringify(state.tokens))
     };
   }
@@ -9580,10 +9593,11 @@
       if(!page.draw) page.draw = { strokes:[] };
       page.draw.strokes = snap.draw;
       page.texts = snap.texts;
+      page.secretNotes = snap.secretNotes || [];
     }
     render();
     const jobs = [ persistTokens(), persistPagesIndex() ];
-    if(page){ jobs.push(persistPageMap(page), persistPageFog(page), persistPageDraw(page), persistPageTexts(page)); }
+    if(page){ jobs.push(persistPageMap(page), persistPageFog(page), persistPageDraw(page), persistPageTexts(page), persistSecretNotes(page)); }
     await Promise.all(jobs);
     updateHistoryButtons();
   }
@@ -9674,6 +9688,7 @@
     setupDrawCanvas();
     renderTokens();
     renderTexts();
+    renderSecretNotes();
     setupFogCanvas();
     setupDarknessOverlay();
     renderLightPointMarkers();
@@ -9756,6 +9771,7 @@
       setupDrawCanvas();
       renderTokens();
       renderTexts();
+      renderSecretNotes();
       setupFogCanvas();
       setupDarknessOverlay();
       renderLightPointMarkers();
@@ -10240,7 +10256,8 @@
       safeDelete(slotKey('page-'+id+'-texts')),
       safeDelete(slotKey('page-'+id+'-grid')),
       safeDelete(slotKey('page-'+id+'-initiative')),
-      safeDelete(slotKey('page-'+id+'-combat-history'))
+      safeDelete(slotKey('page-'+id+'-combat-history')),
+      safeDelete(slotKey('page-'+id+'-secret-notes'))
     ]);
   }
 
@@ -10689,6 +10706,7 @@
       ['📍 Pingar aqui','pinghere'],
       ['💡 Adicionar ponto de luz aqui','lightpointhere'],
       ['📝 Adicionar texto aqui','texthere'],
+      ['🔒 Nota secreta aqui','secretnotehere'],
       ['📏 Começar medição a partir daqui','measurehere'],
       ['🖼️ Adicionar objeto de mapa aqui','mapobjecthere']
     ] : [
@@ -10724,6 +10742,21 @@
       menu.style.left='8px'; menu.style.top='8px'; menu.classList.add('open');
       const menuWidth=Math.min(menu.offsetWidth||190,window.innerWidth-16);
       const menuHeight=Math.min(menu.scrollHeight||150,window.innerHeight-16);
+      menu.style.left=Math.max(8,Math.min(e.clientX,window.innerWidth-menuWidth-8))+'px';
+      menu.style.top=Math.max(8,Math.min(e.clientY,window.innerHeight-menuHeight-8))+'px';
+      return;
+    }
+    if(type==='secretnote'){
+      if(!effectiveMaster()) return;
+      e.preventDefault(); e.stopPropagation();
+      const page = currentPage();
+      const note = page && (page.secretNotes || []).find(n => n.id === id);
+      const menu=el('context-menu'); contextTarget={type,id};
+      const actions=[['✏️ Editar nota secreta','editnote'],[note && note.locked ? '🔓 Destravar posição' : '🔒 Travar posição','togglelock'],['🗑 Excluir nota secreta','deletenote','context-danger']];
+      menu.innerHTML=actions.map(a=>'<button type="button" class="'+(a[2]||'')+'" data-context-action="'+a[1]+'">'+a[0]+'</button>').join('');
+      menu.style.left='8px'; menu.style.top='8px'; menu.classList.add('open');
+      const menuWidth=Math.min(menu.offsetWidth||190,window.innerWidth-16);
+      const menuHeight=Math.min(menu.scrollHeight||120,window.innerHeight-16);
       menu.style.left=Math.max(8,Math.min(e.clientX,window.innerWidth-menuWidth-8))+'px';
       menu.style.top=Math.max(8,Math.min(e.clientY,window.innerHeight-menuHeight-8))+'px';
       return;
@@ -11185,6 +11218,47 @@
       else if(action==='lightpointhere'){ const fake=pctToClientPoint(pt); await placeLightPoint(Object.assign(fake,{preventDefault(){},stopPropagation(){}})); }
       else if(action==='texthere'){ pendingPlacementPt=c.ptRaw||pt; openFloatPanel('float-text'); }
       else if(action==='mapobjecthere'){ pendingPlacementPt=c.ptRaw||pt; openFloatPanel('float-mapobjects'); }
+      else if(action==='secretnotehere'){
+        const text = prompt('Nota secreta (só o mestre vê; aparece com 🔒 no mapa):');
+        if(text && text.trim()){
+          const page = currentPage();
+          if(page){
+            pushUndo();
+            const pos = c.ptRaw || pt;
+            if(!page.secretNotes) page.secretNotes = [];
+            page.secretNotes.push({ id:newId('sn'), x:pos.x, y:pos.y, text:text.trim() });
+            renderSecretNotes();
+            await persistSecretNotes(page);
+          }
+        }
+      }
+      return;
+    }
+    if(c.type==='secretnote'){
+      if(!effectiveMaster()) return;
+      const page = currentPage();
+      if(!page) return;
+      const note = (page.secretNotes || []).find(n => n.id === c.id);
+      if(!note) return;
+      if(action==='editnote'){
+        const text = prompt('Editar nota secreta:', note.text);
+        if(text !== null && text.trim()){
+          pushUndo();
+          note.text = text.trim();
+          renderSecretNotes();
+          await persistSecretNotes(page);
+        }
+      } else if(action==='deletenote'){
+        pushUndo();
+        page.secretNotes = (page.secretNotes || []).filter(n => n.id !== c.id);
+        renderSecretNotes();
+        await persistSecretNotes(page);
+      } else if(action==='togglelock'){
+        pushUndo();
+        note.locked = !note.locked;
+        renderSecretNotes();
+        await persistSecretNotes(page);
+      }
       return;
     }
     if(c.type==='dicepicker'){
@@ -14444,6 +14518,65 @@
   }
 
   const TEXT_FONT_REFERENCE_WIDTH = 1200; // largura de referência (px) em que txt.size/letterSpacing "batem" com o número digitado
+  function renderSecretNotes(){
+    document.querySelectorAll('.secret-note-marker').forEach(m => m.remove());
+    const page = currentPage();
+    if(!document.getElementById('map-img') || !page || !effectiveMaster()) return;
+    (page.secretNotes || []).forEach(note => {
+      const m = document.createElement('div');
+      m.className = 'secret-note-marker' + (note.locked ? ' locked' : '');
+      m.dataset.id = note.id;
+      m.style.left = note.x + '%';
+      m.style.top = note.y + '%';
+      m.innerHTML = '🔒<div class="note-tooltip">'+escapeHtml(note.text)+'</div>';
+      m.addEventListener('pointerdown', onSecretNotePointerDown);
+      m.addEventListener('contextmenu', e => openContextMenu(e, 'secretnote', note.id));
+      $canvas.appendChild(m);
+    });
+  }
+  function onSecretNotePointerDown(e){
+    const target = e.currentTarget;
+    e.preventDefault();
+    e.stopPropagation();
+    const id = target.dataset.id;
+    const page = currentPage();
+    const note = page && (page.secretNotes || []).find(n => n.id === id);
+    if(note && note.locked) return; // posição travada: não arrasta
+    pushUndo();
+    target.setPointerCapture(e.pointerId);
+    target.classList.add('dragging');
+    const canvasRect = $canvas.getBoundingClientRect();
+    state.secretNoteDragging = { id, el:target, canvasRect };
+    target.addEventListener('pointermove', onSecretNotePointerMove);
+    target.addEventListener('pointerup', onSecretNotePointerUp);
+    target.addEventListener('pointercancel', onSecretNotePointerUp);
+  }
+  function onSecretNotePointerMove(e){
+    if(!state.secretNoteDragging) return;
+    const rect = state.secretNoteDragging.canvasRect;
+    let xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    let yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    xPct = Math.max(0, Math.min(100, xPct));
+    yPct = Math.max(0, Math.min(100, yPct));
+    state.secretNoteDragging.el.style.left = xPct + '%';
+    state.secretNoteDragging.el.style.top = yPct + '%';
+    state.secretNoteDragging.x = xPct;
+    state.secretNoteDragging.y = yPct;
+  }
+  async function onSecretNotePointerUp(e){
+    if(!state.secretNoteDragging) return;
+    const d = state.secretNoteDragging;
+    d.el.classList.remove('dragging');
+    d.el.removeEventListener('pointermove', onSecretNotePointerMove);
+    d.el.removeEventListener('pointerup', onSecretNotePointerUp);
+    d.el.removeEventListener('pointercancel', onSecretNotePointerUp);
+    if(typeof d.x === 'number'){
+      const page = currentPage();
+      const note = page ? (page.secretNotes || []).find(n => n.id === d.id) : null;
+      if(note){ note.x = d.x; note.y = d.y; await persistSecretNotes(page); }
+    }
+    state.secretNoteDragging = null;
+  }
   function renderTexts(){
     document.querySelectorAll('.map-text').forEach(t => t.remove());
     const page = currentPage();
@@ -16159,6 +16292,13 @@
   el('btn-draw-pen').addEventListener('click', () => { state.drawPaintMode = 'pen'; render(); });
   el('btn-draw-erase').addEventListener('click', () => { state.drawPaintMode = 'erase'; render(); });
   el('btn-draw-move').addEventListener('click', () => { state.drawPaintMode = 'move'; render(); });
+  state.drawMeasureEnabled = localStorage.getItem('drawMeasureEnabled') === '1';
+  el('btn-draw-measure-toggle').classList.toggle('toggle-active', state.drawMeasureEnabled);
+  el('btn-draw-measure-toggle').addEventListener('click', () => {
+    state.drawMeasureEnabled = !state.drawMeasureEnabled;
+    localStorage.setItem('drawMeasureEnabled', state.drawMeasureEnabled ? '1' : '0');
+    el('btn-draw-measure-toggle').classList.toggle('toggle-active', state.drawMeasureEnabled);
+  });
   Object.keys(SHAPE_BUTTONS).forEach(shape => {
     el(SHAPE_BUTTONS[shape]).addEventListener('click', () => {
       state.drawShape = shape;
@@ -17688,6 +17828,7 @@
     } else if(s.mode === 'shape'){
       s.stroke.end = {x:pt.x, y:pt.y};
       redrawDrawCanvas(s.canvas, s.page, s.stroke);
+      if(state.drawMeasureEnabled) updateDrawShapeMeasureLabel(s, pt);
     } else {
       // "Zona morta": só conta como um ponto novo se o mouse realmente se moveu
       // uma distância mínima desde o último ponto registrado. Sem isso, o
@@ -17703,9 +17844,45 @@
       }
     }
   }
+  function updateDrawShapeMeasureLabel(s, pt){
+    // Reaproveita a mesma conversão de distância usada pra medir movimento de
+    // fichas (metros / hexágonos-quadrados / pixels, conforme a grade do
+    // mapa), então a medida da forma "conversa" com a unidade configurada.
+    const canvas = s.canvas;
+    if(!canvas || !canvas.width || !canvas.height) return;
+    const toPct = (p) => ({ x: p.x / canvas.width * 100, y: p.y / canvas.height * 100 });
+    const start = s.stroke.start;
+    const shape = s.stroke.shape;
+    let measureStart = start, measureEnd = pt;
+    if(shape === 'circle'){
+      // Diâmetro: o dobro da distância do centro até a borda que você está arrastando.
+      measureEnd = { x: start.x + (pt.x - start.x) * 2, y: start.y + (pt.y - start.y) * 2 };
+    } else if(shape === 'cone'){
+      // Distância entre as duas pontas do leque do cone — como uma linha
+      // cortando-o ao meio, no mesmo ângulo de abertura usado pra desenhá-lo.
+      const dist = Math.hypot(pt.x - start.x, pt.y - start.y);
+      const angle = Math.atan2(pt.y - start.y, pt.x - start.x);
+      const spread = Math.PI / 6;
+      measureStart = { x:start.x + dist*Math.cos(angle-spread), y:start.y + dist*Math.sin(angle-spread) };
+      measureEnd = { x:start.x + dist*Math.cos(angle+spread), y:start.y + dist*Math.sin(angle+spread) };
+    }
+    const text = movementDistanceText(toPct(measureStart), toPct(measureEnd));
+    if(!text) return;
+    let lab = document.getElementById('draw-shape-measure-label');
+    if(!lab){ lab = document.createElement('div'); lab.id = 'draw-shape-measure-label'; lab.className = 'move-distance-label'; $canvas.appendChild(lab); }
+    const anchor = toPct(pt);
+    lab.style.left = anchor.x + '%';
+    lab.style.top = anchor.y + '%';
+    lab.textContent = text;
+  }
+  function clearDrawShapeMeasureLabel(){
+    const lab = document.getElementById('draw-shape-measure-label');
+    if(lab) lab.remove();
+  }
   async function endDrawPaint(){
     const s = state.drawStroke;
     if(!s) return;
+    clearDrawShapeMeasureLabel();
     if(s.mode === 'pen' || s.mode === 'shape'){
       if(!s.page.draw.strokes) s.page.draw.strokes = [];
       s.page.draw.strokes.push(s.stroke);
@@ -17975,6 +18152,13 @@
       const page = currentPage();
       if(!page || page.id !== pageId) return;
       try{ page.grid = Object.assign({ enabled:false, size:50, thickness:1, color:'#e2a53f', opacity:1, type:'square' }, JSON.parse(raw)); render(); }catch(e){}
+    });
+    watchPageKey(slotKey('page-'+pageId+'-secret-notes'), (raw) => {
+      if(!raw) return;
+      const page = currentPage();
+      if(!page || page.id !== pageId) return;
+      if(state.secretNoteDragging) return;
+      try{ page.secretNotes = JSON.parse(raw).list || []; render(); }catch(e){}
     });
     if(canAccessPageCombat(pageId)){
       watchPageKey(slotKey('page-'+pageId+'-initiative'), (raw) => {
