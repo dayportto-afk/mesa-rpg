@@ -2889,6 +2889,7 @@
             <input type="color" id="player-color-input" value="#e2a53f" title="Escolha sua cor">
           </div>
           <input type="text" id="player-code-input" placeholder="CÓDIGO" maxlength="8" autocomplete="off" style="margin-top:8px;">
+          <input type="password" id="player-char-pass-input" placeholder="Senha do personagem (se este nome tiver uma)" autocomplete="off" style="margin-top:8px;">
           <div id="player-code-error"></div>
           <button type="submit" class="primary" style="width:100%;">Entrar na campanha</button>
         </form>
@@ -3177,6 +3178,10 @@
           </div>
           <div id="new-map-preview" style="display:none;">
             <img id="new-map-preview-img" alt="Pré-visualização do novo mapa" style="width:100%; border-radius:4px; margin-top:8px; display:block;">
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <button type="button" id="btn-new-map-rotate-left" style="flex:1;" title="Girar 90° à esquerda">↺ Girar</button>
+              <button type="button" id="btn-new-map-rotate-right" style="flex:1;" title="Girar 90° à direita">↻ Girar</button>
+            </div>
             <button type="button" class="notes-toggle" id="new-map-access-toggle" style="margin-top:8px;">👥 Quem vê <span>▼</span></button>
             <div id="new-map-access-list" style="display:none; background:#120e08; border:1px solid var(--line); border-top:none; border-radius:0 0 3px 3px; padding:6px 8px 8px;"></div>
             <div class="hint">Nenhuma marca = visível para todo mundo assim que abrir.</div>
@@ -3189,6 +3194,10 @@
           <input type="file" id="map-replace-upload" accept="image/*">
           <div id="replace-map-preview" style="display:none;">
             <img id="replace-map-preview-img" alt="Pré-visualização da nova imagem" style="width:100%; border-radius:4px; margin-top:8px; display:block;">
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <button type="button" id="btn-replace-map-rotate-left" style="flex:1;" title="Girar 90° à esquerda">↺ Girar</button>
+              <button type="button" id="btn-replace-map-rotate-right" style="flex:1;" title="Girar 90° à direita">↻ Girar</button>
+            </div>
             <div class="hint">Troca só a imagem desta página — fichas, textos, névoa, desenhos, luzes e histórico de página continuam exatamente como estão.</div>
             <div style="display:flex; gap:6px; margin-top:8px;">
               <button type="button" id="btn-cancel-replace-map" style="flex:1;">Cancelar</button>
@@ -8764,6 +8773,7 @@
     const name = el('player-name-input').value.trim().slice(0, 24);
     const color = el('player-color-input').value;
     const code = el('player-code-input').value.trim().toUpperCase();
+    const charPass = el('player-char-pass-input').value;
     const $err = el('player-code-error');
     $err.textContent = '';
     if(!code){ $err.textContent = 'Digite um código.'; return; }
@@ -8774,6 +8784,25 @@
       if(m.playerCode && m.playerCode.toUpperCase() === code) foundId = ids[idx];
     });
     if(!foundId){ $err.textContent = 'Código inválido.'; return; }
+    // Se esse nome já pertence a uma ficha com senha definida pelo mestre,
+    // só deixa entrar como esse personagem com a senha certa — impede que
+    // qualquer um com o código da campanha "vire" o personagem de outro
+    // jogador só digitando o mesmo nome.
+    if(name){
+      let tokensRaw = null;
+      try{ tokensRaw = await safeGet('c'+foundId+'-tokens'); }catch(err){}
+      if(tokensRaw){
+        try{
+          const allTokens = JSON.parse(tokensRaw) || [];
+          const normalized = name.trim().toLowerCase();
+          const protectedTok = allTokens.find(t => !t.isReference && !t.isMapObject && t.claimPassword && (t.name||'').trim().toLowerCase() === normalized);
+          if(protectedTok && protectedTok.claimPassword !== charPass){
+            $err.textContent = 'Esse nome tem senha, e a senha está incorreta (ou em branco).';
+            return;
+          }
+        }catch(err){}
+      }
+    }
     await enterSlot(foundId, 'player', name, color);
   });
 
@@ -12453,6 +12482,10 @@
             '<button type="button" data-size-plus="'+tok.id+'">+</button>' +
             '<button type="button" class="'+(tok.sizeLocked?'toggle-active':'')+'" data-size-lock-toggle="'+tok.id+'" title="'+(tok.sizeLocked?'Destravar tamanho (jogador poderá redimensionar)':'Travar tamanho (jogador não poderá redimensionar)')+'">'+(tok.sizeLocked?'🔒':'🔓')+'</button>' +
           '</div>' +
+          '<div style="margin-top:8px;">' +
+            '<label style="font-size:10px; color:var(--parchment-dim); display:block; margin-bottom:2px;">🔑 Senha pra entrar como esse nome (em branco = sem senha)</label>' +
+            '<input type="text" class="phrase-input" style="font-style:normal; margin-top:0;" placeholder="Sem senha — qualquer um pode digitar este nome" value="'+escapeHtml(tok.claimPassword||'')+'" data-claim-password="'+tok.id+'">' +
+          '</div>' +
           '<div class="token-row-actions">' +
             '<button type="button" data-duplicate="'+tok.id+'" title="Cria uma cópia idêntica, só renomear">Duplicar</button>' +
             '<button type="button" data-edit-image="'+tok.id+'">Trocar imagem</button>' +
@@ -12541,6 +12574,9 @@
     });
     $tokenList.querySelectorAll('[data-name]').forEach(inp=>{
       inp.addEventListener('change', () => renameToken(inp.getAttribute('data-name'), inp.value));
+    });
+    $tokenList.querySelectorAll('[data-claim-password]').forEach(inp=>{
+      inp.addEventListener('change', () => setTokenClaimPassword(inp.getAttribute('data-claim-password'), inp.value));
     });
     $tokenList.querySelectorAll('[data-jump-token]').forEach(img=>{
       img.addEventListener('click', () => jumpToToken(img.getAttribute('data-jump-token')));
@@ -15229,6 +15265,35 @@
   let pendingNewMapDataUrl = null;
   let pendingNewMapAllowedPlayers = [];
 
+  function rotateImageDataUrl(dataUrl, degrees){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const quarterTurn = ((degrees / 90) % 2 + 2) % 2 !== 0; // 90° ou 270°: largura/altura trocam
+        canvas.width = quarterTurn ? img.naturalHeight : img.naturalWidth;
+        canvas.height = quarterTurn ? img.naturalWidth : img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(degrees * Math.PI / 180);
+        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
+  el('btn-new-map-rotate-left').addEventListener('click', async () => {
+    if(!pendingNewMapDataUrl) return;
+    pendingNewMapDataUrl = await rotateImageDataUrl(pendingNewMapDataUrl, -90);
+    el('new-map-preview-img').src = pendingNewMapDataUrl;
+  });
+  el('btn-new-map-rotate-right').addEventListener('click', async () => {
+    if(!pendingNewMapDataUrl) return;
+    pendingNewMapDataUrl = await rotateImageDataUrl(pendingNewMapDataUrl, 90);
+    el('new-map-preview-img').src = pendingNewMapDataUrl;
+  });
+
   el('map-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
@@ -15326,6 +15391,16 @@
   });
 
   let pendingReplaceMapDataUrl = null;
+  el('btn-replace-map-rotate-left').addEventListener('click', async () => {
+    if(!pendingReplaceMapDataUrl) return;
+    pendingReplaceMapDataUrl = await rotateImageDataUrl(pendingReplaceMapDataUrl, -90);
+    el('replace-map-preview-img').src = pendingReplaceMapDataUrl;
+  });
+  el('btn-replace-map-rotate-right').addEventListener('click', async () => {
+    if(!pendingReplaceMapDataUrl) return;
+    pendingReplaceMapDataUrl = await rotateImageDataUrl(pendingReplaceMapDataUrl, 90);
+    el('replace-map-preview-img').src = pendingReplaceMapDataUrl;
+  });
   el('map-replace-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
@@ -15396,6 +15471,15 @@
     if(!clean || clean === tok.name) { render(); return; }
     pushUndo();
     tok.name = clean;
+    render();
+    await persistTokens();
+  }
+
+  async function setTokenClaimPassword(id, value){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    const clean = value.trim();
+    if(clean) tok.claimPassword = clean; else delete tok.claimPassword;
     render();
     await persistTokens();
   }
