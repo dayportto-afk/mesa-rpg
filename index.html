@@ -12154,7 +12154,11 @@
     });
     $root.querySelectorAll('[data-phrase-input]').forEach(inp=>{
       inp.addEventListener('change', () => setTokenPhrase(inp.getAttribute('data-phrase-input'), inp.value));
-      autoGrowPhraseInput(inp);
+      // Adiado pro próximo quadro: se o campo acabou de entrar num painel que
+      // ainda está terminando de abrir/animar, medir a altura do texto cedo
+      // demais (antes do navegador aplicar o layout final) dá um valor errado
+      // — o texto fica cortado/embaralhado dentro de uma caixa baixa demais.
+      requestAnimationFrame(() => autoGrowPhraseInput(inp));
       inp.addEventListener('input', () => autoGrowPhraseInput(inp));
     });
     $root.querySelectorAll('[data-raceclass-input]').forEach(inp=>{
