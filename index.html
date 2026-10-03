@@ -1277,6 +1277,7 @@
   #fog-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:10; }
   #draw-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0; }
   #object-attachment-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:900001; pointer-events:none; }
+  .draw-object-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; }
   #darkness-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:1000001; pointer-events:none; }
   #grid-overlay{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:9; }
 
@@ -3809,6 +3810,7 @@
           <button type="button" id="btn-shape-cone" title="Cone">🔺 Cone</button>
         </div>
         <button type="button" id="btn-draw-measure-toggle" style="width:100%; margin-top:4px;" title="Mostra o tamanho da forma (na mesma unidade configurada pro mapa) enquanto você desenha">📏 Mostrar medida ao desenhar formas</button>
+        <button type="button" id="btn-draw-infront-toggle" style="width:100%; margin-top:4px;" title="Ao desenhar em cima de um objeto de mapa, o traço fica por cima dele em vez de por baixo. Se o objeto tiver imagem alternativa, o traço só aparece enquanto aquela imagem específica estiver sendo exibida.">📌 Desenhar por cima do objeto</button>
         <div id="fog-brush-row">
           <label for="draw-brush">Pincel</label>
           <input type="range" id="draw-brush" min="2" max="80" value="10">
@@ -16387,6 +16389,13 @@
     localStorage.setItem('drawMeasureEnabled', state.drawMeasureEnabled ? '1' : '0');
     el('btn-draw-measure-toggle').classList.toggle('toggle-active', state.drawMeasureEnabled);
   });
+  state.drawInFront = localStorage.getItem('drawInFront') === '1';
+  el('btn-draw-infront-toggle').classList.toggle('toggle-active', state.drawInFront);
+  el('btn-draw-infront-toggle').addEventListener('click', () => {
+    state.drawInFront = !state.drawInFront;
+    localStorage.setItem('drawInFront', state.drawInFront ? '1' : '0');
+    el('btn-draw-infront-toggle').classList.toggle('toggle-active', state.drawInFront);
+  });
   Object.keys(SHAPE_BUTTONS).forEach(shape => {
     el(SHAPE_BUTTONS[shape]).addEventListener('click', () => {
       state.drawShape = shape;
@@ -17398,7 +17407,6 @@
   function redrawObjectAttachmentCanvases(page,inProgressFog){
     if(!page) return;
     document.getElementById('fog-object-canvas')?.remove();
-    document.getElementById('draw-object-canvas')?.remove();
     const canvas=getObjectAttachmentCanvas('object-attachment-canvas',900001);
     if(!canvas) return;
     const ctx=canvas.getContext('2d');
@@ -17492,6 +17500,7 @@
       if(firstToken) $canvas.insertBefore(canvas, firstToken);
       else $canvas.appendChild(canvas);
       redrawDrawCanvas(canvas, page);
+      redrawDrawObjectCanvas(page);
     };
     if(img.complete && img.naturalWidth > 0){ build(); }
     else { img.addEventListener('load', build, { once:true }); }
@@ -17633,6 +17642,16 @@
     drawFreehandStrokeOnCtx(ctx, stroke);
   }
 
+  function drawStrokeVariantMatches(stroke){
+    // Traço preso a um objeto com imagem alternativa só aparece quando a
+    // imagem em que ele foi desenhado é a que está sendo mostrada agora.
+    // Traço sem objeto, ou cujo objeto não tem imagem alternativa (ou é de
+    // antes dessa função existir, sem essa informação salva), sempre aparece.
+    if(!stroke.platformId) return true;
+    const tok = state.tokens.find(t => t.id === stroke.platformId);
+    if(!tok || !tok.altImage || !stroke.platformImageVariant) return true;
+    return (tok.showingAlt ? 'alt' : 'primary') === stroke.platformImageVariant;
+  }
   function redrawDrawCanvas(canvas, page, inProgressStroke){
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -17641,11 +17660,13 @@
     // token no DOM). Traço preso a um objeto do mapa (platformId) acompanha o
     // objeto (segue seu deslocamento ao vivo via remoteLiveCanvasDelta e é
     // realmente movido/rotacionado com ele — ver translateObjectAttachmentLayers
-    // e rotateMapObjectAndContents), mas nunca sobe pra uma camada acima dos
-    // tokens: o desenho fica sempre perto de onde foi usado (objeto ou mapa), e
-    // o token sempre passa por cima dele ao andar.
-    const strokes = ((page&&page.draw&&page.draw.strokes)||[]).slice();
-    if(inProgressStroke) strokes.push(inProgressStroke);
+    // e rotateMapObjectAndContents), mas por padrão não sobe pra uma camada
+    // acima dos tokens: o desenho fica sempre perto de onde foi usado (objeto
+    // ou mapa), e o token sempre passa por cima dele ao andar. Traços com
+    // stroke.inFront=true são a exceção: esses vivem em #draw-object-canvas
+    // (ver redrawDrawObjectCanvas), por cima do objeto a que estão presos.
+    const strokes = ((page&&page.draw&&page.draw.strokes)||[]).filter(s => !s.inFront && drawStrokeVariantMatches(s));
+    if(inProgressStroke && !inProgressStroke.inFront) strokes.push(inProgressStroke);
     strokes.sort((a,b)=>(Number(a.createdAt)||0)-(Number(b.createdAt)||0));
     strokes.forEach(stroke=>{
       const delta=remoteLiveCanvasDelta(stroke.platformId,canvas);
@@ -17653,6 +17674,56 @@
       if(delta) ctx.translate(delta.x,delta.y);
       drawStrokeOnCtx(ctx,stroke);
       ctx.restore();
+    });
+  }
+  function redrawDrawObjectCanvas(page, inProgressStroke){
+    const img = document.getElementById('map-img');
+    // Um traço "por cima do objeto" precisa ficar bem acima só daquele objeto
+    // específico (não de todo mundo) — senão ele passaria por cima das fichas
+    // de personagem também. Por isso cada objeto com traço assim ganha seu
+    // próprio canvas, posicionado logo acima da camada (zOrder) daquele
+    // objeto: objeto → desenho → fichas (que normalmente têm zOrder maior) →
+    // névoa (sempre por cima de tudo).
+    const inFrontStrokes = (page && page.draw && Array.isArray(page.draw.strokes)) ? page.draw.strokes.filter(s => s.inFront) : [];
+    if(inProgressStroke && inProgressStroke.inFront) inFrontStrokes.push(inProgressStroke);
+    const byPlatform = new Map();
+    inFrontStrokes.forEach(s => {
+      const key = s.platformId || '__none__';
+      if(!byPlatform.has(key)) byPlatform.set(key, []);
+      byPlatform.get(key).push(s);
+    });
+    document.querySelectorAll('[data-draw-object-canvas]').forEach(c => {
+      if(!byPlatform.has(c.getAttribute('data-draw-object-canvas'))) c.remove();
+    });
+    if(!img || !page) return;
+    byPlatform.forEach((strokes, key) => {
+      const platform = key !== '__none__' ? state.tokens.find(t => t.id === key) : null;
+      const zOrder = platform ? clampStageZOrder(tokenPos(platform).zOrder) : MAP_LAYER_FLOOR_Z;
+      const canvasId = 'draw-object-canvas-' + key;
+      let canvas = document.getElementById(canvasId);
+      if(!canvas){
+        canvas = document.createElement('canvas');
+        canvas.id = canvasId;
+        canvas.className = 'draw-object-canvas';
+        canvas.setAttribute('data-draw-object-canvas', key);
+        $canvas.appendChild(canvas);
+      }
+      const width = img.naturalWidth || 1200, height = img.naturalHeight || 800;
+      if(canvas.width !== width) canvas.width = width;
+      if(canvas.height !== height) canvas.height = height;
+      canvas.style.zIndex = String(zOrder + 0.5);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      strokes
+        .filter(drawStrokeVariantMatches)
+        .sort((a,b)=>(Number(a.createdAt)||0)-(Number(b.createdAt)||0))
+        .forEach(stroke=>{
+          const delta=remoteLiveCanvasDelta(stroke.platformId,canvas);
+          ctx.save();
+          if(delta) ctx.translate(delta.x,delta.y);
+          drawStrokeOnCtx(ctx,stroke);
+          ctx.restore();
+        });
     });
   }
 
@@ -17879,15 +17950,31 @@
       state.drawStroke = { canvas, page, mode:'erase' };
       redrawDrawCanvas(canvas, page);
     } else if(state.drawShape !== 'freehand'){
-      const stroke = { id:newId('dr'), author: myDrawAuthorName(), createdAt:Date.now(), platformId:mapObjectIdAtCanvasPoint(pt,canvas), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape: state.drawShape, start:{x:pt.x, y:pt.y}, end:{x:pt.x, y:pt.y} };
+      const platformMeta = drawPlatformMetaAt(pt, canvas);
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), createdAt:Date.now(), ...platformMeta, color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape: state.drawShape, start:{x:pt.x, y:pt.y}, end:{x:pt.x, y:pt.y} };
       state.drawStroke = { canvas, page, mode:'shape', stroke };
       redrawDrawCanvas(canvas, page, stroke);
+      redrawDrawObjectCanvas(page, stroke);
     } else {
-      const stroke = { id:newId('dr'), author: myDrawAuthorName(), createdAt:Date.now(), platformId:mapObjectIdAtCanvasPoint(pt,canvas), color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape:'freehand', points:[{x:pt.x, y:pt.y}] };
+      const platformMeta = drawPlatformMetaAt(pt, canvas);
+      const stroke = { id:newId('dr'), author: myDrawAuthorName(), createdAt:Date.now(), ...platformMeta, color: state.drawColor, opacity: state.drawOpacity, brush: state.drawBrush, shape:'freehand', points:[{x:pt.x, y:pt.y}] };
       state.drawStroke = { canvas, page, mode:'pen', stroke };
       redrawDrawCanvas(canvas, page, stroke);
+      redrawDrawObjectCanvas(page, stroke);
     }
     $mapViewport.setPointerCapture(e.pointerId);
+  }
+  function drawPlatformMetaAt(pt, canvas){
+    const platformId = mapObjectIdAtCanvasPoint(pt, canvas);
+    if(!platformId) return { platformId: null };
+    const tok = state.tokens.find(t => t.id === platformId);
+    const meta = { platformId };
+    // Se o objeto tiver imagem alternativa, o traço lembra qual das duas
+    // estava sendo mostrada no momento — ao alternar a aparência depois, só os
+    // traços feitos naquela imagem específica aparecem.
+    if(tok && tok.altImage) meta.platformImageVariant = tok.showingAlt ? 'alt' : 'primary';
+    if(state.drawInFront) meta.inFront = true;
+    return meta;
   }
   function moveDrawPaint(e){
     const s = state.drawStroke;
@@ -17907,15 +17994,18 @@
     if(s.mode === 'erase'){
       eraseNear(s.page, pt);
       redrawDrawCanvas(s.canvas, s.page);
+      redrawDrawObjectCanvas(s.page);
     } else if(s.mode === 'move'){
       const dx = pt.x - s.startPt.x;
       const dy = pt.y - s.startPt.y;
       s.stroke.start = { x: s.origStart.x + dx, y: s.origStart.y + dy };
       s.stroke.end = { x: s.origEnd.x + dx, y: s.origEnd.y + dy };
       redrawDrawCanvas(s.canvas, s.page);
+      redrawDrawObjectCanvas(s.page);
     } else if(s.mode === 'shape'){
       s.stroke.end = {x:pt.x, y:pt.y};
       redrawDrawCanvas(s.canvas, s.page, s.stroke);
+      redrawDrawObjectCanvas(s.page, s.stroke);
       if(state.drawMeasureEnabled) updateDrawShapeMeasureLabel(s, pt);
     } else {
       // "Zona morta": só conta como um ponto novo se o mouse realmente se moveu
@@ -17929,6 +18019,7 @@
       if(distFromLast >= 4){
         s.stroke.points.push({x:pt.x, y:pt.y});
         redrawDrawCanvas(s.canvas, s.page, s.stroke);
+        redrawDrawObjectCanvas(s.page, s.stroke);
       }
     }
   }
