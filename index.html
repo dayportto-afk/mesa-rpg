@@ -5001,6 +5001,13 @@
 
   el('music-indicator').addEventListener('click', (e) => {
     if(e.target.closest('#music-mute-toggle')) return;
+    if(!effectiveMaster()){
+      // Jogador só pode mutar o próprio áudio — clicar fora do botão de mutar
+      // não deve abrir a ferramenta completa (upload, faixas, volume de todo
+      // mundo etc.), que é exclusiva do mestre.
+      el('music-mute-toggle').click();
+      return;
+    }
     if(typeof openMusicPanel === 'function') openMusicPanel();
     else el('music-toggle').click();
   });
@@ -7095,6 +7102,12 @@
     el('send-image-input').value = '';
   });
 
+  el('send-text-input').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      el('btn-send-submit').click();
+    }
+  });
   el('btn-send-submit').addEventListener('click', async () => {
     const $input = el('send-text-input');
     const hasText = $input.textContent.trim().length > 0;
