@@ -17697,8 +17697,21 @@
     });
     if(!img || !page) return;
     byPlatform.forEach((strokes, key) => {
-      const platform = key !== '__none__' ? state.tokens.find(t => t.id === key) : null;
-      const zOrder = platform ? clampStageZOrder(tokenPos(platform).zOrder) : MAP_LAYER_FLOOR_Z;
+      // Lê a camada (z-index) que o próprio objeto já está usando na tela,
+      // em vez de recalcular por conta própria — assim bate certinho mesmo
+      // em casos especiais (objeto "trazido para frente", etc.), já que é
+      // exatamente o valor real que o navegador está aplicando nele.
+      let zOrder = MAP_LAYER_FLOOR_Z;
+      if(key !== '__none__'){
+        const platformEl = document.querySelector('.token[data-id="'+key+'"]');
+        if(platformEl && platformEl.style.zIndex){
+          const live = parseFloat(platformEl.style.zIndex);
+          if(Number.isFinite(live)) zOrder = live;
+        } else {
+          const platform = state.tokens.find(t => t.id === key);
+          if(platform) zOrder = clampStageZOrder(tokenPos(platform).zOrder);
+        }
+      }
       const canvasId = 'draw-object-canvas-' + key;
       let canvas = document.getElementById(canvasId);
       if(!canvas){
