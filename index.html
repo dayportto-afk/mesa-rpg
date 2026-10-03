@@ -12784,10 +12784,29 @@
         });
       });
       $bar.querySelectorAll('[data-rich-color]').forEach(input => {
-        input.addEventListener('mousedown', (e) => e.stopPropagation());
+        // Não dá pra usar preventDefault aqui (isso impediria o seletor de cor
+        // nativo de abrir), então a seleção de texto do editor se perde assim
+        // que o clique acontece. Guardamos o trecho selecionado no momento do
+        // clique e recolocamos ele de volta na hora de aplicar a cor.
+        let savedRange = null;
+        input.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          const $target = getTarget();
+          const sel = window.getSelection();
+          if($target && sel && sel.rangeCount > 0 && $target.contains(sel.anchorNode)){
+            savedRange = sel.getRangeAt(0).cloneRange();
+          } else {
+            savedRange = null;
+          }
+        });
         input.addEventListener('input', () => {
           const $target = getTarget(); if(!$target) return;
           $target.focus();
+          if(savedRange){
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(savedRange);
+          }
           try{ document.execCommand('styleWithCSS', false, true); }catch(e){}
           document.execCommand('foreColor', false, input.value);
           $target.dispatchEvent(new Event('input', { bubbles:true }));
