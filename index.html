@@ -2085,6 +2085,13 @@
   .chat-bubble-author{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--parchment-dim); letter-spacing:0.5px; margin-bottom:3px; }
   .chat-bubble-text{ font-family:var(--ui-font,'EB Garamond',serif); font-size:14px; color:var(--parchment); line-height:1.4; white-space:pre-wrap; }
   .chat-bubble-image{ max-width:100%; border-radius:5px; margin-top:4px; cursor:zoom-in; user-select:none; -webkit-user-drag:none; -webkit-tap-highlight-color:transparent; }
+  .chat-bubble-image-wrap{ position:relative; display:inline-block; max-width:100%; }
+  .chat-bubble-image-delete{
+    position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:50%;
+    background:rgba(20,10,6,.85); border:1px solid #c0392b; color:#ffb3a7; font-size:13px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; line-height:1;
+  }
+  .chat-bubble-image-delete:hover{ background:#c0392b; color:#fff; }
 
   #thread-compose-bar{ border-top:1px solid var(--line); padding:10px 12px; flex-shrink:0; }
   #thread-compose-row{ display:flex; align-items:flex-end; gap:8px; }
@@ -4741,13 +4748,18 @@
     if(storedVol !== null) soundVolume = Math.max(0, Math.min(1, parseFloat(storedVol)));
   }catch(e){}
 
+  // Alguns sons são naturalmente mais altos/incômodos que outros em relação ao
+  // volume geral configurado — a notificação de chat toca toda hora, então fica
+  // bem mais baixa (metade) que o volume normal.
+  const SOUND_VOLUME_MULTIPLIERS = { messageNotify: 0.5 };
   function playSound(key){
     if(soundMuted || soundVolume <= 0) return;
     const src = SOUND_URLS[key];
     if(!src) return;
     try{
       const audio = new Audio(src);
-      audio.volume = soundVolume;
+      const mult = SOUND_VOLUME_MULTIPLIERS[key] != null ? SOUND_VOLUME_MULTIPLIERS[key] : 1;
+      audio.volume = Math.max(0, Math.min(1, soundVolume * mult));
       audio.play().catch(() => {});
     }catch(e){}
   }
@@ -6167,9 +6179,13 @@
     const me = myDisplayName();
     el('thread-messages').innerHTML = messages.map(m => {
       const mine = m.from === me;
+      const canDeleteImage = m.kind === 'image' && m.image && (mine || effectiveMaster());
       let body = '';
       if(m.kind === 'image' && m.image){
-        body += '<img class="chat-bubble-image" src="'+m.image+'" alt="" data-chat-image="1" draggable="false">';
+        body += '<div class="chat-bubble-image-wrap">' +
+          '<img class="chat-bubble-image" src="'+m.image+'" alt="" data-chat-image="1" draggable="false">' +
+          (canDeleteImage ? '<button type="button" class="chat-bubble-image-delete" data-delete-send-image="'+m.id+'" title="Excluir esta imagem">✕</button>' : '') +
+        '</div>';
         if(m.text) body += '<div class="chat-bubble-text">'+sanitizeRichHtml(m.text)+'</div>';
       } else {
         body = '<div class="chat-bubble-text">'+sanitizeRichHtml(m.text)+'</div>';
@@ -6188,7 +6204,23 @@
         el('handout-lightbox').classList.add('show');
       });
     });
+    el('thread-messages').querySelectorAll('[data-delete-send-image]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteSendMessage(btn.getAttribute('data-delete-send-image'));
+      });
+    });
     el('thread-messages').scrollTop = el('thread-messages').scrollHeight;
+  }
+
+  async function deleteSendMessage(id){
+    if(!confirm('Excluir esta imagem? Isso apaga pra todo mundo que vê essa conversa e não pode ser desfeito.')) return;
+    state.sends = state.sends.filter(e => e.id !== id);
+    lastSendsSnapshot = JSON.stringify({ list: state.sends });
+    renderThreadMessages();
+    renderThreadList();
+    renderHandoutGallery();
+    await safeSet(slotKey('sends'), { list: state.sends });
   }
 
   function beginThreadView(thread){
