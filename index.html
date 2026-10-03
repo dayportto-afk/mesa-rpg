@@ -6221,10 +6221,10 @@
     el('thread-back-btn').style.display = 'inline-block';
     el('send-panel-title').textContent = 'Nova conversa';
     el('thread-recipients-picker').style.display = 'block';
-    el('send-public').style.display = effectiveMaster() ? 'block' : 'none';
+    el('send-public').style.display = 'block';
     el('send-hint').textContent = effectiveMaster()
       ? 'Adicione destinatários, ou envie pública para todos.'
-      : 'Adicione o Mestre e/ou outro(s) jogador(es). Visível só para vocês e o mestre.';
+      : 'Adicione o Mestre e/ou outro(s) jogador(es), ou envie pública pra todo mundo.';
     renderTargetChips();
     el('send-target-input').value = '';
     el('thread-messages').innerHTML = '';
