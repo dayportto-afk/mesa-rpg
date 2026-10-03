@@ -10363,9 +10363,22 @@
     $canvas.appendChild(div);
     setTimeout(() => { div.remove(); }, 5000);
   }
+  // No máximo 5 pings a cada 10 segundos (por pessoa), pra evitar spam no mapa.
+  let recentPingTimestamps = [];
+  function pingRateLimited(){
+    const now = Date.now();
+    recentPingTimestamps = recentPingTimestamps.filter(ts => now - ts < 10000);
+    if(recentPingTimestamps.length >= 5) return true;
+    recentPingTimestamps.push(now);
+    return false;
+  }
   async function placePing(e){
     const page = currentPage();
     if(!page) return;
+    if(pingRateLimited()){
+      showToast('Calma aí! Só dá pra apontar 5 vezes a cada 10 segundos.');
+      return;
+    }
     const pt = canvasPointPct(e);
     const entry = { x: pt.x, y: pt.y, ts: Date.now() };
     lastPingTs = entry.ts;
