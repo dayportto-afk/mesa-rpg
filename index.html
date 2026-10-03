@@ -9066,6 +9066,16 @@
     state.meta.playersFrozen = !state.meta.playersFrozen;
     render();
     await safeSet(slotKey('meta'), state.meta);
+    if(state.meta.playersFrozen){
+      // Guarda uma "foto" de tudo (páginas + fichas) no instante do
+      // congelamento. Sem isso, um jogador que desse F5 enquanto congelado
+      // carregava os dados atuais direto do banco — já que o congelamento só
+      // bloqueia atualizações em tempo real, não o carregamento inicial da
+      // página — e via as mudanças que deveriam estar escondidas.
+      await safeSet(slotKey('freeze-snapshot'), { pages: state.pages, tokens: state.tokens, currentPageId: state.currentPageId });
+    } else {
+      await safeDelete(slotKey('freeze-snapshot'));
+    }
   }
   el('btn-freeze-toggle').addEventListener('click', toggleFreeze);
   el('btn-freeze-banner-release').addEventListener('click', toggleFreeze);
@@ -9322,6 +9332,18 @@
     if(!Array.isArray(state.meta.customStatuses)) state.meta.customStatuses = [];
     if(!Array.isArray(state.meta.iconRailOrder)) state.meta.iconRailOrder = [];
     applyIconRailOrder();
+    // Se os jogadores estiverem congelados, quem (re)carrega a página agora
+    // não deve ver o estado atual — e sim a "foto" de quando o congelamento
+    // começou. O congelamento em si só bloqueia atualizações em tempo real;
+    // sem isso, dar F5 já buscava os dados mais recentes direto do banco,
+    // ignorando o congelamento por completo.
+    let freezeSnapshot = null;
+    if(!effectiveMaster() && state.meta.playersFrozen){
+      try{
+        const freezeRaw = await safeGet(slotKey('freeze-snapshot'));
+        if(freezeRaw) freezeSnapshot = JSON.parse(freezeRaw);
+      }catch(e){}
+    }
     if(tokensRaw){ try{ state.tokens = JSON.parse(tokensRaw).list || []; lastTokensSnapshot = tokensRaw; }catch(e){} }
     if(diceLogRaw){ try{ state.diceRolls = JSON.parse(diceLogRaw).list || []; lastDiceLogSnapshot = diceLogRaw; lastSeenRollId = state.diceRolls[0] ? state.diceRolls[0].id : 'NONE'; }catch(e){} }
     if(journalRaw){ try{ state.journal = JSON.parse(journalRaw).list || []; lastJournalSnapshot = journalRaw; }catch(e){} }
@@ -9379,6 +9401,13 @@
     state.currentPageId = (index.currentPageId && pages.some(p=>p.id===index.currentPageId))
       ? index.currentPageId
       : (pages.length ? pages[pages.length-1].id : null);
+    if(freezeSnapshot && Array.isArray(freezeSnapshot.pages)){
+      state.pages = freezeSnapshot.pages;
+      if(Array.isArray(freezeSnapshot.tokens)) state.tokens = freezeSnapshot.tokens;
+      state.currentPageId = (freezeSnapshot.currentPageId && state.pages.some(p=>p.id===freezeSnapshot.currentPageId))
+        ? freezeSnapshot.currentPageId
+        : (state.pages.length ? state.pages[state.pages.length-1].id : null);
+    }
     await loadPageCombatData(state.currentPageId, legacyInitRaw, legacyCombatHistoryRaw);
   }
 
