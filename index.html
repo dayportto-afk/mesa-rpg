@@ -10033,6 +10033,19 @@
       filter.innerHTML = '<option value="">Todas as pastas</option><option value="__none">Sem pasta</option>' + folderList().map(f=>'<option value="'+f.id+'">'+escapeHtml(f.name)+'</option>').join('');
       if([...filter.options].some(o=>o.value===current)) filter.value=current;
     }
+    const putAllBtn = el('btn-tokens-put-all-map');
+    const takeAllBtn = el('btn-tokens-take-all-map');
+    if(putAllBtn && takeAllBtn){
+      const folderVal = filter ? (filter.value || '') : '';
+      const folderName = folderVal === '__none' ? 'sem pasta' : (folderVal ? (folderList().find(f=>f.id===folderVal)||{}).name : '');
+      if(folderVal){
+        putAllBtn.textContent = '＋ Colocar as da pasta "'+folderName+'" na mesa';
+        takeAllBtn.textContent = '− Retirar as da pasta "'+folderName+'" da mesa';
+      } else {
+        putAllBtn.textContent = '＋ Colocar todos na mesa';
+        takeAllBtn.textContent = '− Retirar todos da mesa';
+      }
+    }
     const sl = el('custom-status-list');
     if(sl){
       sl.innerHTML = customStatusList().length ? customStatusList().map(st => '<div class="custom-status-item"><span class="custom-status-preview" style="border:1px solid '+escapeHtml(st.color||'#e2a53f')+'">'+escapeHtml(st.icon||'●')+'</span><span class="custom-status-name">'+escapeHtml(st.name)+'</span><button type="button" class="danger" data-custom-status-delete="'+st.id+'">✕</button></div>').join('') : '<div class="hint">Nenhum status personalizado.</div>';
@@ -13621,14 +13634,23 @@
     if(d.liveMoveStarted) finishLocalLiveMove(Promise.allSettled(saveTasks));
   }
 
+  function bulkMoveFolderOk(tok){
+    // Respeita a pasta selecionada no filtro da lista de fichas: com uma
+    // pasta específica escolhida, "Colocar/Remover todos" age só sobre as
+    // fichas daquela pasta, não sobre a campanha inteira.
+    const folderFilter = el('token-folder-filter') ? el('token-folder-filter').value : '';
+    if(!folderFilter) return true;
+    if(folderFilter === '__none') return !tok.folderId;
+    return tok.folderId === folderFilter;
+  }
   function tokensOnCurrentPageForBulkMove(){
     if(!state.currentPageId) return [];
-    return state.tokens.filter(tok => !tok.isReference && !tok.isMapObject && isTokenOnPage(tok, state.currentPageId));
+    return state.tokens.filter(tok => !tok.isReference && !tok.isMapObject && isTokenOnPage(tok, state.currentPageId) && bulkMoveFolderOk(tok));
   }
 
   function tokensOffCurrentPageForBulkAdd(){
     if(!state.currentPageId) return [];
-    return state.tokens.filter(tok => !tok.isReference && !tok.isMapObject && !isTokenOnPage(tok, state.currentPageId));
+    return state.tokens.filter(tok => !tok.isReference && !tok.isMapObject && !isTokenOnPage(tok, state.currentPageId) && bulkMoveFolderOk(tok));
   }
 
   function bulkStagePosition(index){
