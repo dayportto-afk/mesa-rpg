@@ -17724,7 +17724,11 @@
       const width = img.naturalWidth || 1200, height = img.naturalHeight || 800;
       if(canvas.width !== width) canvas.width = width;
       if(canvas.height !== height) canvas.height = height;
-      canvas.style.zIndex = String(zOrder + 0.5);
+      // z-index só aceita número inteiro — um valor com vírgula (ex. "1.5")
+      // é rejeitado silenciosamente pelo navegador (sem erro, só não aplica
+      // nada), o que fazia essa camada nunca subir de verdade. Usamos o
+      // próximo inteiro em vez de meio-inteiro.
+      canvas.style.zIndex = String(Math.floor(zOrder) + 1);
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       strokes
