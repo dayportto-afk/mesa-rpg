@@ -10178,10 +10178,35 @@
     renderTokenOrganizationTools(); renderTokenList();
     showToast('Pasta excluída. As fichas foram movidas para Sem pasta.');
   }
-  async function toggleCustomStatus(tokenId,statusId){ const tok=state.tokens.find(t=>t.id===tokenId); if(!tok)return; if(!Array.isArray(tok.customStatuses))tok.customStatuses=[]; const i=tok.customStatuses.indexOf(statusId); if(i>=0)tok.customStatuses.splice(i,1);else tok.customStatuses.push(statusId); await persistTokens(); render(); }
+  async function toggleCustomStatus(tokenId,statusId){
+    const tok=state.tokens.find(t=>t.id===tokenId); if(!tok)return;
+    if(!Array.isArray(tok.customStatuses))tok.customStatuses=[];
+    const i=tok.customStatuses.indexOf(statusId);
+    if(i>=0){
+      pushUndo();
+      tok.customStatuses.splice(i,1);
+      if(tok.customStatusDurations) delete tok.customStatusDurations[statusId];
+    } else {
+      const st=customStatusList().find(s=>s.id===statusId);
+      // Mesma lógica de duração opcional em turnos já usada nas condições padrão.
+      const entered=prompt('Duração de "'+(st?st.name:'status')+'" em turnos (conta regressiva a cada "Próximo turno"). Deixe vazio para efeito indefinido.','');
+      if(entered===null) return;
+      pushUndo();
+      tok.customStatuses.push(statusId);
+      const turns=entered.trim()===''?null:Math.max(1,Math.round(Number(entered))||1);
+      if(!tok.customStatusDurations) tok.customStatusDurations={};
+      if(turns) tok.customStatusDurations[statusId]=turns; else delete tok.customStatusDurations[statusId];
+    }
+    await persistTokens(); render();
+  }
   function customStatusBadgesList(tok){
     const active=Array.isArray(tok.customStatuses)?tok.customStatuses:[];
-    return active.map(id=>{ const st=customStatusList().find(s=>s.id===id); return st?'<div class="token-condition custom-condition" style="--status-color:'+escapeHtml(st.color||'#e2a53f')+'" title="'+escapeHtml(st.name)+'">'+escapeHtml(st.icon||'●')+'</div>':''; }).filter(Boolean);
+    return active.map(id=>{
+      const st=customStatusList().find(s=>s.id===id); if(!st) return '';
+      const turns=tok.customStatusDurations&&tok.customStatusDurations[id];
+      const turnsBadge=turns?'<span class="token-condition-turns">'+turns+'</span>':'';
+      return '<div class="token-condition custom-condition" style="--status-color:'+escapeHtml(st.color||'#e2a53f')+'" title="'+escapeHtml(st.name)+(turns?' — '+turns+' turno(s) restante(s)':'')+'">'+escapeHtml(st.icon||'●')+turnsBadge+'</div>';
+    }).filter(Boolean);
   }
   function customStatusControlsMarkup(tok){
     if(!customStatusList().length) return '';
@@ -12338,19 +12363,23 @@
       inp.addEventListener('change', () => { const [id,key] = inp.getAttribute('data-pool-max').split(':'); setPoolMax(id, key, inp.value); });
     });
     $root.querySelectorAll('[data-pool-heal]').forEach(btn=>{
-      btn.addEventListener('click', () => {
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
         const composite = btn.getAttribute('data-pool-heal');
         const [id,key] = composite.split(':');
         const amountInp = $root.querySelector('[data-pool-amount="'+composite+'"]');
+        if(!amountInp) return;
         const amount = parseInt(amountInp.value, 10);
         if(!isNaN(amount) && amount > 0){ applyPoolDelta(id, key, amount); amountInp.value = ''; }
       });
     });
     $root.querySelectorAll('[data-pool-damage]').forEach(btn=>{
-      btn.addEventListener('click', () => {
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
         const composite = btn.getAttribute('data-pool-damage');
         const [id,key] = composite.split(':');
         const amountInp = $root.querySelector('[data-pool-amount="'+composite+'"]');
+        if(!amountInp) return;
         const amount = parseInt(amountInp.value, 10);
         if(!isNaN(amount) && amount > 0){ applyPoolDelta(id, key, -amount); amountInp.value = ''; }
       });
@@ -14542,8 +14571,21 @@
     const tokens=ids.map(id=>state.tokens.find(t=>t.id===id)).filter(t=>t&&!t.isReference&&!t.isMapObject);
     if(!tokens.length)return;
     const allActive=tokens.every(t=>Array.isArray(t.customStatuses)&&t.customStatuses.includes(statusId));
+    let turns=null;
+    if(!allActive){
+      const st=customStatusList().find(s=>s.id===statusId);
+      const entered=prompt('Duração de "'+(st?st.name:'status')+'" em turnos para '+tokens.length+' selecionado(s). Deixe vazio para efeito indefinido.','');
+      if(entered===null)return;
+      turns=entered.trim()===''?null:Math.max(1,Math.round(Number(entered))||1);
+    }
     pushUndo();
-    tokens.forEach(tok=>{if(!Array.isArray(tok.customStatuses))tok.customStatuses=[];const index=tok.customStatuses.indexOf(statusId);if(allActive){if(index>=0)tok.customStatuses.splice(index,1);}else if(index<0)tok.customStatuses.push(statusId);});
+    tokens.forEach(tok=>{
+      if(!Array.isArray(tok.customStatuses))tok.customStatuses=[];
+      if(!tok.customStatusDurations)tok.customStatusDurations={};
+      const index=tok.customStatuses.indexOf(statusId);
+      if(allActive){ if(index>=0)tok.customStatuses.splice(index,1); delete tok.customStatusDurations[statusId]; }
+      else{ if(index<0)tok.customStatuses.push(statusId); if(turns)tok.customStatusDurations[statusId]=turns; else delete tok.customStatusDurations[statusId]; }
+    });
     render();await persistTokens();
   }
 
@@ -14553,10 +14595,10 @@
   // então várias podem estar ativas e expirar em momentos diferentes.
   async function tickConditionDurations(tokenId){
     const tok = state.tokens.find(t => t.id === tokenId);
-    if(!tok || !tok.conditionDurations) return;
+    if(!tok || (!tok.conditionDurations && !tok.customStatusDurations)) return;
     const expired = [];
     let changed = false;
-    Object.keys(tok.conditionDurations).forEach(key => {
+    if(tok.conditionDurations) Object.keys(tok.conditionDurations).forEach(key => {
       const remaining = Math.max(0,(Number(tok.conditionDurations[key])||1)-1);
       changed = true;
       if(remaining <= 0){
@@ -14566,6 +14608,18 @@
         expired.push(c?c.label:key);
       } else {
         tok.conditionDurations[key] = remaining;
+      }
+    });
+    if(tok.customStatusDurations) Object.keys(tok.customStatusDurations).forEach(key => {
+      const remaining = Math.max(0,(Number(tok.customStatusDurations[key])||1)-1);
+      changed = true;
+      if(remaining <= 0){
+        delete tok.customStatusDurations[key];
+        if(Array.isArray(tok.customStatuses)){ const i=tok.customStatuses.indexOf(key); if(i>=0) tok.customStatuses.splice(i,1); }
+        const st = customStatusList().find(s => s.id === key);
+        expired.push(st?st.name:key);
+      } else {
+        tok.customStatusDurations[key] = remaining;
       }
     });
     // Antes, só salvava e atualizava a tela quando uma condição EXPIRAVA de
@@ -14608,7 +14662,8 @@
     const customHtml=customs.length
       ? ('<div class="conditions-picker-divider">Personalizadas</div><div class="condition-chip-row">'+customs.map(st=>{
           const active=tokens.every(t=>Array.isArray(t.customStatuses)&&t.customStatuses.includes(st.id));
-          return '<button type="button" class="condition-chip'+(active?' toggle-active':'')+'" data-picker-custom-status="'+st.id+'" title="'+escapeHtml(st.name)+'" style="border-color:'+escapeHtml(st.color||'#e2a53f')+'">'+escapeHtml(st.icon||'●')+'</button>';
+          const turns=tokens.length===1&&active&&tok.customStatusDurations&&tok.customStatusDurations[st.id];
+          return '<button type="button" class="condition-chip'+(active?' toggle-active':'')+'" data-picker-custom-status="'+st.id+'" title="'+escapeHtml(st.name)+(turns?' — '+turns+' turno(s) restante(s)':'')+'" style="border-color:'+escapeHtml(st.color||'#e2a53f')+'">'+escapeHtml(st.icon||'●')+(turns?'<span class="condition-chip-turns">'+turns+'</span>':'')+'</button>';
         }).join('')+'</div>')
       : '<div class="conditions-picker-divider">Personalizadas</div><div class="conditions-picker-empty">Nenhuma criada ainda — dá pra criar em Fichas → Status personalizados.</div>';
     picker.innerHTML='<div class="conditions-picker-title">🩹 Condições — '+(tokens.length>1?tokens.length+' selecionados':escapeHtml(tok.name))+'</div><div class="condition-chip-row">'+builtIn+'</div>'+customHtml;
