@@ -1612,6 +1612,13 @@
   .initiative-entry .initiative-name{ flex:1; font-size:14px; color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .initiative-entry .initiative-score{ font-family:'Cinzel', serif; font-size:16px; color:var(--amber-bright); min-width:24px; text-align:center; flex-shrink:0; }
   .initiative-entry .initiative-remove{ padding:3px 7px; font-size:9px; flex-shrink:0; }
+  .initiative-reorder{ display:flex; flex-direction:column; gap:1px; flex-shrink:0; }
+  .initiative-reorder .initiative-move{ padding:0 5px; font-size:8px; line-height:1.5; }
+  .initiative-reorder .initiative-move:disabled{ opacity:.3; cursor:default; }
+  .initiative-entry .initiative-score-edit{
+    font-family:'Cinzel', serif; font-size:14px; color:var(--amber-bright); width:44px; text-align:center;
+    flex-shrink:0; background:#0c0906; border:1px solid var(--line); border-radius:3px; padding:3px 2px;
+  }
   .initiative-turn-tag{ font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--amber-bright); letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
 
   #combat-history-wrap{ border-top:1px solid var(--line); padding-top:12px; margin-top:4px; }
@@ -4033,6 +4040,10 @@
             <input type="color" id="initiative-turn-color" value="#3fd0e2">
           </div>
           <div class="hint">Só afeta o brilho que marca o token de quem está na vez — não muda o "Destaque" da aparência geral da campanha.</div>
+        </div>
+        <div id="initiative-player-controls" style="display:none;">
+          <button type="button" id="btn-initiative-roll-mine" class="primary" style="width:100%;">🎲 Rolar minha iniciativa</button>
+          <div class="hint">Rola 1d20 e te coloca (ou te atualiza, se já estiver) na ordem de combate. O mestre pode ajustar o número depois se houver algum modificador.</div>
         </div>
         <div id="initiative-current-turn-box">
           <img id="initiative-current-turn-image" src="" alt="">
@@ -7625,7 +7636,65 @@
   }
 
   function sortedInitiative(){
-    return [...state.initiative.list].sort((a,b) => b.score - a.score);
+    // Não reordena mais sozinho a cada chamada — a ordem do array
+    // (state.initiative.list) agora é a ordem de turno "oficial", pra dar pra
+    // reposicionar manualmente (jogadores trocando entre si, ou a cena
+    // pedindo) sem a lista "voltar" pra ordem por número sozinha.
+    return [...state.initiative.list];
+  }
+  function insertInitiativeEntrySorted(list, entry){
+    const idx = list.findIndex(e => e.score < entry.score);
+    if(idx === -1) list.push(entry); else list.splice(idx, 0, entry);
+  }
+  async function setInitiativeScore(entryId, value){
+    if(!effectiveMaster()) return;
+    const list = state.initiative.list;
+    const idx = list.findIndex(e => e.id === entryId);
+    if(idx === -1) return;
+    let score = parseInt(value, 10);
+    if(isNaN(score)) score = 0;
+    const [entry] = list.splice(idx, 1);
+    entry.score = score;
+    insertInitiativeEntrySorted(list, entry);
+    renderInitiativeList();
+    renderInitiativeHud();
+    renderTokens();
+    await persistInitiative();
+  }
+  async function moveInitiativeEntry(entryId, direction){
+    if(!effectiveMaster()) return;
+    const list = state.initiative.list;
+    const idx = list.findIndex(e => e.id === entryId);
+    if(idx === -1) return;
+    const newIdx = idx + direction;
+    if(newIdx < 0 || newIdx >= list.length) return;
+    const [entry] = list.splice(idx, 1);
+    list.splice(newIdx, 0, entry);
+    renderInitiativeList();
+    renderInitiativeHud();
+    renderTokens();
+    await persistInitiative();
+  }
+  async function rerollMyInitiative(){
+    if(effectiveMaster()) return;
+    const me = (state.playerName||'').trim().toLowerCase();
+    const myToken = state.tokens.find(t => !t.isReference && !t.isMapObject && isTokenOnPage(t, state.currentPageId) && (t.name||'').trim().toLowerCase() === me);
+    if(!myToken){ showToast('Não encontrei sua ficha nesta página.'); return; }
+    const roll = rollOneDie(20);
+    const list = state.initiative.list;
+    const idx = list.findIndex(e => e.tokenId === myToken.id);
+    if(idx === -1){
+      await addToInitiative(myToken.id, roll);
+    } else {
+      const [entry] = list.splice(idx, 1);
+      entry.score = roll;
+      insertInitiativeEntrySorted(list, entry);
+      renderInitiativeList();
+      renderInitiativeHud();
+      renderTokens();
+      await persistInitiative();
+    }
+    showToast('Você rolou '+roll+' de iniciativa!');
   }
 
   function renderInitiativeHud(){
@@ -7654,6 +7723,7 @@
     updatePassTurnButton();
     applyInitiativeTurnColor();
     el('initiative-master-controls').style.display = effectiveMaster() && combatVisible ? 'block' : 'none';
+    if(el('initiative-player-controls')) el('initiative-player-controls').style.display = !effectiveMaster() && combatVisible ? 'block' : 'none';
     if(effectiveMaster()){
       el('initiative-turn-color').value = (state.initiative && state.initiative.turnColor) || DEFAULT_INITIATIVE_TURN_COLOR;
       const sel = el('initiative-token-select');
@@ -7668,13 +7738,23 @@
       $list.innerHTML = '<div class="hint">Nenhum combatente na iniciativa ainda.</div>';
       return;
     }
-    $list.innerHTML = sorted.map(entry => {
+    $list.innerHTML = sorted.map((entry, idx) => {
       const isActive = entry.id === state.initiative.activeId;
+      const scoreHtml = effectiveMaster()
+        ? '<input type="number" class="initiative-score-edit" value="'+entry.score+'" data-init-score="'+entry.id+'" title="Ajustar o número (ex.: modificador esquecido)">'
+        : '<span class="initiative-score">'+entry.score+'</span>';
+      const reorderHtml = effectiveMaster()
+        ? '<div class="initiative-reorder">' +
+            '<button type="button" class="initiative-move" data-init-move-up="'+entry.id+'"'+(idx===0?' disabled':'')+' title="Mover pra cima na ordem">▲</button>' +
+            '<button type="button" class="initiative-move" data-init-move-down="'+entry.id+'"'+(idx===sorted.length-1?' disabled':'')+' title="Mover pra baixo na ordem">▼</button>' +
+          '</div>'
+        : '';
       return (
         '<div class="initiative-entry'+(isActive ? ' active' : '')+'">' +
+          reorderHtml +
           '<img src="'+entry.image+'" alt="">' +
           '<span class="initiative-name">'+escapeHtml(entry.name)+'</span>' +
-          '<span class="initiative-score">'+entry.score+'</span>' +
+          scoreHtml +
           (isActive ? '<span class="initiative-turn-tag">Agora</span>' : '') +
           (effectiveMaster() ? '<button type="button" class="danger initiative-remove" data-init-remove="'+entry.id+'">✕</button>' : '') +
         '</div>'
@@ -7684,6 +7764,15 @@
       $list.querySelectorAll('[data-init-remove]').forEach(btn => {
         btn.addEventListener('click', () => removeFromInitiative(btn.getAttribute('data-init-remove')));
       });
+      $list.querySelectorAll('[data-init-score]').forEach(inp => {
+        inp.addEventListener('change', () => setInitiativeScore(inp.getAttribute('data-init-score'), inp.value));
+      });
+      $list.querySelectorAll('[data-init-move-up]').forEach(btn => {
+        btn.addEventListener('click', () => moveInitiativeEntry(btn.getAttribute('data-init-move-up'), -1));
+      });
+      $list.querySelectorAll('[data-init-move-down]').forEach(btn => {
+        btn.addEventListener('click', () => moveInitiativeEntry(btn.getAttribute('data-init-move-down'), 1));
+      });
     }
   }
 
@@ -7692,7 +7781,7 @@
     if(!tok || !isTokenOnPage(tok,state.currentPageId)) return;
     const entry = { id:newId('i'), tokenId:tok.id, name:tok.name, image:tok.image, score:score||0 };
     const wasEmpty = state.initiative.list.length === 0;
-    state.initiative.list.push(entry);
+    insertInitiativeEntrySorted(state.initiative.list, entry);
     if(!state.initiative.activeId){
       state.initiative.activeId = entry.id;
       state.initiative.turnSeq = 1;
@@ -7969,6 +8058,7 @@
     addToInitiative(tokenId, score);
     el('initiative-score-input').value = '';
   });
+  el('btn-initiative-roll-mine').addEventListener('click', rerollMyInitiative);
   el('btn-initiative-roll-all-npcs').addEventListener('click', async () => {
     if(!effectiveMaster()) return;
     const pageId = state.currentPageId;
