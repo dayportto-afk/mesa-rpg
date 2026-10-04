@@ -4504,7 +4504,27 @@
   // Use this (not state.isMaster) for anything the player screen should hide.
   function effectiveMaster(){ return state.isMaster && !state.previewAsPlayer; }
   function canPlayerMoveLockedNpc(tok){
-    return !!(tok && !tok.isReference && !tok.isMapObject && tok.masterLocked && tok.playersCanMove);
+    if(!tok || tok.isReference || tok.isMapObject || !tok.masterLocked) return false;
+    if(tok.playersCanMove) return true; // compatibilidade com campanhas antigas ("todos os jogadores movem")
+    if(!Array.isArray(tok.allowedMovers)) return false;
+    const me = (state.playerName||'').trim().toLowerCase();
+    return tok.allowedMovers.some(name => (name||'').trim().toLowerCase() === me);
+  }
+  function npcHasAnyAllowedMover(tok){
+    return !!(tok.playersCanMove || (Array.isArray(tok.allowedMovers) && tok.allowedMovers.length));
+  }
+  async function toggleNpcAllowedMover(id, name, allowed){
+    const tok = state.tokens.find(t => t.id === id);
+    if(!tok) return;
+    pushUndo();
+    if(!Array.isArray(tok.allowedMovers)) tok.allowedMovers = [];
+    if(allowed){
+      if(!tok.allowedMovers.includes(name)) tok.allowedMovers.push(name);
+    } else {
+      tok.allowedMovers = tok.allowedMovers.filter(n => n !== name);
+    }
+    render();
+    await persistTokens();
   }
   function canInteractWithToken(tok){
     if(tok && tok.isMapObject) return effectiveMaster();
@@ -4736,6 +4756,7 @@
   let openT20SavesTokens = new Set();
   let openT20SkillsTokens = new Set();
   let openSystemDrawerTokens = new Set();
+  let openNpcMoversTokens = new Set();
   let multiSelectedTokenIds = new Set();
   let tokenClipboard = null;
 
@@ -11627,7 +11648,7 @@
       t.style.marginLeft = (-dims.width/2) + 'px';
       t.style.marginTop = (-dims.height/2) + 'px';
       if(!tok.isReference){
-        const statusSize = Math.max(7, Math.min(52, Math.round(size * 0.26)));
+        const statusSize = Math.max(7, Math.min(52, Math.round(size * 0.26 * 1.3)));
         const statusFont = Math.max(5, Math.min(32, Math.round(statusSize * 0.62)));
         const customStatusSize = Math.max(6, Math.min(38, Math.round(size * 0.19)));
         const customStatusFont = Math.max(4, Math.min(25, Math.round(customStatusSize * 0.64)));
@@ -12285,17 +12306,24 @@
       inp.addEventListener('change', () => setTempHp(inp.getAttribute('data-hp-temp'), inp.value));
     });
     $root.querySelectorAll('[data-hp-heal]').forEach(btn=>{
-      btn.addEventListener('click', () => {
+      // Lê e aplica no mousedown (antes do campo perder o foco/ser limpo por
+      // uma atualização em tempo real que chegue bem nesse instante), não no
+      // click — mesmo ajuste já usado no seletor de cor do texto rico.
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
         const id = btn.getAttribute('data-hp-heal');
         const amountInp = $root.querySelector('[data-hp-amount="'+id+'"]');
+        if(!amountInp) return;
         const amount = parseInt(amountInp.value, 10);
         if(!isNaN(amount) && amount > 0){ applyHpDelta(id, amount); amountInp.value = ''; }
       });
     });
     $root.querySelectorAll('[data-hp-damage]').forEach(btn=>{
-      btn.addEventListener('click', () => {
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
         const id = btn.getAttribute('data-hp-damage');
         const amountInp = $root.querySelector('[data-hp-amount="'+id+'"]');
+        if(!amountInp) return;
         const amount = parseInt(amountInp.value, 10);
         if(!isNaN(amount) && amount > 0){ applyHpDelta(id, -amount); amountInp.value = ''; }
       });
@@ -12533,11 +12561,21 @@
         (isOpen ? (
           '<div class="token-row" style="margin-top:4px;">' +
             '<button type="button" class="lock-toggle'+(tok.masterLocked?' toggle-active':'')+'" data-lock-toggle="'+tok.id+'" title="Transformar em NPC / restringir controles dos jogadores">🔒</button>' +
-            (tok.masterLocked ? '<button type="button" class="'+(tok.playersCanMove?'toggle-active':'')+'" data-player-npc-move="'+tok.id+'" title="Quando ativo, jogadores podem apenas mover este NPC">'+(tok.playersCanMove?'✓ Jogadores movem':'Jogadores não movem')+'</button>' : '') +
+            (tok.masterLocked ? '<button type="button" class="'+(npcHasAnyAllowedMover(tok)?'toggle-active':'')+'" data-npc-movers-toggle="'+tok.id+'" title="Escolher quais jogadores podem mover este NPC">👥 Quem pode mover'+(npcHasAnyAllowedMover(tok)?' ✓':'')+'</button>' : '') +
             (onPage
               ? '<button class="danger" data-remove-page="'+tok.id+'">Remover</button>'
               : '<button data-add-page="'+tok.id+'">+ Página</button>') +
           '</div>' +
+          (tok.masterLocked && openNpcMoversTokens.has(tok.id) ? (
+            '<div class="token-row" style="flex-wrap:wrap; gap:6px; margin-top:4px; background:#120e08; border:1px solid var(--line); border-radius:3px; padding:6px 8px;">' +
+              (knownPlayerNames().length === 0
+                ? '<span class="hint">Nenhum jogador com ficha ainda.</span>'
+                : knownPlayerNames().map(name =>
+                    '<label class="checkbox-row"><input type="checkbox" data-npc-mover="'+tok.id+'::'+escapeHtml(name)+'" '+((tok.allowedMovers||[]).includes(name)?'checked':'')+'><span>'+escapeHtml(name)+'</span></label>'
+                  ).join('')
+              ) +
+            '</div>'
+          ) : '') +
           (onPage ? '' : '<div class="token-off-page-tag">Fora desta página</div>') +
           raceClassMarkup(tok) +
           phraseAndDamageMarkup(tok) +
@@ -12653,8 +12691,20 @@
     $tokenList.querySelectorAll('[data-lock-toggle]').forEach(btn=>{
       btn.addEventListener('click', () => toggleMasterLock(btn.getAttribute('data-lock-toggle')));
     });
-    $tokenList.querySelectorAll('[data-player-npc-move]').forEach(btn=>{
-      btn.addEventListener('click', () => togglePlayerNpcMove(btn.getAttribute('data-player-npc-move')));
+    $tokenList.querySelectorAll('[data-npc-movers-toggle]').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-npc-movers-toggle');
+        if(openNpcMoversTokens.has(id)) openNpcMoversTokens.delete(id); else openNpcMoversTokens.add(id);
+        renderTokenList();
+      });
+    });
+    $tokenList.querySelectorAll('[data-npc-mover]').forEach(inp=>{
+      inp.addEventListener('change', () => {
+        const raw = inp.getAttribute('data-npc-mover');
+        const sep = raw.indexOf('::');
+        const id = raw.slice(0, sep), name = raw.slice(sep+2);
+        toggleNpcAllowedMover(id, name, inp.checked);
+      });
     });
     $tokenList.querySelectorAll('[data-reference-lock]').forEach(btn=>{
       btn.addEventListener('click', () => toggleReferenceLock(btn.getAttribute('data-reference-lock')));
@@ -13405,7 +13455,7 @@
       el.style.setProperty('--token-label-max-width',labelMaxWidth+'px');
     }
     if(tok && !tok.isReference){
-      const statusSize = Math.max(7, Math.min(52, Math.round(newSize * 0.26)));
+      const statusSize = Math.max(7, Math.min(52, Math.round(newSize * 0.26 * 1.3)));
       const statusFont = Math.max(5, Math.min(32, Math.round(statusSize * 0.62)));
       const customStatusSize = Math.max(6, Math.min(38, Math.round(newSize * 0.19)));
       const customStatusFont = Math.max(4, Math.min(25, Math.round(customStatusSize * 0.64)));
@@ -14505,8 +14555,10 @@
     const tok = state.tokens.find(t => t.id === tokenId);
     if(!tok || !tok.conditionDurations) return;
     const expired = [];
+    let changed = false;
     Object.keys(tok.conditionDurations).forEach(key => {
       const remaining = Math.max(0,(Number(tok.conditionDurations[key])||1)-1);
+      changed = true;
       if(remaining <= 0){
         delete tok.conditionDurations[key];
         if(Array.isArray(tok.conditions)){ const i=tok.conditions.indexOf(key); if(i>=0) tok.conditions.splice(i,1); }
@@ -14516,9 +14568,17 @@
         tok.conditionDurations[key] = remaining;
       }
     });
+    // Antes, só salvava e atualizava a tela quando uma condição EXPIRAVA de
+    // vez — cada contagem regressiva que não zerava (ex. 3→2) acontecia só
+    // na memória, nunca aparecia na tela e nunca era salva. Resultado: na
+    // prática parecia que a duração nunca contava, e um refresh fazia ela
+    // voltar pro número original.
+    if(changed){
+      render();
+      await persistTokens();
+    }
     if(expired.length){
       showToast((tok.name||'Ficha')+': '+expired.join(', ')+' — efeito terminou.');
-      await persistTokens();
     }
   }
 
