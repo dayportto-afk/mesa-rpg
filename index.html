@@ -4148,7 +4148,7 @@
             <button type="button" data-fmt="u" title="Sublinhado"><u>S</u></button>
           </div>
           <div id="thread-compose-row">
-            <label class="file-btn" for="send-image-input" title="Anexar imagem">📎</label>
+            <label class="file-btn" id="send-image-attach" for="send-image-input" title="Anexar imagem">📎</label>
             <input type="file" id="send-image-input" accept="image/*">
             <div id="send-text-input" class="rich-editable" contenteditable="true" data-placeholder="Mensagem..."></div>
             <button id="btn-send-submit" class="primary">Enviar</button>
@@ -6113,17 +6113,44 @@
   el('handout-lightbox-close').addEventListener('click', (e) => { e.stopPropagation(); closeHandoutLightbox(); });
   el('handout-lightbox-image').addEventListener('click', (e) => e.stopPropagation());
 
+  // Retenção das mensagens: antes o site guardava no máximo 120 mensagens no
+  // total e apagava as mais antigas a cada envio — por isso conversas antigas
+  // "sumiam". Agora o texto fica por muito mais tempo; só as imagens (que são
+  // pesadas) têm limite, e as mais antigas viram um aviso em vez de apagar a
+  // mensagem inteira.
+  const SENDS_MAX_TOTAL = 2000;
+  const SENDS_MAX_IMAGES_KEPT = 30;
+  function trimSendList(list){
+    let imagesSeen = 0;
+    return list.slice(0, SENDS_MAX_TOTAL).map(e => {
+      if(e && e.kind === 'image' && e.image){
+        imagesSeen++;
+        if(imagesSeen > SENDS_MAX_IMAGES_KEPT) return Object.assign({}, e, { image:'', imageExpired:true });
+      }
+      return e;
+    });
+  }
   async function pushSend(entry){
-    const raw = await safeGet(slotKey('sends'));
-    let list = [];
-    if(raw){ try{ list = JSON.parse(raw).list || []; }catch(e){} }
-    list.unshift(entry);
-    if(list.length > 120) list = list.slice(0, 120);
-    state.sends = list;
-    lastSendsSnapshot = JSON.stringify({ list });
+    let finalList = null;
+    const ok = await safeTransactJson(slotKey('sends'), (data) => {
+      const list = (data && Array.isArray(data.list)) ? data.list.slice() : [];
+      list.unshift(entry);
+      finalList = trimSendList(list);
+      return { list: finalList };
+    });
+    if(!ok || !finalList){
+      // Plano B (offline/timeout): comportamento antigo, mas com a nova retenção.
+      const raw = await safeGet(slotKey('sends'));
+      let list = [];
+      if(raw){ try{ list = JSON.parse(raw).list || []; }catch(e){} }
+      list.unshift(entry);
+      finalList = trimSendList(list);
+      await safeSet(slotKey('sends'), { list: finalList });
+    }
+    state.sends = finalList;
+    lastSendsSnapshot = JSON.stringify({ list: finalList });
     if(entry.kind === 'image'){ state.handoutIndex = 0; state.handoutMinimized = false; }
     renderHandoutGallery();
-    await safeSet(slotKey('sends'), { list });
   }
 
   function renderTargetChips(){
@@ -6156,6 +6183,7 @@
   });
 
   function renderThreadList(){
+    applySendImagePermission();
     el('thread-list-view').style.display = 'flex';
     el('thread-compose-view').style.display = 'none';
     el('thread-back-btn').style.display = 'none';
@@ -6197,12 +6225,18 @@
 
   async function deleteThread(key){
     if(!confirm('Excluir esta conversa? Isso apaga as mensagens para todos os envolvidos e não pode ser desfeito.')) return;
-    state.sends = state.sends.filter(e => threadKey(e) !== key);
+    let finalList = null;
+    const ok = await safeTransactJson(slotKey('sends'), (data) => {
+      const list = (data && Array.isArray(data.list)) ? data.list : [];
+      finalList = list.filter(e => threadKey(e) !== key);
+      return { list: finalList };
+    });
+    state.sends = (ok && finalList) ? finalList : state.sends.filter(e => threadKey(e) !== key);
     lastSendsSnapshot = JSON.stringify({ list: state.sends });
     if(activeThreadKey === key){ activeThreadKey = null; }
+    if(!ok) await safeSet(slotKey('sends'), { list: state.sends });
     renderThreadList();
     renderHandoutGallery();
-    await safeSet(slotKey('sends'), { list: state.sends });
   }
 
   function renderThreadMessages(){
@@ -6219,6 +6253,9 @@
           (canDeleteImage ? '<button type="button" class="chat-bubble-image-delete" data-delete-send-image="'+m.id+'" title="Excluir esta imagem">✕</button>' : '') +
         '</div>';
         if(m.text) body += '<div class="chat-bubble-text">'+sanitizeRichHtml(m.text)+'</div>';
+      } else if(m.kind === 'image' && m.imageExpired){
+        body = '<div class="chat-bubble-text"><em>🖼️ Imagem antiga (removida pra economizar espaço)</em></div>' +
+          (m.text ? '<div class="chat-bubble-text">'+sanitizeRichHtml(m.text)+'</div>' : '');
       } else {
         body = '<div class="chat-bubble-text">'+sanitizeRichHtml(m.text)+'</div>';
       }
@@ -6247,15 +6284,32 @@
 
   async function deleteSendMessage(id){
     if(!confirm('Excluir esta imagem? Isso apaga pra todo mundo que vê essa conversa e não pode ser desfeito.')) return;
-    state.sends = state.sends.filter(e => e.id !== id);
+    let finalList = null;
+    const ok = await safeTransactJson(slotKey('sends'), (data) => {
+      const list = (data && Array.isArray(data.list)) ? data.list : [];
+      finalList = list.filter(e => e.id !== id);
+      return { list: finalList };
+    });
+    state.sends = (ok && finalList) ? finalList : state.sends.filter(e => e.id !== id);
     lastSendsSnapshot = JSON.stringify({ list: state.sends });
+    if(!ok) await safeSet(slotKey('sends'), { list: state.sends });
     renderThreadMessages();
     renderThreadList();
     renderHandoutGallery();
-    await safeSet(slotKey('sends'), { list: state.sends });
   }
 
+  // Só o mestre pode enviar imagens nas conversas.
+  function applySendImagePermission(){
+    const attach = el('send-image-attach');
+    if(attach) attach.style.display = effectiveMaster() ? '' : 'none';
+    if(!effectiveMaster() && state.sendImage){
+      state.sendImage = null;
+      el('send-image-preview').style.display = 'none';
+      el('send-image-input').value = '';
+    }
+  }
   function beginThreadView(thread){
+    applySendImagePermission();
     activeThreadKey = thread.key;
     el('btn-delete-thread').style.display = 'inline-block';
     if(thread.key === '__public__'){
@@ -7156,6 +7210,7 @@
   el('send-image-input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
+    if(!effectiveMaster()){ e.target.value = ''; return; }
     state.sendImage = await resizeImage(file, 900, 0.85);
     el('send-image-preview-img').src = state.sendImage;
     el('send-image-preview').style.display = 'flex';
@@ -7176,7 +7231,7 @@
     const $input = el('send-text-input');
     const hasText = $input.textContent.trim().length > 0;
     const text = hasText ? sanitizeRichHtml($input.innerHTML) : '';
-    const image = state.sendImage;
+    const image = effectiveMaster() ? state.sendImage : null;
     if(!hasText && !image) return;
     let targets;
     if(activeThreadKey === '__public__'){
@@ -8549,6 +8604,21 @@
       await withTimeout(db.ref(key).set(JSON.stringify(value)), 8000);
       return true;
     }catch(e){ console.error('storage set failed', key, e); return false; }
+  }
+  // Lê-modifica-grava de forma atômica (o Firebase repete a função se alguém
+  // gravou no meio do caminho). Evita que duas pessoas mandando mensagem ao
+  // mesmo tempo, ou uma lista local desatualizada, façam mensagens sumirem.
+  async function safeTransactJson(key, updater){
+    if(!db) return false;
+    try{
+      const result = await withTimeout(db.ref(key).transaction(current => {
+        let parsed = null;
+        if(typeof current === 'string'){ try{ parsed = JSON.parse(current); }catch(e){} }
+        const next = updater(parsed);
+        return next === undefined ? undefined : JSON.stringify(next);
+      }), 15000);
+      return !!(result && result.committed);
+    }catch(e){ console.error('storage transaction failed', key, e); return false; }
   }
   function tokenPatchOperations(before, after, path, out){
     path = path || [];
